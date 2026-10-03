@@ -1,0 +1,76 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { ok, err, parseBody } from "@/lib/api";
+import { checkPermission } from "@/lib/authorization";
+import { PERMISSIONS } from "@/lib/constants";
+import { logAudit, clientIp } from "@/lib/audit";
+
+const EditSchema = z.object({
+  roomId: z.string().optional().nullable(),
+  period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  patientIdentifier: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^(TN|NY)\.[A-Z]$/, "Format TN.X atau NY.X")
+    .max(10)
+    .optional(),
+  actionType: z.string().trim().min(1).max(200).optional(),
+  quantity: z.coerce.number().int().min(1).max(999).optional(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { authorized, user } = await checkPermission(PERMISSIONS.BORANG_LOGBOOK_UPDATE);
+  if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);
+  if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
+
+  const { id } = await params;
+  const entry = await prisma.borangEntry.findUnique({ where: { id } });
+  if (!entry) return err("NOT_FOUND", "Entri tidak ditemukan", 404);
+  if (!["DRAFT", "REJECTED"].includes(entry.status)) {
+    return err("INVALID_STATUS", "Hanya entri DRAFT/REJECTED yang dapat diubah", 409);
+  }
+
+  const body = await req.json().catch(() => null);
+  const { data, error } = parseBody(EditSchema, body);
+  if (error) return error;
+
+  try {
+    const updated = await prisma.borangEntry.update({
+      where: { id },
+      data: {
+        ...(data.roomId !== undefined ? { roomId: data.roomId || null } : {}),
+        ...(data.period !== undefined ? { period: data.period } : {}),
+        ...(data.patientIdentifier !== undefined
+          ? { patientIdentifier: data.patientIdentifier }
+          : {}),
+        ...(data.actionType !== undefined ? { actionType: data.actionType } : {}),
+        ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      },
+      include: {
+        staff: { select: { id: true, name: true, profession: true } },
+        room: { select: { name: true } },
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      staffId: entry.staffId,
+      borangId: id,
+      module: "borang",
+      resource: "borang_entry",
+      resourceId: id,
+      action: "UPDATED",
+      before: { actionType: entry.actionType, quantity: entry.quantity },
+      after: { actionType: updated.actionType, quantity: updated.quantity },
+      ipAddress: clientIp(req),
+    });
+
+    return ok({ entry: updated });
+  } catch (e) {
+    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui", 500);
+  }
+}

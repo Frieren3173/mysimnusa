@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rsajt_postgres
+    environment:
+      POSTGRES_USER: rsajt_user
+      POSTGRES_PASSWORD: rsajt_pass
+      POSTGRES_DB: rsajt_nursing
+    ports:
+      - "5432:5432"
+    volumes:
+      - rsajt_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  rsajt_pgdata:
