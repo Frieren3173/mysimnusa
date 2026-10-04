@@ -1,0 +1,92 @@
+:root {
+  --motion-underline-dur: 400ms;
+  --motion-underline-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  --motion-arrow-nudge: 4px;
+  --motion-cursor-size: 10px;
+}
+
+@keyframes motion-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion-intro="headline"],
+  [data-motion-intro-child],
+  [data-motion-lines],
+  [data-motion-reveal],
+  [data-motion-footer] > * {
+    opacity: 0;
+    animation: motion-show 0s linear 3s forwards;
+  }
+
+  html.motion-primed [data-motion-intro="headline"],
+  html.motion-primed [data-motion-intro-child],
+  html.motion-primed [data-motion-lines],
+  html.motion-primed [data-motion-reveal],
+  html.motion-primed [data-motion-footer] > * {
+    animation: none;
+  }
+}
+
+html.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+html.motion-cursor-on,
+html.motion-cursor-on * {
+  cursor: none !important;
+}
+
+.motion-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--motion-cursor-size);
+  height: var(--motion-cursor-size);
+  border-radius: 9999px;
+  background: #ffffff;
+  mix-blend-mode: difference;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  will-change: transform;
+}
+
+.motion-underline {
+  position: relative;
+}
+
+.motion-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform var(--motion-underline-dur) var(--motion-underline-ease);
+}
+
+.motion-underline:hover::after,
+.motion-underline:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+.motion-arrow {
+  transition: transform var(--motion-underline-dur) var(--motion-underline-ease);
+}
+
+.motion-underline:hover .motion-arrow,
+.motion-underline:focus-visible .motion-arrow {
+  transform: translateX(var(--motion-arrow-nudge));
+}

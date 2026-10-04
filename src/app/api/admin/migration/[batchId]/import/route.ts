@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ bat
   }
 
   try {
-    const result = await importBatch(batchId, user.id);
+    const result = await importBatch(batchId, user.id, { onlyNew: body?.onlyNew === true });
     await logAudit({
       userId: user.id,
       module: "migration",

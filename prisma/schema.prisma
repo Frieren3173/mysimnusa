@@ -3,7 +3,8 @@
 // Spec: Backend.md, Architecture.md
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -118,7 +119,9 @@ model Department {
 model Room {
   id           String   @id @default(cuid())
   name         String
-  code         String?
+  code         String?  @unique
+  type         String?
+  description  String?
   departmentId String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -127,8 +130,43 @@ model Room {
   department   Department? @relation(fields: [departmentId], references: [id])
   staff        Staff[]
   borangEntries BorangEntry[]
+  nursingActions RoomNursingAction[]
 
   @@map("rooms")
+}
+
+// ─────────────────────────────────────────────
+// MASTER TINDAKAN KEPERAWATAN (BORANG)
+// ─────────────────────────────────────────────
+
+model NursingAction {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  category    String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms       RoomNursingAction[]
+  entries     BorangEntry[]
+
+  @@map("nursing_actions")
+}
+
+model RoomNursingAction {
+  id              String   @id @default(cuid())
+  roomId          String
+  nursingActionId String
+  createdAt       DateTime @default(now())
+
+  room          Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  nursingAction NursingAction @relation(fields: [nursingActionId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, nursingActionId])
+  @@index([nursingActionId])
+  @@map("room_nursing_actions")
 }
 
 // ─────────────────────────────────────────────
@@ -247,6 +285,7 @@ model Document {
   legacySourceId  String?
   legacyDriveId   String?
   legacyDriveUrl  String?
+  lastSyncError   String?
   importedAt      DateTime?
   importChecksum  String?
 
@@ -312,7 +351,9 @@ model BorangEntry {
   roomId          String?
   period          String      // e.g. "2024-01"
   patientIdentifier String    // TN.X, NY.Y — NEVER full name
+  rmNumber        String?     // random medical record number (anonim)
   actionType      String
+  nursingActionId String?     // nullable — old entries keep actionType string as-is
   quantity        Int         @default(1)
   notes           String?
   status          BorangStatus @default(DRAFT)
@@ -328,6 +369,7 @@ model BorangEntry {
 
   staff           Staff       @relation(fields: [staffId], references: [id])
   room            Room?       @relation(fields: [roomId], references: [id])
+  nursingAction   NursingAction? @relation(fields: [nursingActionId], references: [id])
   verifications   BorangVerification[]
   auditLogs       AuditLog[]  @relation("BorangAuditLogs")
 

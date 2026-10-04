@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea, FormField } from "@/components/ui/form";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
-import { Pencil, Send } from "lucide-react";
+import { Download, Pencil, Send } from "lucide-react";
 
 interface Entry {
   id: string;
   period: string;
   patientIdentifier: string;
+  rmNumber: string | null;
   actionType: string;
+  nursingActionId: string | null;
   quantity: number;
   notes: string | null;
   status: string;
@@ -22,25 +24,18 @@ interface Entry {
   room: { name: string } | null;
 }
 
-const ACTIONS = [
-  "Asuhan keperawatan",
-  "Pemasangan infus",
-  "Pemasangan kateter",
-  "Perawatan luka",
-  "Pemberian obat",
-  "Rekam tanda vital",
-  "Kontrol pasca operasi",
-  "Administrasi oksigen",
-  "Suction",
-  "Balikan posisi",
-];
+interface MasterAction {
+  id: string;
+  code: string;
+  name: string;
+}
 
 const EMPTY_FORM = {
   staffId: "",
   roomId: "",
   period: "",
-  patientIdentifier: "",
   actionType: "",
+  nursingActionId: "",
   quantity: "1",
   notes: "",
 };
@@ -69,12 +64,45 @@ export function LogbookClient({
   const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [filters, setFilters] = React.useState({ status: defaultStatus, period: "", search: "" });
+  const [exportStaffId, setExportStaffId] = React.useState(myStaffId ?? "");
+  const [exportYear, setExportYear] = React.useState(String(new Date().getFullYear()));
   const [form, setForm] = React.useState({
     ...EMPTY_FORM,
     staffId: myStaffId ?? "",
     period: new Date().toISOString().slice(0, 7),
   });
   const [editId, setEditId] = React.useState<string | null>(null);
+  const [roomActions, setRoomActions] = React.useState<MasterAction[]>([]);
+  const [actionsLoading, setActionsLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const roomId = form.roomId;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!roomId) {
+        setRoomActions([]);
+        return;
+      }
+      setActionsLoading(true);
+      fetch(`/api/borang/actions?roomId=${encodeURIComponent(roomId)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (cancelled) return;
+          if (json?.success) setRoomActions(json.data.data);
+          else setRoomActions([]);
+        })
+        .catch(() => {
+          if (!cancelled) setRoomActions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setActionsLoading(false);
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [form.roomId]);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -107,8 +135,8 @@ export function LogbookClient({
         staffId: form.staffId || undefined,
         roomId: form.roomId || null,
         period: form.period,
-        patientIdentifier: form.patientIdentifier,
         actionType: form.actionType,
+        nursingActionId: form.nursingActionId || null,
         quantity: Number(form.quantity) || 1,
         notes: form.notes || undefined,
       };
@@ -156,13 +184,18 @@ export function LogbookClient({
       staffId: e.staff.id,
       roomId: rooms.find((r) => r.name === e.room?.name)?.id ?? "",
       period: e.period,
-      patientIdentifier: e.patientIdentifier,
       actionType: e.actionType,
+      nursingActionId: e.nursingActionId ?? "",
       quantity: String(e.quantity),
       notes: e.notes ?? "",
     });
     setMsg(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function onActionChange(value: string) {
+    const match = roomActions.find((a) => a.name === value);
+    setForm((p) => ({ ...p, actionType: value, nursingActionId: match?.id ?? "" }));
   }
 
   return (
@@ -201,7 +234,10 @@ export function LogbookClient({
                   ))}
                 </Select>
               </FormField>
-              <FormField label="Ruangan">
+              <FormField
+                label="Ruangan"
+                hint="Menentukan format kode pasien (otomatis)"
+              >
                 <Select
                   value={form.roomId}
                   onChange={(e) => setForm((p) => ({ ...p, roomId: e.target.value }))}
@@ -224,28 +260,34 @@ export function LogbookClient({
                 />
               </FormField>
               <FormField
-                label="Identitas Pasien (anonim)"
+                label="Tindakan"
                 required
-                hint="TN.X atau NY.X — nama lengkap dilarang"
+                hint={
+                  !form.roomId
+                    ? "Pilih ruangan terlebih dahulu."
+                    : actionsLoading
+                      ? "Memuat tindakan…"
+                      : roomActions.length === 0
+                        ? "Belum ada tindakan yang dikonfigurasi untuk ruangan ini."
+                        : "Ketik untuk mencari dari master tindakan ruangan ini"
+                }
               >
                 <Input
-                  value={form.patientIdentifier}
-                  onChange={(e) => setForm((p) => ({ ...p, patientIdentifier: e.target.value }))}
-                  placeholder="TN.A"
-                  disabled={busy}
-                />
-              </FormField>
-              <FormField label="Tindakan" required>
-                <Input
                   value={form.actionType}
-                  onChange={(e) => setForm((p) => ({ ...p, actionType: e.target.value }))}
-                  list="action-types"
-                  placeholder="cth. Pemasangan infus"
-                  disabled={busy}
+                  onChange={(e) => onActionChange(e.target.value)}
+                  list="room-action-types"
+                  placeholder={
+                    !form.roomId
+                      ? "— Pilih ruangan terlebih dahulu —"
+                      : roomActions.length === 0
+                        ? "Tindakan belum tersedia — ketik manual"
+                        : "cth. Pemasangan Infus"
+                  }
+                  disabled={busy || !form.roomId || actionsLoading}
                 />
-                <datalist id="action-types">
-                  {ACTIONS.map((a) => (
-                    <option key={a} value={a} />
+                <datalist id="room-action-types">
+                  {roomActions.map((a) => (
+                    <option key={a.id} value={a.name} />
                   ))}
                 </datalist>
               </FormField>
@@ -324,6 +366,44 @@ export function LogbookClient({
             placeholder="Tindakan / petugas / TN.X"
           />
         </div>
+        <div className="ml-auto">
+          <label className="block text-xs font-medium text-slate-700 mb-1">Export Rekap</label>
+          <div className="flex items-end gap-2">
+            <Select
+              className="w-56"
+              value={exportStaffId}
+              onChange={(e) => setExportStaffId(e.target.value)}
+            >
+              <option value="">— Pilih petugas —</option>
+              {staffList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.profession})
+                </option>
+              ))}
+            </Select>
+            <Input
+              type="number"
+              className="w-24"
+              min={2020}
+              max={2100}
+              value={exportYear}
+              onChange={(e) => setExportYear(e.target.value)}
+            />
+            {exportStaffId ? (
+              <a
+                href={`/api/borang/export?staffId=${exportStaffId}&year=${exportYear}`}
+                title="Download rekap .docx (2 halaman: rekapitulasi + daftar pasien)"
+                className="inline-flex h-8 select-none items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 active:bg-slate-100"
+              >
+                <Download size={12} /> Rekap (.docx)
+              </a>
+            ) : (
+              <span className="inline-flex h-8 select-none items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-400 opacity-60">
+                <Download size={12} /> Rekap (.docx)
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <Card>
@@ -363,7 +443,12 @@ export function LogbookClient({
                     <Td className="text-xs font-mono">{e.period}</Td>
                     <Td className="text-xs">{e.staff.name}</Td>
                     <Td className="text-xs">{e.room?.name ?? "—"}</Td>
-                    <Td className="text-xs font-mono">{e.patientIdentifier}</Td>
+                    <Td className="text-xs font-mono">
+                      {e.patientIdentifier}
+                      {e.rmNumber && (
+                        <span className="block text-[10px] text-slate-400">RM {e.rmNumber}</span>
+                      )}
+                    </Td>
                     <Td className="text-xs">
                       {e.actionType}
                       {e.status === "REJECTED" && e.rejectReason && (

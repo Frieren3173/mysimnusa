@@ -5,20 +5,24 @@ import { ok, err, parseBody, paginate } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
-
-const PATIENT_ID = /^(TN|NY)\.[A-Z]$/;
+import { PATIENT_CODE_RE, generatePatientCode, generateRmNumber } from "@/lib/borang";
 
 const CreateSchema = z.object({
   staffId: z.string().optional(),
   roomId: z.string().optional().nullable(),
   period: z.string().regex(/^\d{4}-\d{2}$/, "Periode format YYYY-MM"),
-  patientIdentifier: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(PATIENT_ID, "Format TN.X atau NY.X")
-    .max(10),
+  patientIdentifier: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(PATIENT_CODE_RE, "Format TN.X, NY.X, atau BY.NY.X")
+      .max(10)
+      .optional()
+  ),
   actionType: z.string().trim().min(1, "Tindakan wajib diisi").max(200),
+  nursingActionId: z.string().optional().nullable(),
   quantity: z.coerce.number().int().min(1).max(999).default(1),
   notes: z.string().trim().max(1000).optional().transform((v) => (v ? v : null)),
 });
@@ -85,14 +89,45 @@ export async function POST(req: NextRequest) {
   const staff = await prisma.staff.findUnique({ where: { id: staffId } });
   if (!staff) return err("STAFF_NOT_FOUND", "Petugas tidak ditemukan", 404);
 
+  let nursingActionId: string | null = null;
+  if (data.nursingActionId) {
+    const master = await prisma.nursingAction.findUnique({
+      where: { id: data.nursingActionId },
+      select: { id: true, isActive: true },
+    });
+    if (master) nursingActionId = master.id;
+  }
+
   try {
+    const year = data.period.slice(0, 4);
+    const [room, sameYear] = await Promise.all([
+      data.roomId
+        ? prisma.room.findUnique({ where: { id: data.roomId }, select: { name: true } })
+        : null,
+      prisma.borangEntry.findMany({
+        where: { period: { startsWith: year } },
+        select: { patientIdentifier: true, rmNumber: true },
+      }),
+    ]);
+    const patientIdentifier =
+      data.patientIdentifier ??
+      generatePatientCode(
+        room?.name ?? null,
+        sameYear.map((r) => r.patientIdentifier)
+      );
+    const rmNumber = generateRmNumber(
+      sameYear.map((r) => r.rmNumber).filter((v): v is string => !!v)
+    );
+
     const entry = await prisma.borangEntry.create({
       data: {
         staffId,
         roomId: data.roomId || null,
         period: data.period,
-        patientIdentifier: data.patientIdentifier,
+        patientIdentifier,
+        rmNumber,
         actionType: data.actionType,
+        nursingActionId,
         quantity: data.quantity,
         notes: data.notes,
         status: "DRAFT",

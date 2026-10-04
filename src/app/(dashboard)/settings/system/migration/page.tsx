@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/authorization";
 import { ROLES } from "@/lib/constants";
 import { MigrationCenterClient } from "./migration-client";
 import { GoogleConnectionCard } from "./google-connection";
+import { DriveSyncCard } from "./drive-sync";
 
 export const metadata: Metadata = { title: "Migration Center — Super Admin" };
 
@@ -34,6 +35,8 @@ export default async function MigrationCenterPage() {
         </div>
 
         <GoogleConnectionCard />
+
+        <DriveSyncCard />
 
         <MigrationCenterClient />
       </div>

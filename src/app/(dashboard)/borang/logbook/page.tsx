@@ -44,8 +44,8 @@ export default async function LogbookPage({
         <div>
           <h1 className="text-xl font-bold text-slate-900">Logbook Tindakan</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Catat tindakan per periode. Pasien selalu dicatat anonim (TN.X / NY.X) — nama lengkap
-            tidak pernah ditampilkan.
+            Catat tindakan per periode. Kode pasien (Tn.X / Ny.X / By.) dan No. RM dibuat otomatis
+            menyesuaikan ruangan — nama lengkap pasien tidak pernah ditampilkan.
           </p>
         </div>
 

@@ -121,6 +121,23 @@ interface ItemCount {
   SKIPPED?: number;
 }
 
+interface AssessResult {
+  rowsAssessed: number;
+  staffNew: number;
+  staffAlready: number;
+  docsTotal: number;
+  docsAlready: number;
+  docsNew: number;
+  actionableRows: number;
+  rows: {
+    sourceId: string;
+    name: string;
+    staffExists: boolean;
+    docsNew: number;
+    newDocCodes: string[];
+  }[];
+}
+
 // ─── Stepper (PRD 14.2, Google sumber diaktivasi Fase 5) ──
 
 const STEPS = ["Sumber Data", "Pemetaan Field", "Validasi", "Dry Run", "Import", "Rekonsiliasi"];
@@ -232,6 +249,7 @@ export function MigrationCenterClient() {
   }>({});
   const [ack, setAck] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
+  const [assess, setAssess] = React.useState<AssessResult | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const loadHistory = React.useCallback(async () => {
@@ -245,12 +263,23 @@ export function MigrationCenterClient() {
     }
   }, []);
 
+  const loadAssessment = React.useCallback(async (id: string) => {
+    try {
+      const d = await api<AssessResult>(`/api/admin/migration/${id}/assessment`);
+      setAssess(d);
+    } catch {
+      setAssess(null);
+    }
+  }, []);
+
   const loadBatch = React.useCallback(async (id: string) => {
     try {
       const d = await api<{ batch: Batch; itemCounts: ItemCount }>(`/api/admin/migration/${id}`);
       setBatch(d.batch);
       setMappings(d.batch.fieldMappings ?? []);
-      setStep(stepForStatus(d.batch.status, d.batch));
+      const step = stepForStatus(d.batch.status, d.batch);
+      setStep(step);
+      if (step === 3) loadAssessment(id);
       if (d.batch.status === "RECONCILED") {
         const r = await api<{ reconciliation: Reconciliation | null }>(
           `/api/admin/migration/${id}/reconciliation`
@@ -262,7 +291,7 @@ export function MigrationCenterClient() {
       setError(e instanceof Error ? e.message : "Gagal memuat batch");
       return null;
     }
-  }, []);
+  }, [loadAssessment]);
 
   React.useEffect(() => {
     (async () => {
@@ -371,7 +400,7 @@ export function MigrationCenterClient() {
     try {
       const d = await api<ImportResult>(`/api/admin/migration/${batch.id}/import`, {
         method: "POST",
-        body: JSON.stringify({ acknowledge: true }),
+        body: JSON.stringify({ acknowledge: true, onlyNew: true }),
       });
       setResult((prev) => ({ ...prev, import: d }));
       await loadBatch(batch.id);
@@ -745,6 +774,60 @@ export function MigrationCenterClient() {
               )}
             </div>
 
+            {/* ── Assesmen: sudah vs belum masuk ── */}
+            <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-slate-800">
+                  Assesmen Data — Sudah Masuk vs Baru
+                </h4>
+                {!assess ? (
+                  <span className="text-xs text-slate-400">memuat assesmen…</span>
+                ) : (
+                  <Badge variant={assess.actionableRows > 0 ? "expiring" : "active"}>
+                    {assess.actionableRows > 0
+                      ? `${assess.actionableRows} baris baru`
+                      : "Tidak ada data baru"}
+                  </Badge>
+                )}
+              </div>
+              {assess && (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Berkas/link sudah ada", value: assess.docsAlready, cls: "text-slate-900" },
+                      { label: "Berkas/link baru", value: assess.docsNew, cls: "text-blue-600" },
+                      { label: "Staf baru", value: assess.staffNew, cls: "text-blue-600" },
+                      { label: "Staf sudah ada", value: assess.staffAlready, cls: "text-slate-900" },
+                    ].map((k) => (
+                      <div key={k.label} className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2">
+                        <p className="text-[10px] text-slate-500">{k.label}</p>
+                        <p className={`text-base font-bold ${k.cls}`}>{k.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {assess.rows.length > 0 && (
+                    <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-md divide-y divide-slate-100">
+                      {assess.rows.map((r) => (
+                        <div key={r.sourceId} className="flex items-center gap-2 px-3 py-1.5">
+                          <span className="text-xs font-medium text-slate-700 flex-1 truncate">
+                            {r.name}
+                          </span>
+                          {!r.staffExists && <Badge variant="default">Staf baru</Badge>}
+                          <span className="text-[11px] text-blue-700 shrink-0">
+                            {r.newDocCodes.join(", ")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500">
+                    Import hanya menarik baris yang belum masuk — data yang sudah ada di database
+                    dilewati, tidak digandakan.
+                  </p>
+                </>
+              )}
+            </div>
+
             <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -754,8 +837,8 @@ export function MigrationCenterClient() {
               />
               <span>
                 Saya memahami bahwa import akan menulis data ke tabel <code>staff</code>,{" "}
-                <code>documents</code>, dan <code>staff_competencies</code> secara idempotent (data
-                yang sudah ada diperbarui, bukan digandakan).
+                <code>documents</code>, dan <code>staff_competencies</code> — hanya baris yang
+                belum masuk database yang ditarik, data yang sudah ada dilewati.
               </span>
             </label>
 
@@ -766,8 +849,19 @@ export function MigrationCenterClient() {
               <Button variant="secondary" size="sm" loading={loading === "dryrun"} onClick={runDryRun}>
                 <RefreshCw size={14} /> Ulangi Dry Run
               </Button>
-              <Button variant="primary" size="sm" disabled={!ack} loading={loading === "import"} onClick={runImport}>
-                <Play size={14} /> Eksekusi Import Sekarang
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!ack || (assess !== null && assess.actionableRows === 0)}
+                loading={loading === "import"}
+                onClick={runImport}
+              >
+                <Play size={14} />{" "}
+                {assess
+                  ? assess.actionableRows > 0
+                    ? `Impor ${assess.actionableRows} Baris Baru`
+                    : "Tidak Ada Data Baru"
+                  : "Eksekusi Import Sekarang"}
               </Button>
             </div>
           </CardContent>

@@ -36,7 +36,6 @@ export function EntryClient({
     staffId: defaultStaffId,
     roomId: defaultRoomId ?? "",
     period: new Date().toISOString().slice(0, 7),
-    patientIdentifier: "",
     actionType: "",
     quantity: "1",
     notes: "",
@@ -56,7 +55,6 @@ export function EntryClient({
           staffId: form.staffId || undefined,
           roomId: form.roomId || null,
           period: form.period,
-          patientIdentifier: form.patientIdentifier,
           actionType: form.actionType,
           quantity: Number(form.quantity),
           notes: form.notes || undefined,
@@ -144,17 +142,6 @@ export function EntryClient({
             <input type="month" value={form.period} onChange={set("period")} className={inputCls} />
           </label>
 
-          <label className="space-y-1">
-            <span className="text-xs text-slate-500">Kode Pasien (TN.X / NY.X) *</span>
-            <input
-              value={form.patientIdentifier}
-              onChange={set("patientIdentifier")}
-              placeholder="TN.A"
-              maxLength={10}
-              className={inputCls + " font-mono uppercase"}
-            />
-          </label>
-
           <label className="space-y-1 sm:col-span-2">
             <span className="text-xs text-slate-500">Tindakan *</span>
             <input
@@ -189,6 +176,11 @@ export function EntryClient({
             />
           </label>
         </div>
+
+        <p className="text-xs text-slate-400">
+          Kode pasien (Tn.X / Ny.X / By.) dan No. RM dibuat otomatis saat disimpan — menyesuaikan
+          ruangan, tanpa data asli pasien.
+        </p>
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" disabled={busy !== null} loading={busy === "draft"} onClick={() => save(false)}>

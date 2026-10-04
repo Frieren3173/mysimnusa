@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { PATIENT_CODE_RE } from "@/lib/borang";
 
 const EditSchema = z.object({
   roomId: z.string().optional().nullable(),
@@ -13,10 +14,11 @@ const EditSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^(TN|NY)\.[A-Z]$/, "Format TN.X atau NY.X")
+    .regex(PATIENT_CODE_RE, "Format TN.X, NY.X, atau BY.NY.X")
     .max(10)
     .optional(),
   actionType: z.string().trim().min(1).max(200).optional(),
+  nursingActionId: z.string().optional().nullable(),
   quantity: z.coerce.number().int().min(1).max(999).optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
 });
@@ -47,6 +49,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           ? { patientIdentifier: data.patientIdentifier }
           : {}),
         ...(data.actionType !== undefined ? { actionType: data.actionType } : {}),
+        ...(data.nursingActionId !== undefined
+          ? { nursingActionId: data.nursingActionId || null }
+          : {}),
         ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
       },

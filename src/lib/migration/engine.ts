@@ -256,6 +256,134 @@ async function resolveAction(r: ExtractedRow): Promise<"CREATE" | "UPDATE"> {
   return "CREATE";
 }
 
+// ─── ASSESMENT (sudah / belum masuk DB) ────────
+
+export interface RowVerdict {
+  staffExists: boolean;
+  docsAlready: number;
+  docsNew: number;
+  newDocCodes: string[];
+  isNew: boolean;
+}
+
+export interface BatchAssessment {
+  rowsAssessed: number;
+  staffNew: number;
+  staffAlready: number;
+  docsTotal: number;
+  docsAlready: number;
+  docsNew: number;
+  actionableRows: number;
+  rows: {
+    sourceId: string;
+    name: string;
+    staffExists: boolean;
+    docsNew: number;
+    newDocCodes: string[];
+  }[];
+}
+
+async function assessRow(r: ExtractedRow): Promise<RowVerdict> {
+  const key = staffKey(r);
+  const action = await resolveAction(r);
+  const staffExists = action === "UPDATE";
+
+  const checks: { legacyDocId: string; driveId: string | null; code: string }[] = [];
+  for (const [code, fields] of Object.entries(r.documents)) {
+    const fileVal =
+      fields.file !== undefined && fields.file !== null && fields.file !== ""
+        ? String(fields.file)
+        : null;
+    const exp = parseExpiryValue(fields.expiry);
+    const alt = parseExpiryValue(fields.expiryAlt);
+    const expiryDate = exp.date ?? alt.date;
+    const isLifetime = exp.lifetime || alt.lifetime;
+    // Kriteria sama dengan importOne: tanpa berkas/tanggal — bukan data
+    if (!fileVal && !expiryDate && !isLifetime) continue;
+    const driveId = fileVal && isDriveUrl(fileVal) ? extractDriveId(fileVal) : null;
+    checks.push({ legacyDocId: `xlsx:${key}:${code}`, driveId, code });
+  }
+
+  let docsAlready = 0;
+  let docsNew = 0;
+  const newDocCodes: string[] = [];
+
+  if (checks.length > 0) {
+    const driveIds = checks.map((c) => c.driveId).filter(Boolean) as string[];
+    const found = await prisma.document.findMany({
+      where: {
+        OR: [
+          { legacySourceId: { in: checks.map((c) => c.legacyDocId) } },
+          ...(driveIds.length ? [{ legacyDriveId: { in: driveIds } }] : []),
+        ],
+      },
+      select: { legacySourceId: true, legacyDriveId: true, storageKey: true, legacyDriveUrl: true },
+    });
+    const byLegacy = new Map(found.filter((d) => d.legacySourceId).map((d) => [d.legacySourceId!, d]));
+    const byDrive = new Map(found.filter((d) => d.legacyDriveId).map((d) => [d.legacyDriveId!, d]));
+
+    for (const c of checks) {
+      const row = byLegacy.get(c.legacyDocId) ?? (c.driveId ? byDrive.get(c.driveId) : undefined);
+      const srcHasLink = c.driveId !== null;
+      const dbHasFile = !!row && (row.storageKey !== null || row.legacyDriveUrl !== null);
+      const isNew = !row || (srcHasLink && !dbHasFile);
+      if (isNew) {
+        docsNew++;
+        newDocCodes.push(c.code);
+      } else {
+        docsAlready++;
+      }
+    }
+  }
+
+  return { staffExists, docsAlready, docsNew, newDocCodes, isNew: !staffExists || docsNew > 0 };
+}
+
+export async function assessBatch(batchId: string): Promise<BatchAssessment> {
+  const items = await prisma.migrationItem.findMany({
+    where: { batchId, status: { in: ["PENDING", "RETRYING"] } },
+    select: { sourceId: true },
+  });
+  const rows = await extractRows(batchId);
+  const rowById = new Map(rows.map((r) => [r.sourceId, r]));
+
+  let staffNew = 0;
+  let staffAlready = 0;
+  let docsAlready = 0;
+  let docsNew = 0;
+  const actionable: BatchAssessment["rows"] = [];
+
+  for (const item of items) {
+    const r = rowById.get(item.sourceId);
+    if (!r || r.error || r.duplicate) continue;
+    const v = await assessRow(r);
+    if (v.staffExists) staffAlready++;
+    else staffNew++;
+    docsAlready += v.docsAlready;
+    docsNew += v.docsNew;
+    if (v.isNew) {
+      actionable.push({
+        sourceId: r.sourceId,
+        name: r.staff.name,
+        staffExists: v.staffExists,
+        docsNew: v.docsNew,
+        newDocCodes: v.newDocCodes,
+      });
+    }
+  }
+
+  return {
+    rowsAssessed: staffNew + staffAlready,
+    staffNew,
+    staffAlready,
+    docsTotal: docsAlready + docsNew,
+    docsAlready,
+    docsNew,
+    actionableRows: actionable.length,
+    rows: actionable,
+  };
+}
+
 // ─── VALIDATE ──────────────────────────────────
 
 export async function validateBatch(batchId: string) {
@@ -504,6 +632,10 @@ async function importOne(
       const existing = await tx.document.findFirst({
         where: { staffId: staff.id, legacySourceId: legacyDocId },
       });
+
+      // Berkas sudah masuk (lokal atau link) — hanya data BARU yang ditarik
+      if (existing && (existing.storageKey || existing.legacyDriveUrl)) continue;
+
       const status = deriveDocumentStatus(expiryDate, isLifetime);
 
       const data = {
@@ -558,7 +690,11 @@ async function importOne(
   });
 }
 
-export async function importBatch(batchId: string, userId: string | null = null) {
+export async function importBatch(
+  batchId: string,
+  userId: string | null = null,
+  opts?: { onlyNew?: boolean }
+) {
   const batch = await prisma.migrationBatch.findUniqueOrThrow({ where: { id: batchId } });
   if (!["READY", "COMPLETED", "FAILED", "PAUSED", "RECONCILED"].includes(batch.status)) {
     throw new Error(`Status batch "${batch.status}" tidak mengizinkan import.`);
@@ -582,6 +718,25 @@ export async function importBatch(batchId: string, userId: string | null = null)
 
   for (const item of items) {
     try {
+      if (opts?.onlyNew) {
+        const r = rows.find((x) => x.sourceId === item.sourceId);
+        if (r && !r.error && !r.duplicate) {
+          const verdict = await assessRow(r);
+          if (!verdict.isNew) {
+            await prisma.migrationItem.update({
+              where: { id: item.id },
+              data: {
+                status: "SKIPPED",
+                action: "SKIP",
+                processedAt: new Date(),
+                errorCode: null,
+                errorMessage: null,
+              },
+            });
+            continue;
+          }
+        }
+      }
       const res = await importOne(rows, item.sourceId, userId);
       if (res.created) created++;
       else updated++;

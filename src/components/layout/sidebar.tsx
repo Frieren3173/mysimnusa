@@ -46,6 +46,8 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Dashboard", href: "/borang" },
       { label: "Logbook", href: "/borang/logbook" },
+      { label: "Master Ruangan", href: "/borang/master/ruangan" },
+      { label: "Master Tindakan", href: "/borang/master/tindakan" },
       { label: "Verifikasi", href: "/borang/verification" },
       { label: "Arsip", href: "/borang/archive" },
     ],

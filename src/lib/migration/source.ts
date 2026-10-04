@@ -255,6 +255,7 @@ export function isDriveUrl(v: unknown): boolean {
 export function extractDriveId(url: string): string | null {
   const m =
     url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+    url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/) ||
     url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
     url.match(/open\?id=([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
