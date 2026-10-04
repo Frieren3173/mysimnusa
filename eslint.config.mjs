@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local Vercel/Hosting build output (generated, not source):
+    ".vercel/**",
+    ".cloudflare/**",
+    ".vinext/**",
+    "dist/**",
   ]),
 ]);
 

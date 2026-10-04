@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import { randomUUID } from "crypto";
 import {
   buildObjectKey,
@@ -18,6 +16,11 @@ import {
  *
  * Postgres/Neon only ever holds metadata (`Document.storageKey`, `fileSize`,
  * `mimeType`, ...) — never the file bytes.
+ *
+ * NOTE: `fs`/`path` are imported lazily inside the local-disk helpers below so
+ * that they are not traced into every serverless function bundle. Statically
+ * importing them makes Next.js emit overly broad file-trace patterns and
+ * inflates the number of Vercel Functions per deployment.
  */
 
 export type StorageScope = "staff" | "borang" | "diklat" | "certificates";
@@ -41,7 +44,7 @@ export type PutObjectResult = {
 };
 
 function extOf(fileName: string): string {
-  const ext = path.extname(fileName).toLowerCase();
+  const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
   return /^\.[a-z0-9]{1,8}$/.test(ext) ? ext : "";
 }
 
@@ -56,6 +59,19 @@ async function toArrayBuffer(body: ArrayBuffer | Uint8Array | Blob): Promise<Arr
   return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
 }
 
+/** Local-disk helpers — dynamically imported so `fs` stays out of prod bundles. */
+async function localDisk() {
+  const [{ promises: fs }, path] = await Promise.all([
+    import("fs"),
+    import("path"),
+  ]);
+  return { fs, path };
+}
+
+function localPathFor(storageKey: string, pathModule: { join: (...parts: string[]) => string }): string {
+  return pathModule.join(process.cwd(), "storage", storageKey);
+}
+
 export async function putObject(input: PutObjectInput): Promise<PutObjectResult> {
   const objectName = `${randomUUID()}${extOf(input.fileName)}`;
   const key = buildObjectKey(input.scope, input.ownerId, input.category ?? null, objectName);
@@ -66,10 +82,11 @@ export async function putObject(input: PutObjectInput): Promise<PutObjectResult>
   }
 
   // Local-dev fallback: keep the historical `storage/documents/...` layout.
+  const { fs, path } = await localDisk();
   const legacyDir = path.join(process.cwd(), "storage", "documents", input.ownerId);
-  fs.mkdirSync(legacyDir, { recursive: true });
+  await fs.mkdir(legacyDir, { recursive: true });
   const buffer = Buffer.from(await toArrayBuffer(input.body));
-  fs.writeFileSync(path.join(legacyDir, objectName), buffer);
+  await fs.writeFile(path.join(legacyDir, objectName), buffer);
 
   return {
     storageKey: `documents/${input.ownerId}/${objectName}`,
@@ -91,9 +108,14 @@ export async function readObject(storageKey: string): Promise<StoredObject | nul
     return object;
   }
 
-  const filePath = path.join(process.cwd(), "storage", storageKey);
-  if (!fs.existsSync(filePath)) return null;
-  const buffer = fs.readFileSync(filePath);
+  const { fs, path } = await localDisk();
+  const filePath = localPathFor(storageKey, path);
+  try {
+    await fs.access(filePath);
+  } catch {
+    return null;
+  }
+  const buffer = await fs.readFile(filePath);
   return {
     body: new Blob([new Uint8Array(buffer)]).stream(),
     contentType: undefined,
@@ -107,8 +129,13 @@ export async function removeObject(storageKey: string): Promise<void> {
     return;
   }
 
-  const filePath = path.join(process.cwd(), "storage", storageKey);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  const { fs, path } = await localDisk();
+  const filePath = localPathFor(storageKey, path);
+  try {
+    await fs.unlink(filePath);
+  } catch {
+    // already gone
+  }
 }
 
 export { isR2Configured };

@@ -46,3 +46,6 @@ next-env.d.ts
 /public/uploads/
 /dist/
 .neon
+
+.vercel
+.env*
