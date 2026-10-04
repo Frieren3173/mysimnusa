@@ -93,7 +93,7 @@ export default async function DashboardPage() {
               Selamat datang, {userInfo.name}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Dashboard Terpadu RSAJT Nursing Management · Pantau seluruh operasional hari ini
+              Dashboard Terpadu MYSIMNUSA · Pantau seluruh operasional hari ini
             </p>
           </div>
           <div className="flex items-center gap-2">

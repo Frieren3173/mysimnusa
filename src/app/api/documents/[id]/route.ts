@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
-import * as fs from "fs";
-import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { removeObject } from "@/lib/storage";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_DELETE);
@@ -17,8 +16,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   try {
     if (doc.storageKey) {
-      const filePath = path.join(process.cwd(), "storage", doc.storageKey);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await removeObject(doc.storageKey);
     }
     await prisma.document.delete({ where: { id } });
     return ok({ deleted: true });

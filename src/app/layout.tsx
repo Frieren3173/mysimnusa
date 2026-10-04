@@ -12,10 +12,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | RSAJT Nursing",
-    default: "RSAJT Nursing Management System",
+    template: "%s | MYSIMNUSA",
+    default: "MYSIMNUSA — Sistem Informasi Manajemen Keperawatan & Kebidanan",
   },
-  description: "Platform manajemen terintegrasi Komite Keperawatan, Borang, dan Diklat RSAJT",
+  description: "Sistem Informasi Manajemen Keperawatan & Kebidanan",
+  applicationName: "MYSIMNUSA",
   robots: { index: false, follow: false }, // Internal app — no indexing
 };
 

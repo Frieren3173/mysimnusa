@@ -1,7 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
-import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { putObject } from "@/lib/storage";
 import { extractDriveId } from "./source";
 
 // ─── Status ────────────────────────────────────
@@ -221,16 +219,22 @@ export async function runSyncChunk(limit: number, resetFailed: boolean): Promise
           const isGoogleDoc = /\/document\/d\//.test(url);
           const buf = await fetchDriveFile(fileId, isGoogleDoc);
           const meta = sniff(buf);
-          const dir = path.join(process.cwd(), "storage", "documents", doc.staffId);
-          fs.mkdirSync(dir, { recursive: true });
-          const filename = `${randomUUID()}${meta.ext}`;
-          fs.writeFileSync(path.join(dir, filename), buf);
+          // Store the downloaded binary through the storage layer (Cloudflare R2
+          // in production, local disk in development). Neon keeps metadata only.
+          const stored = await putObject({
+            scope: "staff",
+            ownerId: doc.staffId,
+            category: doc.documentType.code.toLowerCase(),
+            fileName: `${doc.documentType.code}${meta.ext}`,
+            contentType: meta.mime,
+            body: new Uint8Array(buf),
+          });
           const notes =
             doc.notes && doc.notes.includes("menunggu sinkronisasi") ? null : doc.notes;
           await prisma.document.update({
             where: { id: doc.id },
             data: {
-              storageKey: `documents/${doc.staffId}/${filename}`,
+              storageKey: stored.storageKey,
               mimeType: meta.mime,
               fileSize: buf.length,
               filename: doc.filename ?? `${doc.documentType.code}${meta.ext}`,

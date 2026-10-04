@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
-import * as fs from "fs";
 import * as path from "path";
-import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { deriveDocumentStatus } from "@/lib/utils";
+import { putObject } from "@/lib/storage";
 
 const MAX_SIZE = 15 * 1024 * 1024; // 15 MB
 const ALLOWED_EXT = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".doc", ".docx", ".xls", ".xlsx"];
@@ -73,11 +72,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       create: { code, name: code },
     });
 
-    const dir = path.join(process.cwd(), "storage", "documents", staffId);
-    fs.mkdirSync(dir, { recursive: true });
-    const filename = `${randomUUID()}${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(path.join(dir, filename), buffer);
+    // Files live in Cloudflare R2 (or local disk during development); Neon
+    // only stores the metadata below. Object keys follow
+    // staff/{staffId}/{category}/{generated-file-name}.
+    const stored = await putObject({
+      scope: "staff",
+      ownerId: staffId,
+      category: code.toLowerCase(),
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+      body: await file.arrayBuffer(),
+    });
 
     const document = await prisma.document.create({
       data: {
@@ -91,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         filename: file.name,
         mimeType: file.type || "application/octet-stream",
         fileSize: file.size,
-        storageKey: `documents/${staffId}/${filename}`,
+        storageKey: stored.storageKey,
         uploadedBy: user.id,
       },
       include: { documentType: true },

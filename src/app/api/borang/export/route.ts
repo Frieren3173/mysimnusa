@@ -392,7 +392,7 @@ export async function GET(req: NextRequest) {
   ];
 
   const doc = new Document({
-    creator: "RSAJT Nursing Management",
+    creator: "MYSIMNUSA — Sistem Informasi Manajemen Keperawatan & Kebidanan",
     title: `Rekap Kegiatan Praktik Profesi ${staff.name} ${year}`,
     sections: [
       {

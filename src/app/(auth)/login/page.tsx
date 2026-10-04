@@ -16,17 +16,17 @@ export default async function LoginPage() {
         <div>
           <div className="inline-flex items-center gap-2">
             <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">RS</span>
+              <span className="text-white text-xs font-bold">MY</span>
             </div>
-            <span className="text-white font-semibold text-sm">RSAJT</span>
+            <span className="text-white font-semibold text-sm">MYSIMNUSA</span>
           </div>
         </div>
         <div className="space-y-4">
           <h1 className="text-3xl font-bold text-white leading-tight">
-            Nursing Management System
+            MYSIMNUSA
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed max-w-md">
-            Platform terintegrasi untuk Komite Keperawatan, Borang, dan Diklat.
+            Sistem Informasi Manajemen Keperawatan &amp; Kebidanan.
             Mengelola data SDM Perawat dan Bidan secara profesional.
           </p>
         </div>
@@ -42,9 +42,9 @@ export default async function LoginPage() {
           <div className="lg:hidden text-center">
             <div className="inline-flex items-center gap-2 mb-6">
               <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">RS</span>
+                <span className="text-white text-xs font-bold">MY</span>
               </div>
-              <span className="text-slate-900 font-semibold text-sm">RSAJT</span>
+              <span className="text-slate-900 font-semibold text-sm">MYSIMNUSA</span>
             </div>
           </div>
 

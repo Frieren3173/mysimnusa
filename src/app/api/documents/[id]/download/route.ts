@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import * as fs from "fs";
 import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { readObject } from "@/lib/storage";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_READ);
@@ -18,22 +18,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!doc) return err("NOT_FOUND", "Dokumen tidak ditemukan", 404);
 
-  // Local file upload
+  // Object stored in Cloudflare R2 (or local disk during development)
   if (doc.storageKey) {
-    const filePath = path.join(process.cwd(), "storage", doc.storageKey);
-    if (fs.existsSync(filePath)) {
-      const buffer = fs.readFileSync(filePath);
-      const downloadName = `${doc.staff.name.replace(/[^\w.-]+/g, "_")}_${doc.documentType.code}${path.extname(filePath)}`;
-      return new Response(new Uint8Array(buffer), {
-        headers: {
-          "Content-Type": doc.mimeType ?? "application/octet-stream",
-          "Content-Length": String(buffer.byteLength),
-          "Content-Disposition": `inline; filename="${downloadName}"`,
-          "Cache-Control": "private, max-age=0, must-revalidate",
-        },
-      });
+    let stored: Awaited<ReturnType<typeof readObject>> = null;
+    try {
+      stored = await readObject(doc.storageKey);
+    } catch (e) {
+      return err("STORAGE_ERROR", e instanceof Error ? e.message : "Gagal membaca penyimpanan", 502);
     }
-    return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);
+    if (!stored) {
+      return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);
+    }
+
+    const ext = path.extname(doc.storageKey);
+    const downloadName = `${doc.staff.name.replace(/[^\w.-]+/g, "_")}_${doc.documentType.code}${ext}`;
+    return new Response(stored.body, {
+      headers: {
+        "Content-Type": stored.contentType ?? doc.mimeType ?? "application/octet-stream",
+        ...(stored.contentLength ? { "Content-Length": String(stored.contentLength) } : {}),
+        "Content-Disposition": `inline; filename="${downloadName}"`,
+        "Cache-Control": "private, max-age=0, must-revalidate",
+      },
+    });
   }
 
   // Legacy Google Drive link (Fase 5: sinkronisasi binary)

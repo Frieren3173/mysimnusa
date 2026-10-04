@@ -41,10 +41,10 @@ export default function Home() {
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2.5" data-motion-intro-child>
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-xs font-bold text-white">
-              RS
+              MY
             </span>
             <span className="text-sm font-semibold text-slate-900">
-              RSAJT Nursing
+              MYSIMNUSA
             </span>
           </div>
           <Link
@@ -132,7 +132,7 @@ export default function Home() {
           data-motion-footer
         >
           <p>Rumah Sakit Al-Jihad Tangerang · Sistem Internal</p>
-          <p>© {new Date().getFullYear()} RSAJT Nursing Management System</p>
+          <p>© {new Date().getFullYear()} MYSIMNUSA — Sistem Informasi Manajemen Keperawatan &amp; Kebidanan</p>
         </div>
       </footer>
     </div>

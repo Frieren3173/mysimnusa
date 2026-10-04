@@ -136,9 +136,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               className="h-9 w-auto shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 truncate">RSAJT</p>
+              <p className="text-sm font-semibold text-slate-900 truncate">MYSIMNUSA</p>
               <p className="text-[10px] text-slate-500 leading-tight">
-                Nursing Midwifery Management
+                Sistem Informasi Manajemen Keperawatan &amp; Kebidanan
               </p>
             </div>
           </div>
@@ -240,7 +240,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Footer */}
       {!collapsed && (
         <div className="border-t border-slate-100 px-4 py-3">
-          <p className="text-[10px] text-slate-400">v2.0 · RSAJT</p>
+          <p className="text-[10px] text-slate-400">v2.0 · MYSIMNUSA</p>
         </div>
       )}
     </aside>

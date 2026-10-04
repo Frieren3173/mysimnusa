@@ -14,7 +14,15 @@ import {
   guessRoomType,
 } from "../src/lib/master-data";
 
-const prisma = new PrismaClient();
+// Use unpooled connection for seed (Node.js script compatibility)
+const databaseUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: databaseUrl,
+    },
+  },
+});
 
 async function main() {
   console.log("Seeding database...");
