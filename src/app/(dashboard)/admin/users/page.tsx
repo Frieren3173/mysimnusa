@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -33,13 +34,11 @@ export default async function AdminUsersPage() {
         role: currentUser.roles[0] ?? "Staff",
       }}
     >
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Manajemen Pengguna</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Akun, email, peran (role), dan status login. Ubah email bebas — email bukan kunci login.
-          </p>
-        </div>
+      <div className="mx-auto max-w-5xl">
+        <StickyPageHeader
+          title="Manajemen Pengguna"
+          description="Akun, email, peran (role), dan status login. Ubah email bebas — email bukan kunci login."
+        />
         <UsersClient initialUsers={users} roles={roles} meId={currentUser.id} />
       </div>
     </AppShell>

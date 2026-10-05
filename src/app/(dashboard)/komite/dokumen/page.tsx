@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 import { deriveDocumentStatus, formatDateShort, formatFileSize } from "@/lib/utils";
 import { FileText, Download } from "lucide-react";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
+import { StickyPageHeader, searchInputClass } from "@/components/layout/page-header";
 
 export const metadata: Metadata = { title: "Dokumen — Komite Keperawatan" };
 
@@ -36,7 +37,7 @@ export default async function DokumenPage({
     docs = await prisma.document.findMany({
       where: {
         ...(params.type ? { documentType: { code: params.type } } : {}),
-        ...(search ? { staff: { name: { contains: search } } } : {}),
+        ...(search ? { staff: { name: { contains: search, mode: "insensitive" as const } } } : {}),
       },
       include: {
         staff: { include: { room: true } },
@@ -63,48 +64,45 @@ export default async function DokumenPage({
         role: currentUser.roles[0] ?? "Komite",
       }}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Dokumen Tenaga</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Berkas legalitas, pendidikan, dan administrasi yang terdaftar per tenaga
-          </p>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
-          <Link
-            href="/komite/dokumen"
-            className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-              !params.type ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            Semua
-          </Link>
-          {docTypes.map((t) => (
-            <Link
-              key={t.id}
-              href={`/komite/dokumen?type=${t.code}`}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                params.type === t.code
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {t.code}
-            </Link>
-          ))}
-          <form action="/komite/dokumen" className="ml-auto">
-            {params.type && <input type="hidden" name="type" value={params.type} />}
-            <input
-              type="search"
-              name="search"
-              defaultValue={search ?? ""}
-              placeholder="Cari nama tenaga..."
-              className="h-8 rounded border border-slate-200 px-3 text-xs w-52 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </form>
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <StickyPageHeader
+          title="Dokumen Tenaga"
+          description="Berkas legalitas, pendidikan, dan administrasi yang terdaftar per tenaga"
+          toolbar={
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/komite/dokumen"
+                className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                  !params.type ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Semua
+              </Link>
+              {docTypes.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/komite/dokumen?type=${t.code}`}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    params.type === t.code ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {t.code}
+                </Link>
+              ))}
+              <form action="/komite/dokumen" className="ml-auto">
+                {params.type && <input type="hidden" name="type" value={params.type} />}
+                <input
+                  type="search"
+                  name="search"
+                  aria-label="Cari tenaga berdasarkan nama"
+                  defaultValue={search ?? ""}
+                  placeholder="Cari nama tenaga…"
+                  className={searchInputClass("w-52")}
+                />
+              </form>
+            </div>
+          }
+        />
 
         <Section>
           <Table>

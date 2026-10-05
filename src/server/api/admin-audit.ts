@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { resource: { contains: search } },
-            { resourceId: { contains: search } },
-            { user: { username: { contains: search } } },
+            { resource: { contains: search, mode: "insensitive" as const } },
+            { resourceId: { contains: search, mode: "insensitive" as const } },
+            { user: { username: { contains: search, mode: "insensitive" as const } } },
           ],
         }
       : {}),

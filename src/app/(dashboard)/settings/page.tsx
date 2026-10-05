@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { Section, Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireAuth } from "@/lib/authorization";
@@ -43,13 +44,11 @@ export default async function SettingsPage() {
         role: currentUser.roles[0] ?? "Pengguna",
       }}
     >
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Pengaturan</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Konfigurasi organisasi, master data, dan administrasi sistem
-          </p>
-        </div>
+      <div className="mx-auto max-w-5xl">
+        <StickyPageHeader
+          title="Pengaturan"
+          description="Konfigurasi organisasi, master data, dan administrasi sistem"
+        />
 
         {isSuperAdmin && (
           <Card>

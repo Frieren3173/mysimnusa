@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const where = {
     ...(status ? { status: status as never } : {}),
     ...(search
-      ? { OR: [{ title: { contains: search } }, { category: { contains: search } }, { location: { contains: search } }] }
+      ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { category: { contains: search, mode: "insensitive" as const } }, { location: { contains: search, mode: "insensitive" as const } }] }
       : {}),
   };
 

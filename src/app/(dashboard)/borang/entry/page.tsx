@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -28,14 +29,11 @@ export default async function BorangEntryPage() {
         role: currentUser.roles[0] ?? "Borang",
       }}
     >
-      <div className="space-y-6 max-w-3xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Input Borang Tindakan</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Catat tindakan keperawatan. Pasien dianonimkan: <span className="font-mono">TN.A</span> atau{" "}
-            <span className="font-mono">NY.A</span> (huruf besar).
-          </p>
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <StickyPageHeader
+          title="Input Borang Tindakan"
+          description="Catat tindakan keperawatan. Pasien dianonimkan: TN.A atau NY.A (huruf besar)."
+        />
         <EntryClient
           staff={staff}
           rooms={rooms}

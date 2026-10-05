@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
     ...(search
       ? {
           OR: [
-            { actionType: { contains: search } },
-            { patientIdentifier: { contains: search } },
-            { staff: { name: { contains: search } } },
+            { actionType: { contains: search, mode: "insensitive" as const } },
+            { patientIdentifier: { contains: search, mode: "insensitive" as const } },
+            { staff: { name: { contains: search, mode: "insensitive" as const } } },
           ],
         }
       : {}),

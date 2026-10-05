@@ -29,6 +29,7 @@ export default async function StaffListPage({
 
   let rows: StaffRow[] = [];
   let total = 0;
+  let databaseTotal = 0;
   let rooms: { id: string; name: string }[] = [];
 
   try {
@@ -37,10 +38,17 @@ export default async function StaffListPage({
     if (filters.status) where.employmentStatus = filters.status;
     if (filters.room) where.roomId = filters.room;
     if (filters.search) {
-      where.OR = [{ name: { contains: filters.search } }, { nip: { contains: filters.search } }];
+      where.OR = [
+        { name: { contains: filters.search, mode: "insensitive" } },
+        { nip: { contains: filters.search, mode: "insensitive" } },
+        { profession: { contains: filters.search, mode: "insensitive" } },
+        { email: { contains: filters.search, mode: "insensitive" } },
+        { phone: { contains: filters.search, mode: "insensitive" } },
+        { room: { is: { name: { contains: filters.search, mode: "insensitive" } } } },
+      ];
     }
 
-    const [staffList, count, roomList] = await Promise.all([
+    const [staffList, count, roomList, dbTotal] = await Promise.all([
       prisma.staff.findMany({
         where,
         include: {
@@ -57,9 +65,13 @@ export default async function StaffListPage({
       }),
       prisma.staff.count({ where }),
       prisma.room.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      // Total staff in the database (unfiltered) — used so the counter can show
+      // "N dari <databaseTotal>" instead of "0 dari 0" for an empty result.
+      prisma.staff.count(),
     ]);
 
     total = count;
+    databaseTotal = dbTotal;
     rooms = roomList;
     rows = staffList.map((s) => ({
       id: s.id,
@@ -87,27 +99,21 @@ export default async function StaffListPage({
         role: currentUser.roles[0] ?? "Staff",
       }}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Data SDM Perawat &amp; Bidan</h1>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Kelola master profil, penempatan ruangan, dan kelengkapan dokumen seluruh tenaga
-            </p>
-          </div>
-          <Link href="/komite/staff/new">
-            <Button variant="primary" size="sm">
-              + Tambah Tenaga Baru
-            </Button>
-          </Link>
-        </div>
-
+      <div className="mx-auto max-w-7xl">
         <StaffTable
           key={`${filters.search}|${filters.profession}|${filters.status}|${filters.room}`}
           initialRows={rows}
           initialTotal={total}
           filters={filters}
           rooms={rooms}
+          databaseTotal={databaseTotal}
+          action={
+            <Link href="/komite/staff/new">
+              <Button variant="primary" size="sm">
+                + Tambah Tenaga Baru
+              </Button>
+            </Link>
+          }
         />
       </div>
     </AppShell>

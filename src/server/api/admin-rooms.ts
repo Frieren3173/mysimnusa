@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
     ...(q
       ? {
           OR: [
-            { name: { contains: q } },
-            { code: { contains: q } },
-            { description: { contains: q } },
+            { name: { contains: q, mode: "insensitive" as const } },
+            { code: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
           ],
         }
       : {}),

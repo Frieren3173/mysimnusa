@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { StaffDetailButton } from "./staff-detail-modal";
 import { StaffPhoto } from "./staff-photo";
 import { Loader2 } from "lucide-react";
+import { StickyPageHeader, searchInputClass, filterSelectClass } from "@/components/layout/page-header";
 
 /**
  * Staff table with server-side pagination and infinite scroll.
@@ -78,11 +80,15 @@ export function StaffTable({
   initialTotal,
   filters,
   rooms,
+  databaseTotal,
+  action,
 }: {
   initialRows: StaffRow[];
   initialTotal: number;
   filters: { search: string; profession: string; status: string; room: string };
   rooms: { id: string; name: string }[];
+  databaseTotal: number;
+  action?: React.ReactNode;
 }) {
   const [rows, setRows] = React.useState<StaffRow[]>(initialRows);
   const [total, setTotal] = React.useState(initialTotal);
@@ -141,56 +147,57 @@ export function StaffTable({
 
   return (
     <div className="flex flex-col">
-      {/* Sticky filter toolbar */}
-      <form
-        action="/komite/staff"
-        className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-3 backdrop-blur"
-      >
-        <input
-          type="search"
-          name="search"
-          placeholder="Cari nama atau NIP…"
-          defaultValue={filters.search}
-          className="h-8 w-56 rounded border border-slate-200 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        <select
-          name="profession"
-          defaultValue={filters.profession}
-          className="h-8 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
-        >
-          <option value="">Semua Profesi</option>
-          <option value="PERAWAT">Perawat</option>
-          <option value="BIDAN">Bidan</option>
-        </select>
-        <select
-          name="status"
-          defaultValue={filters.status}
-          className="h-8 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
-        >
-          <option value="">Semua Status</option>
-          <option value="ACTIVE">Aktif</option>
-          <option value="INACTIVE">Tidak Aktif</option>
-          <option value="RESIGNED">Resigned</option>
-        </select>
-        <select
-          name="room"
-          defaultValue={filters.room}
-          className="h-8 max-w-[200px] rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
-        >
-          <option value="">Semua Ruangan</option>
-          {rooms.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" variant="secondary" size="sm">
-          Terapkan
-        </Button>
-        <span className="ml-auto text-xs text-slate-500">
-          {rows.length} dari {total} tenaga
-        </span>
-      </form>
+      {/* Sticky page header + toolbar: title, description, actions and filters
+          stay visible while the table scrolls. */}
+      <StickyPageHeader
+        title="Data SDM Perawat & Bidan"
+        description="Kelola master profil, penempatan ruangan, dan kelengkapan dokumen seluruh tenaga"
+        actions={
+          <span className="text-xs text-slate-500">
+            {total} dari {databaseTotal} tenaga
+          </span>
+        }
+        toolbar={
+          <form action="/komite/staff" className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              name="search"
+              aria-label="Cari tenaga berdasarkan nama, NIP, ruangan, atau nomor HP"
+              placeholder="Cari nama, NIP, ruangan, HP…"
+              defaultValue={filters.search}
+              className={searchInputClass("w-64")}
+            />
+            <select name="profession" aria-label="Filter profesi" defaultValue={filters.profession} className={filterSelectClass}>
+              <option value="">Semua Profesi</option>
+              <option value="PERAWAT">Perawat</option>
+              <option value="BIDAN">Bidan</option>
+            </select>
+            <select name="status" aria-label="Filter status" defaultValue={filters.status} className={filterSelectClass}>
+              <option value="">Semua Status</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="INACTIVE">Tidak Aktif</option>
+              <option value="RESIGNED">Resigned</option>
+            </select>
+            <select name="room" aria-label="Filter ruangan" defaultValue={filters.room} className={`${filterSelectClass} max-w-[200px]`}>
+              <option value="">Semua Ruangan</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" variant="secondary" size="sm">
+              Terapkan
+            </Button>
+            {(filters.search || filters.profession || filters.status || filters.room) && (
+              <Link href="/komite/staff" className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
+                Reset
+              </Link>
+            )}
+          </form>
+        }
+      />
+      {action ? <div className="mb-3 flex justify-end">{action}</div> : null}
 
       <Table>
         <TableHeader>

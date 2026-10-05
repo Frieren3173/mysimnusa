@@ -9,6 +9,7 @@ import type { Prisma } from "@prisma/client";
 import { Award } from "lucide-react";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
 import { CompetencyBadgeButton } from "./competency-cell";
+import { StickyPageHeader, searchInputClass, filterSelectClass } from "@/components/layout/page-header";
 
 export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" };
 
@@ -47,7 +48,10 @@ export default async function KompetensiPage({
   try {
     const where: Prisma.StaffWhereInput = { isActive: true };
     if (search) {
-      where.OR = [{ name: { contains: search } }, { nip: { contains: search } }];
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" as const } },
+        { nip: { contains: search, mode: "insensitive" as const } },
+      ];
     }
     if (competency) {
       where.competencies = { some: { competency: { code: competency } } };
@@ -105,53 +109,46 @@ export default async function KompetensiPage({
       }}
     >
       <div className="mx-auto max-w-7xl">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Matriks Kompetensi</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Seluruh kompetensi per tenaga berdasarkan data sumber. Klik badge untuk melihat sertifikat.
-          </p>
-        </div>
-
-        {/* Sticky toolbar — filter & search stay visible while the table scrolls */}
-        <form
-          action="/komite/kompetensi"
-          className="sticky top-0 z-20 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 p-3 backdrop-blur"
-        >
-          <input
-            type="search"
-            name="search"
-            defaultValue={search}
-            placeholder="Cari nama atau NIP…"
-            className="h-8 w-56 rounded border border-slate-200 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <select
-            name="competency"
-            defaultValue={competency}
-            className="h-8 max-w-[220px] rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
-          >
-            <option value="">Semua Kompetensi</option>
-            {competencyTypes.map((t) => (
-              <option key={t.code} value={t.code}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="h-8 rounded border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            Terapkan
-          </button>
-          <a
-            href="/komite/kompetensi"
-            className="h-8 rounded border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 leading-8 transition-colors hover:bg-slate-50"
-          >
-            Reset
-          </a>
-          <span className="ml-auto text-xs text-slate-500">
-            {staffRows.length} dari {grandTotal} data
-          </span>
-        </form>
+        <StickyPageHeader
+          title="Matriks Kompetensi"
+          description="Seluruh kompetensi per tenaga berdasarkan data sumber. Klik badge untuk melihat sertifikat."
+          actions={
+            <span className="text-xs text-slate-500">
+              {staffRows.length} dari {grandTotal} tenaga
+            </span>
+          }
+          toolbar={
+            <form action="/komite/kompetensi" className="flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                name="search"
+                aria-label="Cari tenaga berdasarkan nama atau NIP"
+                defaultValue={search}
+                placeholder="Cari nama atau NIP…"
+                className={searchInputClass()}
+              />
+              <select name="competency" aria-label="Filter kompetensi" defaultValue={competency} className={filterSelectClass}>
+                <option value="">Semua Kompetensi</option>
+                {competencyTypes.map((t) => (
+                  <option key={t.code} value={t.code}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className="h-8 rounded border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Terapkan
+              </button>
+              {(search || competency) && (
+                <a href="/komite/kompetensi" className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
+                  Reset
+                </a>
+              )}
+            </form>
+          }
+        />
 
         <div className="mt-3">
           <Section>

@@ -31,11 +31,14 @@ export async function GET(req: NextRequest) {
 
   const where: Prisma.StaffWhereInput = {};
   if (search) {
+    // Case-insensitive across the fields a user expects to search by.
     where.OR = [
-      { name: { contains: search } },
-      { nip: { contains: search } },
-      { profession: { contains: search } },
-      { email: { contains: search } },
+      { name: { contains: search, mode: "insensitive" } },
+      { nip: { contains: search, mode: "insensitive" } },
+      { profession: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+      { room: { is: { name: { contains: search, mode: "insensitive" } } } },
     ];
   }
   if (profession) where.profession = profession;

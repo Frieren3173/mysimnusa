@@ -85,3 +85,28 @@ export function paginate<T>(
     },
   };
 }
+
+/**
+ * Builds a case-insensitive `contains` filter for one or more fields.
+ *
+ * Postgres `contains` is case-sensitive by default, so every user-facing search
+ * must pass `mode: "insensitive"` — otherwise searching "IBS" misses "ibs" and
+ * the UI appears broken. Returning a plain object keeps the query fully
+ * parameterised (no raw SQL / injection risk).
+ */
+export function searchFilter<T extends Record<string, unknown>>(
+  search: string | null | undefined,
+  fields: (keyof T | string)[],
+): Record<string, unknown> | undefined {
+  const q = (search ?? "").trim();
+  if (!q) return undefined;
+  return {
+    OR: fields.map((field) => ({ [field as string]: { contains: q, mode: "insensitive" } })),
+  };
+}
+
+/** Reads a trimmed query-parameter value from a URL. */
+export function queryParam(url: URL, name: string): string {
+  return url.searchParams.get(name)?.trim() ?? "";
+}
+

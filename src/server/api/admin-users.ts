@@ -39,9 +39,9 @@ export async function GET(req: NextRequest) {
   const where = search
     ? {
         OR: [
-          { username: { contains: search } },
-          { email: { contains: search } },
-          { staff: { name: { contains: search } } },
+          { username: { contains: search, mode: "insensitive" as const } },
+          { email: { contains: search, mode: "insensitive" as const } },
+          { staff: { name: { contains: search, mode: "insensitive" as const } } },
         ],
       }
     : undefined;

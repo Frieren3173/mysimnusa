@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { KpiCard, Card, CardHeader, CardTitle, CardContent, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { TrainingStatusBadge } from "@/components/ui/badge";
 import { GraduationCap, CalendarDays, Award, Users } from "lucide-react";
 
@@ -42,20 +43,18 @@ export default async function DiklatPage() {
         role: currentUser.roles[0] ?? "Diklat",
       }}
     >
-      <div className="space-y-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Pendidikan & Pelatihan</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Kelola pelatihan, peserta, presensi, penilaian, dan sertifikat.
-            </p>
-          </div>
-          <Link href="/diklat/trainings">
-            <Button variant="primary" size="sm">
-              <GraduationCap size={14} /> Kelola Pelatihan
-            </Button>
-          </Link>
-        </div>
+      <div className="mx-auto max-w-6xl">
+        <StickyPageHeader
+          title="Pendidikan & Pelatihan"
+          description="Kelola pelatihan, peserta, presensi, penilaian, dan sertifikat."
+          actions={
+            <Link href="/diklat/trainings">
+              <Button variant="primary" size="sm">
+                <GraduationCap size={14} /> Kelola Pelatihan
+              </Button>
+            </Link>
+          }
+        />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard title="Total Pelatihan" value={totalTrainings} icon={<GraduationCap size={16} />} />

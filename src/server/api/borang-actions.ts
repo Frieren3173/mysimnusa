@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const where = {
     ...(q
-      ? { OR: [{ name: { contains: q } }, { code: { contains: q } }] }
+      ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { code: { contains: q, mode: "insensitive" as const } }] }
       : {}),
     ...(category ? { category } : {}),
     ...(status === "active" ? { isActive: true } : {}),

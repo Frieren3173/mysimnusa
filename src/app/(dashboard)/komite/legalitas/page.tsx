@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { deriveDocumentStatus, formatDateShort, daysUntilExpiry } from "@/lib/utils";
 import { ShieldCheck } from "lucide-react";
+import { StickyPageHeader, searchInputClass } from "@/components/layout/page-header";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
 
 export const metadata: Metadata = { title: "Legalitas — Komite Keperawatan" };
@@ -40,7 +41,7 @@ export default async function LegalitasPage({
       where: {
         documentType: { code: activeType },
         ...(search
-          ? { staff: { name: { contains: search } } }
+          ? { staff: { name: { contains: search, mode: "insensitive" as const } } }
           : {}),
       },
       include: {
@@ -82,75 +83,71 @@ export default async function LegalitasPage({
         role: currentUser.roles[0] ?? "Komite",
       }}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Legalitas Tenaga</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Status STR, SIP, BTCLS, dan ACLS beserta masa berlaku
-          </p>
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <StickyPageHeader
+          title="Legalitas Tenaga"
+          description="Status STR, SIP, BTCLS, dan ACLS beserta masa berlaku"
+          toolbar={
+            <div className="space-y-3">
+              {/* Document-type tabs */}
+              <div className="flex w-fit flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1.5">
+                {TABS.map((t) => (
+                  <Link
+                    key={t.code}
+                    href={`/komite/legalitas?type=${t.code}`}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      activeType === t.code ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {t.label}
+                  </Link>
+                ))}
+              </div>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1 bg-white p-1.5 rounded-lg border border-slate-200 w-fit">
-          {TABS.map((t) => (
-            <Link
-              key={t.code}
-              href={`/komite/legalitas?type=${t.code}`}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                activeType === t.code
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* Status summary + filter */}
-        <div className="flex flex-wrap items-center gap-2">
-          {(["ACTIVE", "EXPIRING", "EXPIRED", "LIFETIME"] as const).map((s) => (
-            <Link
-              key={s}
-              href={`/komite/legalitas?type=${activeType}&status=${s}`}
-              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                statusFilter === s
-                  ? "border-blue-300 bg-blue-50 text-blue-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {activeType === "STR" && s === "ACTIVE"
-                ? "Belum Seumur Hidup"
-                : s === "ACTIVE"
-                  ? "Aktif"
-                  : s === "EXPIRING"
-                    ? "Akan Berakhir"
-                    : s === "EXPIRED"
-                      ? "Expired"
-                      : "Seumur Hidup"}
-              {" "}
-              <span className="tabular-nums">{counts[s]}</span>
-            </Link>
-          ))}
-          {statusFilter && (
-            <Link
-              href={`/komite/legalitas?type=${activeType}`}
-              className="text-xs text-slate-500 hover:underline px-2"
-            >
-              Hapus filter
-            </Link>
-          )}
-          <form className="ml-auto" action="/komite/legalitas">
-            <input type="hidden" name="type" value={activeType} />
-            <input
-              type="search"
-              name="search"
-              defaultValue={search ?? ""}
-              placeholder="Cari nama..."
-              className="h-8 rounded border border-slate-200 px-3 text-xs w-52 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </form>
-        </div>
+              {/* Status summary + search */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(["ACTIVE", "EXPIRING", "EXPIRED", "LIFETIME"] as const).map((s) => (
+                  <Link
+                    key={s}
+                    href={`/komite/legalitas?type=${activeType}&status=${s}`}
+                    className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      statusFilter === s
+                        ? "border-blue-300 bg-blue-50 text-blue-700"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {activeType === "STR" && s === "ACTIVE"
+                      ? "Belum Seumur Hidup"
+                      : s === "ACTIVE"
+                        ? "Aktif"
+                        : s === "EXPIRING"
+                          ? "Akan Berakhir"
+                          : s === "EXPIRED"
+                            ? "Expired"
+                            : "Seumur Hidup"}{" "}
+                    <span className="tabular-nums">{counts[s]}</span>
+                  </Link>
+                ))}
+                {statusFilter && (
+                  <Link href={`/komite/legalitas?type=${activeType}`} className="px-2 text-xs text-slate-500 hover:underline">
+                    Hapus filter
+                  </Link>
+                )}
+                <form className="ml-auto" action="/komite/legalitas">
+                  <input type="hidden" name="type" value={activeType} />
+                  <input
+                    type="search"
+                    name="search"
+                    aria-label="Cari tenaga berdasarkan nama"
+                    defaultValue={search ?? ""}
+                    placeholder="Cari nama…"
+                    className={searchInputClass("w-52")}
+                  />
+                </form>
+              </div>
+            </div>
+          }
+        />
 
         <Section>
           <Table>

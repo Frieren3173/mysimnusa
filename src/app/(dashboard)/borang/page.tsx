@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard, Section, AlertItem, EmptyState } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
@@ -79,13 +80,11 @@ export default async function BorangDashboardPage() {
         role: currentUser.roles[0] ?? "Borang",
       }}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Dashboard Borang</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Pencatatan logbook/tindakan dengan alur verifikasi dan arsip
-          </p>
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <StickyPageHeader
+          title="Dashboard Borang"
+          description="Pencatatan logbook/tindakan dengan alur verifikasi dan arsip"
+        />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
