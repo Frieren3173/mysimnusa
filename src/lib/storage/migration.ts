@@ -28,6 +28,47 @@ const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_MAX_RETRIES = 3;
 const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
 
+/**
+ * Native Google Workspace files (Docs/Sheets/Slides) cannot be downloaded with
+ * `alt=media` and cannot be re-uploaded as `application/vnd.google-apps.*`.
+ * They must be EXPORTED to an equivalent binary format and uploaded using that
+ * format's MIME type. Keeping the original mime type here would make Google
+ * reject the upload with HTTP 400 ("Invalid mime type").
+ */
+export const WORKSPACE_EXPORT: Record<string, { mime: string; ext: string }> = {
+  "application/vnd.google-apps.document": {
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ext: "docx",
+  },
+  "application/vnd.google-apps.spreadsheet": {
+    mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ext: "xlsx",
+  },
+  "application/vnd.google-apps.presentation": {
+    mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ext: "pptx",
+  },
+  "application/vnd.google-apps.drawing": { mime: "image/png", ext: "png" },
+};
+
+export function isWorkspaceFile(mimeType?: string | null): boolean {
+  return Boolean(mimeType && mimeType.startsWith("application/vnd.google-apps."));
+}
+
+/** Resolves the upload MIME type + file name for a source file. */
+export function resolveTransferTarget(file: {
+  name: string;
+  mimeType?: string | null;
+}): { mimeType: string; fileName: string } {
+  const exportInfo = file.mimeType ? WORKSPACE_EXPORT[file.mimeType] : undefined;
+  if (!exportInfo) {
+    return { mimeType: file.mimeType ?? "application/octet-stream", fileName: file.name };
+  }
+  const base = file.name.replace(/\.[a-z0-9]{1,8}$/i, "");
+  return { mimeType: exportInfo.mime, fileName: `${base}.${exportInfo.ext}` };
+}
+
+
 export type ScanResult = { scanned: number; items: number; skipped: number };
 
 export type RunResult = {
