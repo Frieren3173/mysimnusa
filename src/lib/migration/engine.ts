@@ -633,10 +633,24 @@ async function importOne(
         where: { staffId: staff.id, legacySourceId: legacyDocId },
       });
 
-      // Berkas sudah masuk (lokal atau link) — hanya data BARU yang ditarik
-      if (existing && (existing.storageKey || existing.legacyDriveUrl)) continue;
+      // Already linked to a production destination file → nothing to do (idempotent).
+      // A record that only has a legacy link is upgraded below to the migrated file.
+      if (existing && existing.storageKey && existing.storageProvider) continue;
 
       const status = deriveDocumentStatus(expiryDate, isLifetime);
+      const sourceDriveId = driveUrl ? extractDriveId(driveUrl) : null;
+
+      // If this source file was already migrated to the production storage
+      // provider, link the document to the DESTINATION file instead of the old
+      // source link. The storage_migration_items table is the authoritative
+      // sourceFileId → destinationFileId mapping.
+      const migrated = sourceDriveId
+        ? await tx.storageMigrationItem.findFirst({
+            where: { sourceFileId: sourceDriveId, status: "VERIFIED", destinationFileId: { not: null } },
+            select: { destinationFileId: true, destinationKey: true, mimeType: true, originalFilename: true, finalSize: true, finalChecksum: true },
+            orderBy: { processedAt: "desc" },
+          })
+        : null;
 
       const data = {
         staffId: staff.id,
@@ -645,13 +659,23 @@ async function importOne(
         isLifetime,
         status,
         legacySourceId: legacyDocId,
+        // Provenance: keep the original source id/url for auditing.
         legacyDriveUrl: driveUrl,
-        legacyDriveId: driveUrl ? extractDriveId(driveUrl) : null,
+        legacyDriveId: sourceDriveId,
+        storageProvider: migrated ? "google-drive" : null,
+        storageKey: migrated?.destinationKey ?? null,
+        fileId: migrated?.destinationFileId ?? null,
+        mimeType: migrated?.mimeType ?? null,
+        fileSize: migrated?.finalSize ?? null,
+        checksum: migrated?.finalChecksum ?? null,
         importedAt: new Date(),
-        filename: driveUrl ? null : fileVal,
-        storageKey: null,
+        filename: migrated?.originalFilename ?? (driveUrl ? null : fileVal),
         uploadedBy: userId,
-        notes: driveUrl ? "Diimpor dari XLSX — menunggu sinkronisasi Drive" : undefined,
+        notes: migrated
+          ? "Berkas telah dimigrasikan ke penyimpanan produksi (Google Drive tujuan)"
+          : driveUrl
+            ? "Diimpor dari XLSX — menunggu sinkronisasi Drive"
+            : undefined,
       };
 
       if (existing) {
@@ -661,8 +685,9 @@ async function importOne(
         docCount++;
       }
 
-      if (code === "FOTO" && driveUrl) {
-        await tx.staff.update({ where: { id: staff.id }, data: { photoUrl: driveUrl } });
+      if (code === "FOTO" && (migrated?.destinationKey || driveUrl)) {
+        // Prefer the migrated destination reference for the staff photo.
+        await tx.staff.update({ where: { id: staff.id }, data: { photoUrl: migrated?.destinationKey ?? driveUrl } });
       }
     }
 
