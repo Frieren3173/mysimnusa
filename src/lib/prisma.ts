@@ -1,20 +1,28 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon, PrismaNeonHTTP } from "@prisma/adapter-neon";
+import { PrismaNeon } from "@prisma/adapter-neon";
+
+/**
+ * Prisma client for the MYSIMNUSA production runtime (Vercel / Node.js).
+ *
+ * Design notes:
+ *  - A single PrismaClient is created per serverless instance and reused for
+ *    every request handled by that instance. The WASM query engine is therefore
+ *    instantiated once, not per request.
+ *  - The Neon driver adapter keeps a pooled WebSocket connection to Neon. In the
+ *    Node.js runtime this pool is safe to reuse across requests, which removes
+ *    the per-query HTTPS round-trip that the previous HTTP-endpoint adapter
+ *    incurred (that adapter existed only for the Cloudflare Workers runtime,
+ *    which is no longer used).
+ *  - The connection string is resolved lazily so the client can be constructed
+ *    during module evaluation (server startup) before env is guaranteed set.
+ *  - `withPrismaScope` is kept as a no-op wrapper for call-site compatibility.
+ *
+ * Postgres/Neon only ever holds metadata and structured data; document bytes
+ * live in Google Drive.
+ */
 
 export type PrismaEnv = { DATABASE_URL?: string } | undefined;
 type CtxLike = { waitUntil?: (p: Promise<unknown>) => void } | undefined;
-
-type NeonWsAdapter = Awaited<ReturnType<PrismaNeon["connect"]>>;
-type NeonHttpAdapter = Awaited<ReturnType<PrismaNeonHTTP["connect"]>>;
-
-/** Per-request state: the WebSocket pool used only when a transaction starts. */
-type Scope = { txPool?: Promise<NeonWsAdapter> };
-
-const requestScope = new AsyncLocalStorage<Scope>();
-
-// workerd always exposes the Cache Storage API, Node (vite/next build) does not.
-const inWorkers = typeof caches !== "undefined";
 
 let globalEnv: PrismaEnv;
 
@@ -29,134 +37,98 @@ function resolveUrl(): string | undefined {
 function requireUrl(): string {
   const url = resolveUrl();
   if (!url) {
-    throw new Error("[prisma] DATABASE_URL is not available in the Worker env or process.env");
+    throw new Error("[prisma] DATABASE_URL is not available in the environment");
   }
   return url;
 }
 
+type NeonAdapter = Awaited<ReturnType<PrismaNeon["connect"]>>;
+
 /**
- * Stateless adapter shared by every request.
- *
- * - Plain queries go over Neon's HTTP endpoint (`fetch()`), which workerd can
- *   reuse across requests and which costs a fraction of the CPU/connections of
- *   a WebSocket pool. This keeps per-request CPU low (the Worker's CPU budget
- *   is tiny) and avoids the "Cannot perform I/O on behalf of a different
- *   request" error entirely, because no I/O object outlives its request.
- * - Transactions cannot run over HTTP, so they open a WebSocket pool that is
- *   created lazily *inside the current request* (never reused across requests)
- *   and is torn down with the request context.
+ * Adapter that defers creating the Neon pool until the first query, so the
+ * connection string is read from the environment at the right time while the
+ * pool itself is reused for the lifetime of the instance.
  */
-class RequestScopedAdapter {
+class LazyNeonAdapter {
   readonly provider = "postgres" as const;
   readonly adapterName = "@prisma/adapter-neon";
   private readonly getUrl: () => string;
-  private http?: Promise<NeonHttpAdapter>;
-  private neon?: PrismaNeon;
-  private nodeTxPool?: Promise<NeonWsAdapter>;
+  private pool?: Promise<NeonAdapter>;
 
   constructor(getUrl: () => string) {
     this.getUrl = getUrl;
   }
 
-  private wsFactory(): PrismaNeon {
-    return (this.neon ??= new PrismaNeon({ connectionString: this.getUrl(), max: 5 }));
+  private adapter(): Promise<NeonAdapter> {
+    // max: 5 keeps well inside Neon's connection limits while allowing the small
+    // amount of parallelism a request may use.
+    return (this.pool ??= new PrismaNeon({ connectionString: this.getUrl(), max: 5 }).connect());
   }
 
-  private httpAdapter(): Promise<NeonHttpAdapter> {
-    return (this.http ??= new PrismaNeonHTTP(this.getUrl(), { arrayMode: true, fullResults: true }).connect());
+  queryRaw(query: Parameters<NeonAdapter["queryRaw"]>[0]) {
+    return this.adapter().then((a) => a.queryRaw(query));
   }
 
-  private txPool(): Promise<NeonWsAdapter> {
-    const scope = requestScope.getStore();
-    if (scope) {
-      scope.txPool ??= this.wsFactory().connect();
-      return scope.txPool;
-    }
-    if (inWorkers) {
-      throw new Error("[prisma] query executed outside withPrismaScope(); the Worker entry wrapper is missing");
-    }
-    this.nodeTxPool ??= this.wsFactory().connect();
-    return this.nodeTxPool;
-  }
-
-  queryRaw(query: Parameters<NeonHttpAdapter["queryRaw"]>[0]) {
-    return this.httpAdapter().then((adapter) => adapter.queryRaw(query));
-  }
-
-  executeRaw(query: Parameters<NeonHttpAdapter["executeRaw"]>[0]) {
-    return this.httpAdapter().then((adapter) => adapter.executeRaw(query));
+  executeRaw(query: Parameters<NeonAdapter["executeRaw"]>[0]) {
+    return this.adapter().then((a) => a.executeRaw(query));
   }
 
   executeScript(script: string) {
-    return this.httpAdapter().then((adapter) => adapter.executeScript(script));
+    return this.adapter().then((a) => a.executeScript(script));
   }
 
-  startTransaction(isolationLevel?: Parameters<NeonWsAdapter["startTransaction"]>[0]) {
-    return this.txPool().then((adapter) => adapter.startTransaction(isolationLevel));
+  startTransaction(isolationLevel?: Parameters<NeonAdapter["startTransaction"]>[0]) {
+    return this.adapter().then((a) => a.startTransaction(isolationLevel));
   }
 
-  getConnectionInfo(): ReturnType<NeonWsAdapter["getConnectionInfo"]> {
+  getConnectionInfo(): ReturnType<NeonAdapter["getConnectionInfo"]> {
     return { supportsRelationJoins: true };
   }
 
-  /** Nothing to release here: every I/O object belongs to the request that made it. */
   dispose(): Promise<void> {
     return Promise.resolve();
   }
 }
 
-class RequestScopedAdapterFactory {
+class LazyNeonAdapterFactory {
   readonly provider = "postgres" as const;
   readonly adapterName = "@prisma/adapter-neon";
-  private readonly adapter: RequestScopedAdapter;
+  private readonly adapter: LazyNeonAdapter;
 
   constructor(getUrl: () => string) {
-    this.adapter = new RequestScopedAdapter(getUrl);
+    this.adapter = new LazyNeonAdapter(getUrl);
   }
 
-  connect(): Promise<RequestScopedAdapter> {
+  connect(): Promise<LazyNeonAdapter> {
     return Promise.resolve(this.adapter);
   }
 }
 
-// The client (and its WASM query engine) is created once per Worker isolate,
-// during module evaluation, so that the engine startup CPU is charged to Worker
-// startup instead of to a user request. The database URL itself is resolved
-// lazily on the first query of each request, because it is only available there.
-const client = new PrismaClient({
-  adapter: new RequestScopedAdapterFactory(requireUrl),
-  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-});
+// Reuse a single client across hot reloads / module re-evaluation in dev and
+// across the instance lifetime in production.
+const globalForPrisma = globalThis as unknown as { __mysimnusaPrisma?: PrismaClient };
 
-// Warming the engine here keeps the first real request cheap.
-void client.$connect().catch(() => undefined);
+const client =
+  globalForPrisma.__mysimnusaPrisma ??
+  new PrismaClient({
+    adapter: new LazyNeonAdapterFactory(requireUrl),
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
 
-function getClient(): PrismaClient {
-  return client;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.__mysimnusaPrisma = client;
 }
 
+/** Kept for call-site compatibility; request scoping is no longer required. */
 export async function withPrismaScope<T>(fn: () => Promise<T>, ctx?: CtxLike): Promise<T> {
-  const scope: Scope = {};
-  try {
-    return await requestScope.run(scope, fn);
-  } finally {
-    // The Neon pool is created inside this request's I/O context, so workerd
-    // tears the socket down when the request context ends. Explicitly ending it
-    // here would only burn extra CPU inside `waitUntil`.
-    void ctx;
-  }
+  void ctx;
+  return fn();
 }
 
 export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop) {
-    try {
-      const client = getClient();
-      const value = Reflect.get(client, prop, client) as unknown;
-      if (typeof value === "function") return (value as (...args: unknown[]) => unknown).bind(client);
-      return value;
-    } catch (error) {
-      console.error("[prisma] Error accessing property:", String(prop), error);
-      throw error;
-    }
+  get(_target, prop) {
+    const value = Reflect.get(client, prop, client) as unknown;
+    if (typeof value === "function") return (value as (...args: unknown[]) => unknown).bind(client);
+    return value;
   },
 });
