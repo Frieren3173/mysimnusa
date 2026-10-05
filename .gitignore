@@ -58,4 +58,7 @@ verify-*.cjs
 survey*.mts
 pilot*.mts
 check-*.mjs
-check-*.cjs
+check-*.cjsimport-*.mts
+import-*.cjs
+full.mts
+full-*.mts
