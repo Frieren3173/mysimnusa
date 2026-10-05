@@ -55,6 +55,25 @@ export function isWorkspaceFile(mimeType?: string | null): boolean {
   return Boolean(mimeType && mimeType.startsWith("application/vnd.google-apps."));
 }
 
+/**
+ * Workspace types that have no downloadable/exportable binary form. Google
+ * Forms (and Sites) cannot be exported through the Drive API, so they are
+ * recorded as SKIPPED instead of failed — nothing is lost, they simply have no
+ * file representation to migrate.
+ */
+export const NON_EXPORTABLE_WORKSPACE = new Set([
+  "application/vnd.google-apps.form",
+  "application/vnd.google-apps.site",
+  "application/vnd.google-apps.jam",
+  "application/vnd.google-apps.map",
+  "application/vnd.google-apps.script",
+  "application/vnd.google-apps.shortcut",
+]);
+
+export function isNonExportable(mimeType?: string | null): boolean {
+  return Boolean(mimeType && NON_EXPORTABLE_WORKSPACE.has(mimeType));
+}
+
 /** Resolves the upload MIME type + file name for a source file. */
 export function resolveTransferTarget(file: {
   name: string;

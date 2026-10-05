@@ -105,12 +105,25 @@ async function createFolder(parentId: string | null, name: string): Promise<stri
 /** Resolves (creating when needed) the Drive folder for a logical path. */
 async function resolveFolder(path: string, parentId: string | null): Promise<string> {
   const cached = folderCache.get(path);
-  if (cached) return cached;
+  if (cached) {
+    const checkRes = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${cached}?fields=id,trashed`).catch(() => null);
+    if (checkRes?.ok) {
+      const checkJson = (await checkRes.json().catch(() => null)) as { trashed?: boolean } | null;
+      if (checkJson && !checkJson.trashed) return cached;
+    }
+    folderCache.delete(path);
+  }
 
   const stored = await readFolderRow(path);
   if (stored) {
-    folderCache.set(path, stored);
-    return stored;
+    const checkRes = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${stored}?fields=id,trashed`).catch(() => null);
+    if (checkRes?.ok) {
+      const checkJson = (await checkRes.json().catch(() => null)) as { trashed?: boolean } | null;
+      if (checkJson && !checkJson.trashed) {
+        folderCache.set(path, stored);
+        return stored;
+      }
+    }
   }
 
   const name = keySegments(path).pop()!;
