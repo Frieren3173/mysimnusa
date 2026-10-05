@@ -114,45 +114,57 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}
       aria-label="Navigasi utama"
     >
-      {/* Logo */}
-      <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-4">
+      {/* Branding */}
+      <div className="border-b border-slate-100 px-4 py-3">
         {collapsed ? (
-          <Image
-            src="/logo-rsajt.png"
-            alt="Logo RSAJT"
-            width={1430}
-            height={721}
-            priority
-            className="h-7 w-auto shrink-0"
-          />
-        ) : (
-          <>
+          <div className="flex h-8 items-center justify-center">
             <Image
               src="/logo-rsajt.png"
               alt="Logo RSAJT"
               width={1430}
               height={721}
               priority
-              className="h-8 w-auto shrink-0"
+              className="h-7 w-auto shrink-0"
             />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-tight text-slate-900 truncate">MYSIMNUSA</p>
-              <p className="text-[10px] leading-tight text-slate-500 truncate">
-                Manajemen Keperawatan &amp; Kebidanan
+          </div>
+        ) : (
+          <>
+            {/* Row 1: logo + MYSIMNUSA on the same horizontal line */}
+            <div className="flex items-center gap-2.5">
+              <Image
+                src="/logo-rsajt.png"
+                alt="Logo RSAJT"
+                width={1430}
+                height={721}
+                priority
+                className="h-8 w-auto shrink-0"
+              />
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-slate-900">
+                MYSIMNUSA
               </p>
+              <button
+                onClick={onToggle}
+                className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Ciutkan sidebar"
+              >
+                <Menu size={16} />
+              </button>
             </div>
+            {/* Row 2: committee subtitle spanning the full container width */}
+            <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+              Komite Keperawatan dan Kebidanan
+            </p>
           </>
         )}
-        <button
-          onClick={onToggle}
-          className={cn(
-            "rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors",
-            collapsed ? "mx-auto" : "shrink-0"
-          )}
-          aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
-        >
-          {collapsed ? <Menu size={16} /> : <Menu size={16} />}
-        </button>
+        {collapsed && (
+          <button
+            onClick={onToggle}
+            className="mx-auto mt-1 flex rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Perluas sidebar"
+          >
+            <Menu size={16} />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -189,7 +201,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <button
                 onClick={() => !collapsed && toggleGroup(item.label)}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100",
+                  "flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100",
                   isActiveGroup
                     ? "text-slate-900 font-semibold"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -199,11 +211,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <span className="shrink-0">{item.icon}</span>
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-left truncate">{item.label}</span>
+                    {/* Up to two lines, no ellipsis — full label stays readable. */}
+                    <span className="flex-1 text-left leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                      {item.label}
+                    </span>
                     <ChevronDown
                       size={14}
                       className={cn(
-                        "shrink-0 text-slate-400 transition-transform duration-150",
+                        "mt-0.5 shrink-0 text-slate-400 transition-transform duration-150",
                         isOpen && "rotate-180"
                       )}
                     />
