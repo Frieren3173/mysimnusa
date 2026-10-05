@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { FormField } from "@/components/ui/form";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 interface LoginState {
   error?: string;
@@ -15,6 +16,7 @@ export default function LoginForm() {
   const router = useRouter();
   const [state, setState] = React.useState<LoginState>({ loading: false });
   const [errors, setErrors] = React.useState<{ username?: string; password?: string }>({});
+  const [showPassword, setShowPassword] = React.useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -82,23 +84,37 @@ export default function LoginForm() {
         required
         error={errors.password}
       >
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="Masukkan password"
-          error={!!errors.password}
-          disabled={state.loading}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="Masukkan password"
+            error={!!errors.password}
+            disabled={state.loading}
+            className="pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+            aria-pressed={showPassword}
+            tabIndex={-1}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-500"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </FormField>
 
       {state.error && (
         <div
           role="alert"
-          className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
-          {state.error}
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{state.error}</span>
         </div>
       )}
 
@@ -109,7 +125,7 @@ export default function LoginForm() {
         loading={state.loading}
         className="w-full"
       >
-        {state.loading ? "Memproses..." : "Masuk"}
+        {state.loading ? "Memproses…" : "Masuk"}
       </Button>
     </form>
   );
