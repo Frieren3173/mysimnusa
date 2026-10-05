@@ -1,3 +1,4 @@
+import * as crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { googleFetch, type GoogleRole } from "@/lib/google/auth";
 import { keySegments, type ObjectMetadata, type PutInput, type PutResult, type StorageProvider, type StoredObject } from "./provider";
@@ -35,6 +36,16 @@ const ROOT_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER?.trim() || "MYSIMNUSA";
  * be written into the legacy SOURCE account.
  */
 const STORAGE_ROLE: GoogleRole = "DESTINATION";
+
+/**
+ * Google Drive limits `appProperties` to 124 bytes (key + value combined), so a
+ * long storage key cannot be stored verbatim. We store a short, deterministic
+ * token derived from the key and keep the full key in the file `description`
+ * (much larger limit) for auditing.
+ */
+function keyToken(key: string): string {
+  return crypto.createHash("sha256").update(key).digest("hex").slice(0, 24);
+}
 
 type CachedFolder = { name: string; driveId: string };
 
@@ -155,7 +166,10 @@ export class GoogleDriveStorage implements StorageProvider {
     const metadata = {
       name: fileName,
       parents: [parentId],
-      appProperties: { mysimnusaKey: input.key },
+      // Short token keeps us inside Drive's 124-byte appProperties limit.
+      appProperties: { mysimnusaKey: keyToken(input.key) },
+      // Full key retained for auditing (description allows far more bytes).
+      description: `MYSIMNUSA key: ${input.key}`,
     };
 
     // Multipart upload (metadata + bytes) in a single request.
@@ -178,12 +192,22 @@ export class GoogleDriveStorage implements StorageProvider {
   /** Resolves a storage key to a Drive file id, falling back to a name search. */
   private async resolveFileId(key: string): Promise<string | null> {
     const byProperty = `${DRIVE_FILES}?q=${encodeURIComponent(
-      `appProperties has { key='mysimnusaKey' and value='${escapeQuery(key)}' } and trashed=false`,
+      `appProperties has { key='mysimnusaKey' and value='${keyToken(key)}' } and trashed=false`,
     )}&fields=files(id)&pageSize=1`;
     const res = await googleFetch(STORAGE_ROLE, byProperty);
     if (res.ok) {
       const json = (await res.json()) as { files?: { id: string }[] };
       if (json.files?.[0]?.id) return json.files[0].id;
+    }
+
+    // Fallback: exact description match (covers legacy/plain keys).
+    const byDesc = `${DRIVE_FILES}?q=${encodeURIComponent(
+      `description='MYSIMNUSA key: ${escapeQuery(key)}' and trashed=false`,
+    )}&fields=files(id)&pageSize=1`;
+    const res1 = await googleFetch(STORAGE_ROLE, byDesc);
+    if (res1.ok) {
+      const json1 = (await res1.json()) as { files?: { id: string }[] };
+      if (json1.files?.[0]?.id) return json1.files[0].id;
     }
 
     // Fallback: newest non-trashed file with the same name (legacy records).
