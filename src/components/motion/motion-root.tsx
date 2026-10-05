@@ -36,12 +36,9 @@ const PARALLAX_Y = -40;
 const PARALLAX_START = "top bottom";
 const PARALLAX_END = "bottom top";
 
-const CURSOR_HOVER_SCALE = 4;
-const CURSOR_LERP = 0.15;
-const CURSOR_FADE_DURATION = 0.2;
-const CURSOR_HOVER_DURATION = 0.3;
-const CURSOR_HOVER_TARGETS =
-  "a,button,[role='button'],input,textarea,select,label,summary";
+// Pointer parallax: bounded, transform-only, driven by one rAF loop.
+const PARALLAX_POINTER_MAX = 18; // px — max displacement at depth 1
+const PARALLAX_POINTER_LERP = 0.09; // follow smoothing (lower = smoother/slower)
 
 const MAGNETIC_MAX = 8;
 const MAGNETIC_TRACKING = 0.25;
@@ -60,6 +57,7 @@ const INTRO_CHILD_QUERY = "[data-motion-intro-child]";
 const REVEAL_QUERY = "[data-motion-reveal]";
 const FOOTER_QUERY = "[data-motion-footer]";
 const PARALLAX_QUERY = "[data-motion-parallax]";
+const PARALLAX_POINTER_QUERY = "[data-motion-pointer]";
 const MAGNETIC_QUERY = "[data-motion-magnetic]";
 const LABELLED_QUERY = [
   HEADLINE_QUERY,
@@ -69,6 +67,7 @@ const LABELLED_QUERY = [
   REVEAL_QUERY,
   FOOTER_QUERY,
   PARALLAX_QUERY,
+  PARALLAX_POINTER_QUERY,
   MAGNETIC_QUERY,
 ].join(",");
 
@@ -108,7 +107,7 @@ export default function MotionRoot() {
     const splits: Array<{ split: SplitLike; el: HTMLElement }> = [];
 
     const failVisible = () => {
-      docEl.classList.remove("motion-primed", "motion-cursor-on");
+      docEl.classList.remove("motion-primed");
     };
 
     void (async () => {
@@ -315,15 +314,23 @@ export default function MotionRoot() {
             );
           });
 
+          // ── Parallax ─────────────────────────────────────────────────────
+          // Depth comes from two cheap, compositor-friendly sources:
+          //   1. scroll  — each layer moves at its own speed (scrub)
+          //   2. pointer — a single listener feeds ONE rAF loop that writes
+          //                translate3d() to a few layers (no React state, no
+          //                layout properties, transform only).
           queryAll<HTMLElement>(PARALLAX_QUERY).forEach((el) => {
             if (el.dataset.motionDone === "1") return;
             el.dataset.motionDone = "1";
+            const depth = Number(el.dataset.motionDepth ?? "1") || 1;
+            const scrollRange = PARALLAX_Y * depth;
             trackTrigger(
               gsap.fromTo(
                 el,
                 { y: 0 },
                 {
-                  y: PARALLAX_Y,
+                  y: scrollRange,
                   ease: "none",
                   immediateRender: false,
                   scrollTrigger: {
@@ -336,6 +343,68 @@ export default function MotionRoot() {
               )
             );
           });
+
+          // Pointer parallax: one passive listener, one rAF loop, transform-only.
+          const pointerLayers = queryAll<HTMLElement>(PARALLAX_POINTER_QUERY).filter(
+            (el) => !el.dataset.motionPointerReady
+          );
+          if (pointerLayers.length > 0 && !noHover) {
+            pointerLayers.forEach((el) => (el.dataset.motionPointerReady = "1"));
+
+            const state = {
+              targetX: 0,
+              targetY: 0,
+              currentX: 0,
+              currentY: 0,
+              running: false,
+              frame: 0,
+            };
+
+            const onPointerMove = (event: MouseEvent) => {
+              // Normalised offset from viewport centre, clamped to [-1, 1].
+              const w = window.innerWidth || 1;
+              const h = window.innerHeight || 1;
+              state.targetX = clamp(((event.clientX - w / 2) / (w / 2)), -1, 1);
+              state.targetY = clamp(((event.clientY - h / 2) / (h / 2)), -1, 1);
+              if (!state.running) {
+                state.running = true;
+                state.frame = requestAnimationFrame(tick);
+              }
+            };
+
+            const tick = () => {
+              // Critically damped-ish follow; stops when settled to save CPU.
+              state.currentX += (state.targetX - state.currentX) * PARALLAX_POINTER_LERP;
+              state.currentY += (state.targetY - state.currentY) * PARALLAX_POINTER_LERP;
+
+              for (const el of pointerLayers) {
+                const strength = Number(el.dataset.motionDepth ?? "1") || 1;
+                const tx = state.currentX * PARALLAX_POINTER_MAX * strength;
+                const ty = state.currentY * PARALLAX_POINTER_MAX * strength;
+                el.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0)`;
+              }
+
+              const settled =
+                Math.abs(state.targetX - state.currentX) < 0.001 &&
+                Math.abs(state.targetY - state.currentY) < 0.001;
+
+              if (settled) {
+                state.running = false;
+                return;
+              }
+              state.frame = requestAnimationFrame(tick);
+            };
+
+            document.addEventListener("mousemove", onPointerMove, { passive: true });
+            disposers.push(() => {
+              document.removeEventListener("mousemove", onPointerMove);
+              if (state.frame) cancelAnimationFrame(state.frame);
+              for (const el of pointerLayers) {
+                el.style.transform = "";
+                delete el.dataset.motionPointerReady;
+              }
+            });
+          }
 
           if (noHover) return;
 
@@ -388,70 +457,10 @@ export default function MotionRoot() {
         });
 
         if (!noHover) {
-          const cursorEl = document.createElement("div");
-          cursorEl.className = "motion-cursor";
-          cursorEl.setAttribute("aria-hidden", "true");
-          document.body.appendChild(cursorEl);
-          docEl.classList.add("motion-cursor-on");
-
-          let targetX = window.innerWidth / 2;
-          let targetY = window.innerHeight / 2;
-          let posX = targetX;
-          let posY = targetY;
-          let visible = false;
-
-          const onMove = (event: MouseEvent) => {
-            targetX = event.clientX;
-            targetY = event.clientY;
-            if (!visible) {
-              visible = true;
-              posX = targetX;
-              posY = targetY;
-              gsap.to(cursorEl, {
-                opacity: 1,
-                duration: CURSOR_FADE_DURATION,
-                overwrite: "auto",
-              });
-            }
-          };
-          const onLeave = () => {
-            visible = false;
-            gsap.to(cursorEl, {
-              opacity: 0,
-              duration: CURSOR_FADE_DURATION,
-              overwrite: "auto",
-            });
-          };
-          const onOver = (event: MouseEvent) => {
-            const target = event.target as Element | null;
-            const hit = target?.closest?.(CURSOR_HOVER_TARGETS);
-            gsap.to(cursorEl, {
-              scale: hit ? CURSOR_HOVER_SCALE : 1,
-              duration: CURSOR_HOVER_DURATION,
-              ease: "power3.out",
-              overwrite: "auto",
-            });
-          };
-          const cursorTick = () => {
-            posX += (targetX - posX) * CURSOR_LERP;
-            posY += (targetY - posY) * CURSOR_LERP;
-            gsap.set(cursorEl, { x: posX, y: posY, xPercent: -50, yPercent: -50 });
-          };
-
-          document.addEventListener("mousemove", onMove, { passive: true });
-          document.addEventListener("mouseleave", onLeave);
-          document.addEventListener("mouseover", onOver, { passive: true });
-          gsap.ticker.add(cursorTick);
-
-          disposers.push(() => {
-            gsap.ticker.remove(cursorTick);
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseleave", onLeave);
-            document.removeEventListener("mouseover", onOver);
-            gsap.killTweensOf(cursorEl);
-            cursorEl.remove();
-            docEl.classList.remove("motion-cursor-on");
-          });
+          // NOTE: A custom cursor ("motion-cursor") used to be created here. It hid
+          // the native cursor (`cursor: none`) and rendered a blend-mode dot that
+          // appeared as a sluggish black dot on some machines/browsers. The native
+          // browser cursor is now always used — no custom cursor is created.
         }
 
         scan();

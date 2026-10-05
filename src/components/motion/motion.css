@@ -2,7 +2,21 @@
   --motion-underline-dur: 400ms;
   --motion-underline-ease: cubic-bezier(0.33, 1, 0.68, 1);
   --motion-arrow-nudge: 4px;
-  --motion-cursor-size: 10px;
+}
+
+/* Parallax layers are the only continuously-transformed elements, so a
+   will-change hint is justified. It is scoped narrowly to avoid promoting
+   large numbers of elements. */
+[data-motion-pointer] {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-pointer] {
+    will-change: auto;
+    transform: none !important;
+  }
 }
 
 @keyframes motion-show {
@@ -39,25 +53,9 @@ html.lenis body {
   height: auto;
 }
 
-html.motion-cursor-on,
-html.motion-cursor-on * {
-  cursor: none !important;
-}
-
-.motion-cursor {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: var(--motion-cursor-size);
-  height: var(--motion-cursor-size);
-  border-radius: 9999px;
-  background: #ffffff;
-  mix-blend-mode: difference;
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 0;
-  will-change: transform;
-}
+/* NOTE: the custom cursor (`html.motion-cursor-on` + `.motion-cursor`) was removed.
+   It hid the native cursor and could render as a sluggish black dot. MYSIMNUSA now
+   always uses the browser's native cursor. */
 
 .motion-underline {
   position: relative;

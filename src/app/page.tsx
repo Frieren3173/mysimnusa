@@ -96,12 +96,30 @@ export default function Home() {
       <main id="main-content" className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-slate-200 bg-white">
+          {/* Depth layer 1 (background) — slowest movement */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_70%_-10%,rgba(37,99,235,0.06),transparent)]"
+            data-motion-pointer
+            data-motion-depth="0.35"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_70%_-10%,rgba(37,99,235,0.07),transparent)]"
           />
+          {/* Depth layer 2 (midground decoration) — moderate movement */}
+          <div
+            aria-hidden="true"
+            data-motion-pointer
+            data-motion-depth="0.7"
+            className="pointer-events-none absolute -left-16 top-24 h-64 w-64 rounded-full bg-blue-100/40 blur-2xl sm:h-80 sm:w-80"
+          />
+          {/* Depth layer 3 (foreground decoration) — stronger movement */}
+          <div
+            aria-hidden="true"
+            data-motion-pointer
+            data-motion-depth="1.25"
+            className="pointer-events-none absolute right-10 top-16 hidden h-40 w-40 rounded-full border border-slate-200/70 bg-white/50 backdrop-blur-sm lg:block"
+          />
+
           <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:py-28">
-            <div data-motion-parallax>
+            <div data-motion-parallax data-motion-pointer data-motion-depth="0.45">
               <p
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
                 data-motion-intro-child
@@ -147,7 +165,12 @@ export default function Home() {
             </div>
 
             {/* Capability panel */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-sm" data-motion-reveal>
+            <div
+              className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-sm"
+              data-motion-reveal
+              data-motion-pointer
+              data-motion-depth="0.9"
+            >
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                 Fondasi sistem
               </p>
