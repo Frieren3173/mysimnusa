@@ -8,6 +8,7 @@ import { Badge, DocumentStatusBadge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/utils";
+import { StaffPhoto } from "./staff-photo";
 
 interface StaffDetail {
   id: string;
@@ -135,9 +136,7 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 shrink-0 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-lg font-bold text-slate-500">
-                      {staff.name.charAt(0)}
-                    </div>
+                    <StaffPhoto name={staff.name} photoDocId={staff.documents.find((d) => d.documentType.code === "FOTO")?.id ?? null} size="lg" />
                     <div className="min-w-0">
                       <h3 className="text-base font-bold text-slate-900">{staff.name}</h3>
                       <p className="text-xs text-slate-500">

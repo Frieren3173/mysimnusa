@@ -4,6 +4,7 @@ import * as React from "react";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { StaffDetailButton } from "./staff-detail-modal";
+import { StaffPhoto } from "./staff-photo";
 import { Loader2 } from "lucide-react";
 
 /**
@@ -217,7 +218,7 @@ export function StaffTable({
                 <Td className="text-xs tabular-nums text-slate-500">{i + 1}</Td>
                 <Td>
                   <div className="flex items-center gap-2.5">
-                    <StaffAvatar name={s.name} docId={s.photoDocId} />
+                    <StaffPhoto name={s.name} photoDocId={s.photoDocId} />
                     <StaffDetailButton staffId={s.id}>{s.name}</StaffDetailButton>
                   </div>
                 </Td>
@@ -250,34 +251,5 @@ export function StaffTable({
         )}
       </div>
     </div>
-  );
-}
-
-/** Avatar that shows the staff photo (via authenticated document route) or initials. */
-function StaffAvatar({ name, docId }: { name: string; docId: string | null }) {
-  const [failed, setFailed] = React.useState(false);
-  const initials = name
-    .replace(/^(Ns\.|Bdn\.|Dr\.|dr\.)\s*/i, "")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
-
-  if (docId && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`/api/documents/${docId}/download`}
-        alt=""
-        loading="lazy"
-        onError={() => setFailed(true)}
-        className="h-8 w-8 shrink-0 rounded-full border border-slate-200 object-cover"
-      />
-    );
-  }
-
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-[11px] font-bold text-slate-500">
-      {initials}
-    </span>
   );
 }

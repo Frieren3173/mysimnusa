@@ -1,44 +1,36 @@
 "use client";
 
 import * as React from "react";
-import { X, FileText } from "lucide-react";
+import { X, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 /**
- * Clickable competency cell. Opens a dialog listing the staff member's
- * certificates for that competency, loaded on demand from the application API
- * (never directly from Google Drive).
+ * Competency badge.
+ *
+ * Two distinct layers are surfaced:
+ *   1. The competency itself (from the legacy spreadsheet) — always shown.
+ *   2. The certificate file (from migrated Documents) — shown when available.
+ *
+ * A competency whose certificate was outside the earlier file migration still
+ * appears here; clicking it clearly states the file is not yet available.
  */
 
-type Cert = {
+export type CertificateInfo = {
   id: string;
   filename: string | null;
   expiryDate: string | null;
-  isLifetime: boolean;
-  status: string;
-  hasFile: boolean;
-};
+} | null;
 
-const STATUS_VARIANT: Record<string, "active" | "expiring" | "expired"> = {
-  ACTIVE: "active",
-  EXPIRING: "expiring",
-  EXPIRED: "expired",
-  LIFETIME: "active",
-  MISSING: "expired",
-};
-
-export function CompetencyCellButton({
-  staffId,
+export function CompetencyBadgeButton({
   staffName,
   code,
   label,
-  children,
+  certificate,
 }: {
-  staffId: string;
   staffName: string;
   code: string;
   label: string;
-  children: React.ReactNode;
+  certificate: CertificateInfo;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -47,17 +39,20 @@ export function CompetencyCellButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-        aria-label={`Lihat sertifikat ${label} untuk ${staffName}`}
+        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+        style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8" }}
+        title={label}
       >
-        {children}
+        {label}
+        {!certificate && <AlertCircle className="h-3 w-3 opacity-60" aria-hidden="true" />}
       </button>
+
       {open && (
         <CompetencyModal
-          staffId={staffId}
           staffName={staffName}
           code={code}
           label={label}
+          certificate={certificate}
           onClose={() => setOpen(false)}
         />
       )}
@@ -66,38 +61,18 @@ export function CompetencyCellButton({
 }
 
 function CompetencyModal({
-  staffId,
   staffName,
   code,
   label,
+  certificate,
   onClose,
 }: {
-  staffId: string;
   staffName: string;
   code: string;
   label: string;
+  certificate: CertificateInfo;
   onClose: () => void;
 }) {
-  const [certs, setCerts] = React.useState<Cert[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/komite/staff/${staffId}/documents?type=${encodeURIComponent(code)}`);
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error?.message ?? "Gagal memuat sertifikat");
-        if (!cancelled) setCerts(json.data?.documents ?? []);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Gagal memuat sertifikat");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [staffId, code]);
-
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -111,10 +86,10 @@ function CompetencyModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Kompetensi ${label}`}
-        className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-lg bg-white shadow-xl"
+        className="relative w-full max-w-md rounded-lg bg-white shadow-xl"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">Kompetensi {label}</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Detail Kompetensi</h2>
           <button
             type="button"
             onClick={onClose}
@@ -137,51 +112,52 @@ function CompetencyModal({
             </div>
           </div>
 
-          {error && <p className="text-xs text-red-600">{error}</p>}
-          {!error && certs === null && <p className="text-xs text-slate-400">Memuat sertifikat…</p>}
-          {!error && certs?.length === 0 && (
-            <p className="text-xs text-slate-400">Tidak ada dokumen untuk kompetensi ini.</p>
+          <div className="rounded-md border border-slate-200 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Status data</p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Kompetensi tercatat pada data sumber
+            </p>
+          </div>
+
+          {certificate ? (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-slate-800">
+                    {certificate.filename ?? `${label} — sertifikat`}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {certificate.expiryDate
+                      ? `Berakhir: ${new Date(certificate.expiryDate).toLocaleDateString("id-ID")}`
+                      : "Tanpa tanggal berakhir"}
+                  </p>
+                </div>
+              </div>
+              <a
+                href={`/api/documents/${certificate.id}/download`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Buka Sertifikat
+              </a>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-800">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Data kompetensi tersedia, tetapi file sertifikat belum tersedia di penyimpanan MYSIMNUSA.
+              </span>
+            </div>
           )}
 
-          {certs && certs.length > 0 && (
-            <ul className="space-y-2">
-              {certs.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-slate-800">
-                        {c.filename ?? `${label} — sertifikat`}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        {c.isLifetime
-                          ? "Seumur hidup"
-                          : c.expiryDate
-                            ? `Berakhir: ${new Date(c.expiryDate).toLocaleDateString("id-ID")}`
-                            : "Tanpa tanggal berakhir"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={STATUS_VARIANT[c.status] ?? "expiring"}>{c.status}</Badge>
-                    {c.hasFile && (
-                      <a
-                        href={`/api/documents/${c.id}/download`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Buka
-                      </a>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="flex justify-end">
+            <Badge variant="default" showDot={false}>
+              {code}
+            </Badge>
+          </div>
         </div>
       </div>
     </div>

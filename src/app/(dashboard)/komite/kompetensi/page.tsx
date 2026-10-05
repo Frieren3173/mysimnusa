@@ -7,31 +7,9 @@ import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { Award } from "lucide-react";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
-import { CompetencyCellButton } from "./competency-cell";
+import { CompetencyBadgeButton } from "./competency-cell";
 
 export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" };
-
-/**
- * Competency codes are derived from certificate Documents (the authoritative
- * record of what a staff member actually holds) — NOT from a manually filled
- * StaffCompetency table. The mapping mirrors the legacy spreadsheet's
- * "SERTIF KOMPETENSI …" columns.
- */
-const COMPETENCY_CODES = [
-  "BTCLS",
-  "ACLS",
-  "BEDAH",
-  "ICU",
-  "PICU",
-  "NICU",
-  "HEMODIALISA",
-  "CATHLAB",
-  "PPGDON",
-  "APN",
-  "KD",
-  "RN",
-  "LAINNYA",
-] as const;
 
 const PAGE_SIZE = 40;
 
@@ -50,10 +28,11 @@ export default async function KompetensiPage({
     name: string;
     nip: string | null;
     room: { name: string } | null;
+    competencies: { competency: { code: string; name: string } }[];
   }[] = [];
   let total = 0;
-  let docs: { staffId: string; documentTypeId: string; documentType: { code: string }; id: string }[] = [];
-  const docTypes: { id: string; code: string }[] = [];
+  // certificate availability per (staffId|code)
+  const certByStaffCode = new Map<string, { id: string; filename: string | null; expiryDate: string | null }>();
 
   try {
     const where = search
@@ -67,38 +46,41 @@ export default async function KompetensiPage({
         orderBy: { name: "asc" },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
-        select: { id: true, name: true, nip: true, room: { select: { name: true } } },
+        select: {
+          id: true,
+          name: true,
+          nip: true,
+          room: { select: { name: true } },
+          competencies: { select: { competency: { select: { code: true, name: true } } } },
+        },
       }),
     ]);
 
-    const types = await prisma.documentType.findMany({
-      where: { code: { in: [...COMPETENCY_CODES] } },
-      select: { id: true, code: true },
-    });
-    docTypes.push(...types);
-
+    // Certificate files (Layer 2) for the staff on this page — one query, no N+1.
     const staffIds = staffRows.map((s) => s.id);
-    const typeIds = types.map((t) => t.id);
-    if (staffIds.length && typeIds.length) {
-      docs = await prisma.document.findMany({
-        where: { staffId: { in: staffIds }, documentTypeId: { in: typeIds } },
-        select: { id: true, staffId: true, documentTypeId: true, documentType: { select: { code: true } } },
+    const codes = [...new Set(staffRows.flatMap((s) => s.competencies.map((c) => c.competency.code)))];
+    if (staffIds.length && codes.length) {
+      const docs = await prisma.document.findMany({
+        where: { staffId: { in: staffIds }, documentType: { code: { in: codes } } },
+        select: { id: true, staffId: true, filename: true, expiryDate: true, documentType: { select: { code: true } } },
+        orderBy: { createdAt: "asc" },
       });
+      for (const d of docs) {
+        const key = `${d.staffId}|${d.documentType.code}`;
+        if (!certByStaffCode.has(key)) {
+          certByStaffCode.set(key, {
+            id: d.id,
+            filename: d.filename,
+            expiryDate: d.expiryDate?.toISOString() ?? null,
+          });
+        }
+      }
     }
   } catch {
     // DB not ready
   }
 
-  const ownedByStaff = new Map<string, Set<string>>();
-  for (const d of docs) {
-    const set = ownedByStaff.get(d.staffId) ?? new Set<string>();
-    set.add(d.documentType.code);
-    ownedByStaff.set(d.staffId, set);
-  }
-
-  const typeLabel = (code: string) => code.replace("_", " ");
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   const buildHref = (p: number) => {
     const q = new URLSearchParams();
     if (search) q.set("search", search);
@@ -119,12 +101,12 @@ export default async function KompetensiPage({
         role: currentUser.roles[0] ?? "Komite",
       }}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Matriks Kompetensi</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Kepemilikan sertifikat kompetensi per tenaga — berdasarkan dokumen yang tersimpan
+            <p className="mt-0.5 text-xs text-slate-500">
+              Seluruh kompetensi per tenaga berdasarkan data sumber. Klik badge untuk melihat sertifikat.
             </p>
           </div>
           <form action="/komite/kompetensi">
@@ -132,8 +114,8 @@ export default async function KompetensiPage({
               type="search"
               name="search"
               defaultValue={search ?? ""}
-              placeholder="Cari nama atau NIP..."
-              className="h-8 rounded border border-slate-200 px-3 text-xs w-60 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Cari nama atau NIP…"
+              className="h-8 w-60 rounded border border-slate-200 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </form>
         </div>
@@ -144,19 +126,15 @@ export default async function KompetensiPage({
               <TableHeader>
                 <TableRow>
                   <Th className="w-12">No</Th>
-                  <Th>Tenaga</Th>
-                  <Th>Ruangan</Th>
-                  {COMPETENCY_CODES.map((code) => (
-                    <Th key={code} className="text-center whitespace-nowrap">
-                      {typeLabel(code)}
-                    </Th>
-                  ))}
+                  <Th className="min-w-[200px]">Nama</Th>
+                  <Th className="whitespace-nowrap">Ruangan</Th>
+                  <Th className="min-w-[280px]">Kompetensi</Th>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {staffRows.length === 0 ? (
                   <TableRow>
-                    <Td colSpan={3 + COMPETENCY_CODES.length}>
+                    <Td colSpan={4}>
                       <EmptyState
                         title="Belum ada data tenaga"
                         description="Data muncul setelah tenaga terdaftar."
@@ -166,43 +144,39 @@ export default async function KompetensiPage({
                   </TableRow>
                 ) : (
                   staffRows.map((s, i) => {
-                    const owned = ownedByStaff.get(s.id) ?? new Set<string>();
+                    const comps = s.competencies
+                      .map((c) => c.competency)
+                      .sort((a, b) => a.name.localeCompare(b.name));
                     return (
                       <TableRow key={s.id}>
                         <Td className="text-xs tabular-nums text-slate-500">
                           {(page - 1) * PAGE_SIZE + i + 1}
                         </Td>
-                        <Td className="text-sm font-medium whitespace-nowrap">
+                        <Td className="text-sm font-medium">
                           <StaffDetailButton staffId={s.id}>{s.name}</StaffDetailButton>
+                          {s.nip && <p className="font-mono text-[11px] text-slate-400">{s.nip}</p>}
                         </Td>
-                        <Td className="text-xs whitespace-nowrap">{s.room?.name ?? "—"}</Td>
-                        {COMPETENCY_CODES.map((code) => {
-                          const has = owned.has(code);
-                          const docType = docTypes.find((t) => t.code === code);
-                          return (
-                            <Td key={code} className="text-center">
-                              {has && docType ? (
-                                <CompetencyCellButton
-                                  staffId={s.id}
-                                  staffName={s.name}
-                                  code={code}
-                                  label={typeLabel(code)}
-                                >
-                                  <span
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-50 text-xs font-bold text-green-600 hover:bg-green-100"
-                                    aria-label={`Punya ${typeLabel(code)}`}
-                                  >
-                                    ✓
-                                  </span>
-                                </CompetencyCellButton>
-                              ) : (
-                                <span className="text-slate-300" aria-label={`Tidak punya ${typeLabel(code)}`}>
-                                  —
-                                </span>
-                              )}
-                            </Td>
-                          );
-                        })}
+                        <Td className="whitespace-nowrap text-xs">{s.room?.name ?? "—"}</Td>
+                        <Td>
+                          {comps.length === 0 ? (
+                            <span className="text-slate-300">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {comps.map((c) => {
+                                const cert = certByStaffCode.get(`${s.id}|${c.code}`);
+                                return (
+                                  <CompetencyBadgeButton
+                                    key={c.code}
+                                    staffName={s.name}
+                                    code={c.code}
+                                    label={c.name}
+                                    certificate={cert ?? null}
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
+                        </Td>
                       </TableRow>
                     );
                   })
@@ -212,7 +186,6 @@ export default async function KompetensiPage({
           </div>
         </Section>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between text-xs text-slate-500">
             <p>
@@ -220,18 +193,12 @@ export default async function KompetensiPage({
             </p>
             <div className="flex gap-2">
               {page > 1 && (
-                <a
-                  href={buildHref(page - 1)}
-                  className="rounded border border-slate-200 px-3 py-1.5 hover:bg-slate-50"
-                >
+                <a href={buildHref(page - 1)} className="rounded border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
                   ← Sebelumnya
                 </a>
               )}
               {page < totalPages && (
-                <a
-                  href={buildHref(page + 1)}
-                  className="rounded border border-slate-200 px-3 py-1.5 hover:bg-slate-50"
-                >
+                <a href={buildHref(page + 1)} className="rounded border border-slate-200 px-3 py-1.5 hover:bg-slate-50">
                   Selanjutnya →
                 </a>
               )}
