@@ -3,8 +3,8 @@
 // Spec: Backend.md, Architecture.md
 
 generator client {
-  provider      = "prisma-client-js"
-  engineType    = "client"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -17,19 +17,19 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  username      String    @unique
-  email         String    @unique
-  passwordHash  String
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  staff         Staff?
-  sessions      Session[]
-  userRoles     UserRole[]
-  auditLogs     AuditLog[]
+  staff            Staff?
+  sessions         Session[]
+  userRoles        UserRole[]
+  auditLogs        AuditLog[]
   migrationBatches MigrationBatch[]
 
   @@map("users")
@@ -44,7 +44,7 @@ model Session {
   ipAddress String?
   userAgent String?
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -64,11 +64,11 @@ model Role {
 }
 
 model Permission {
-  id     String @id @default(cuid())
-  code   String @unique // module.resource.action e.g. komite.staff.read
-  module String
+  id       String @id @default(cuid())
+  code     String @unique // module.resource.action e.g. komite.staff.read
+  module   String
   resource String
-  action String
+  action   String
 
   rolePermissions RolePermission[]
 
@@ -111,7 +111,7 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  rooms     Room[]
+  rooms Room[]
 
   @@map("departments")
 }
@@ -127,9 +127,9 @@ model Room {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  department   Department? @relation(fields: [departmentId], references: [id])
-  staff        Staff[]
-  borangEntries BorangEntry[]
+  department     Department?         @relation(fields: [departmentId], references: [id])
+  staff          Staff[]
+  borangEntries  BorangEntry[]
   nursingActions RoomNursingAction[]
 
   @@map("rooms")
@@ -149,8 +149,8 @@ model NursingAction {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  rooms       RoomNursingAction[]
-  entries     BorangEntry[]
+  rooms   RoomNursingAction[]
+  entries BorangEntry[]
 
   @@map("nursing_actions")
 }
@@ -182,7 +182,7 @@ model Staff {
   phone            String?
   address          String?
   dateOfBirth      DateTime?
-  profession       String    // Perawat, Bidan, dll
+  profession       String // Perawat, Bidan, dll
   roomId           String?
   employmentStatus String    @default("ACTIVE") // ACTIVE, INACTIVE, RESIGNED, RETIRED
   photoUrl         String?
@@ -191,20 +191,20 @@ model Staff {
   updatedAt        DateTime  @updatedAt
 
   // Migration tracking
-  legacySourceId   String?
-  importedAt       DateTime?
+  legacySourceId String?
+  importedAt     DateTime?
 
-  user             User?              @relation(fields: [userId], references: [id])
-  room             Room?              @relation(fields: [roomId], references: [id])
-  employment       StaffEmployment?
-  education        StaffEducation[]
-  documents        Document[]
-  competencies     StaffCompetency[]
-  borangEntries    BorangEntry[]
+  user                 User?                 @relation(fields: [userId], references: [id])
+  room                 Room?                 @relation(fields: [roomId], references: [id])
+  employment           StaffEmployment?
+  education            StaffEducation[]
+  documents            Document[]
+  competencies         StaffCompetency[]
+  borangEntries        BorangEntry[]
   trainingParticipants TrainingParticipant[]
-  notifications    Notification[]
-  auditLogs        AuditLog[]        @relation("StaffAuditLogs")
-  migrationItems   MigrationItem[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]            @relation("StaffAuditLogs")
+  migrationItems       MigrationItem[]
 
   @@index([name])
   @@index([nip])
@@ -214,32 +214,32 @@ model Staff {
 }
 
 model StaffEmployment {
-  id             String    @id @default(cuid())
-  staffId        String    @unique
-  joinDate       DateTime?
-  position       String?
-  employeeType   String?   // PNS, KONTRAK, MAGANG
-  workUnit       String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  staffId      String    @unique
+  joinDate     DateTime?
+  position     String?
+  employeeType String? // PNS, KONTRAK, MAGANG
+  workUnit     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  staff          Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@map("staff_employment")
 }
 
 model StaffEducation {
-  id           String   @id @default(cuid())
-  staffId      String
-  level        String   // D3, D4, S1, S2, S3, SPK
-  institution  String
-  major        String?
+  id             String   @id @default(cuid())
+  staffId        String
+  level          String // D3, D4, S1, S2, S3, SPK
+  institution    String
+  major          String?
   graduationYear Int?
-  documentUrl  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  documentUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@map("staff_education")
 }
@@ -257,40 +257,43 @@ model DocumentType {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  documents   Document[]
+  documents Document[]
 
   @@map("document_types")
 }
 
 model Document {
-  id             String   @id @default(cuid())
-  staffId        String
-  documentTypeId String
-  number         String?  // nomor STR, SIP, dll
-  fileId         String?
-  storageKey     String?
-  filename       String?
-  mimeType       String?
-  fileSize       Int?
-  issueDate      DateTime?
-  expiryDate     DateTime?
-  isLifetime     Boolean  @default(false)
-  status         DocumentStatus @default(MISSING)
-  notes          String?
-  uploadedBy     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String         @id @default(cuid())
+  staffId         String
+  documentTypeId  String
+  number          String? // nomor STR, SIP, dll
+  fileId          String?
+  storageKey      String?
+  /// Which storage backend holds the bytes: google-drive | r2 | local
+  storageProvider String?
+  filename        String?
+  mimeType        String?
+  fileSize        Int?
+  checksum        String?
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  isLifetime      Boolean        @default(false)
+  status          DocumentStatus @default(MISSING)
+  notes           String?
+  uploadedBy      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Migration tracking
-  legacySourceId  String?
-  legacyDriveId   String?
-  legacyDriveUrl  String?
-  lastSyncError   String?
-  importedAt      DateTime?
-  importChecksum  String?
+  legacySourceId String?
+  legacyDriveId  String?
+  legacyDriveUrl String?
+  lastSyncError  String?
+  importedAt     DateTime?
+  importChecksum String?
 
-  staff          Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  documentType   DocumentType @relation(fields: [documentTypeId], references: [id])
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id])
 
   @@index([staffId])
   @@index([documentTypeId])
@@ -324,18 +327,18 @@ model Competency {
 }
 
 model StaffCompetency {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   staffId      String
   competencyId String
   certNumber   String?
   issuedDate   DateTime?
   expiryDate   DateTime?
   documentUrl  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  staff        Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  competency   Competency @relation(fields: [competencyId], references: [id])
+  staff      Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id])
 
   @@unique([staffId, competencyId])
   @@map("staff_competencies")
@@ -346,32 +349,32 @@ model StaffCompetency {
 // ─────────────────────────────────────────────
 
 model BorangEntry {
-  id              String      @id @default(cuid())
-  staffId         String
-  roomId          String?
-  period          String      // e.g. "2024-01"
-  patientIdentifier String    // TN.X, NY.Y — NEVER full name
-  rmNumber        String?     // random medical record number (anonim)
-  actionType      String
-  nursingActionId String?     // nullable — old entries keep actionType string as-is
-  quantity        Int         @default(1)
-  notes           String?
-  status          BorangStatus @default(DRAFT)
-  verifierId      String?
-  verifierNotes   String?
-  rejectReason    String?
-  submittedAt     DateTime?
-  verifiedAt      DateTime?
-  approvedAt      DateTime?
-  archivedAt      DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                String       @id @default(cuid())
+  staffId           String
+  roomId            String?
+  period            String // e.g. "2024-01"
+  patientIdentifier String // TN.X, NY.Y — NEVER full name
+  rmNumber          String? // random medical record number (anonim)
+  actionType        String
+  nursingActionId   String? // nullable — old entries keep actionType string as-is
+  quantity          Int          @default(1)
+  notes             String?
+  status            BorangStatus @default(DRAFT)
+  verifierId        String?
+  verifierNotes     String?
+  rejectReason      String?
+  submittedAt       DateTime?
+  verifiedAt        DateTime?
+  approvedAt        DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  staff           Staff       @relation(fields: [staffId], references: [id])
-  room            Room?       @relation(fields: [roomId], references: [id])
-  nursingAction   NursingAction? @relation(fields: [nursingActionId], references: [id])
-  verifications   BorangVerification[]
-  auditLogs       AuditLog[]  @relation("BorangAuditLogs")
+  staff         Staff                @relation(fields: [staffId], references: [id])
+  room          Room?                @relation(fields: [roomId], references: [id])
+  nursingAction NursingAction?       @relation(fields: [nursingActionId], references: [id])
+  verifications BorangVerification[]
+  auditLogs     AuditLog[]           @relation("BorangAuditLogs")
 
   @@index([staffId])
   @@index([status])
@@ -392,11 +395,11 @@ model BorangVerification {
   id            String   @id @default(cuid())
   borangEntryId String
   verifierId    String
-  action        String   // SUBMITTED, VERIFIED, APPROVED, REJECTED
+  action        String // SUBMITTED, VERIFIED, APPROVED, REJECTED
   notes         String?
   createdAt     DateTime @default(now())
 
-  borangEntry   BorangEntry @relation(fields: [borangEntryId], references: [id], onDelete: Cascade)
+  borangEntry BorangEntry @relation(fields: [borangEntryId], references: [id], onDelete: Cascade)
 
   @@map("borang_verifications")
 }
@@ -445,20 +448,20 @@ model TrainingInstructor {
   email      String?
   createdAt  DateTime @default(now())
 
-  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
 
   @@map("training_instructors")
 }
 
 model TrainingParticipant {
-  id         String   @id @default(cuid())
-  trainingId String
-  staffId    String
+  id           String   @id @default(cuid())
+  trainingId   String
+  staffId      String
   registeredAt DateTime @default(now())
-  status     String   @default("REGISTERED") // REGISTERED, CONFIRMED, CANCELLED
+  status       String   @default("REGISTERED") // REGISTERED, CONFIRMED, CANCELLED
 
-  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-  staff      Staff    @relation(fields: [staffId], references: [id])
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  staff    Staff    @relation(fields: [staffId], references: [id])
 
   @@unique([trainingId, staffId])
   @@index([trainingId])
@@ -471,12 +474,12 @@ model TrainingAttendance {
   trainingId String
   staffId    String
   date       DateTime
-  status     String   // HADIR, TIDAK_HADIR, SAKIT, IZIN
+  status     String // HADIR, TIDAK_HADIR, SAKIT, IZIN
   notes      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
 
   @@map("training_attendance")
 }
@@ -491,23 +494,23 @@ model TrainingAssessment {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
 
   @@unique([trainingId, staffId])
   @@map("training_assessments")
 }
 
 model Certificate {
-  id              String   @id @default(cuid())
-  trainingId      String
-  staffId         String
-  certificateNumber String @unique
-  issuedDate      DateTime @default(now())
-  storageKey      String?
-  filename        String?
-  createdAt       DateTime @default(now())
+  id                String   @id @default(cuid())
+  trainingId        String
+  staffId           String
+  certificateNumber String   @unique
+  issuedDate        DateTime @default(now())
+  storageKey        String?
+  filename          String?
+  createdAt         DateTime @default(now())
 
-  training        Training @relation(fields: [trainingId], references: [id])
+  training Training @relation(fields: [trainingId], references: [id])
 
   @@index([trainingId])
   @@index([staffId])
@@ -522,14 +525,14 @@ model Notification {
   id        String   @id @default(cuid())
   staffId   String?
   userId    String?
-  type      String   // STR_EXPIRING, SIP_EXPIRING, BORANG_SUBMITTED, etc.
+  type      String // STR_EXPIRING, SIP_EXPIRING, BORANG_SUBMITTED, etc.
   title     String
   message   String
   isRead    Boolean  @default(false)
   link      String?
   createdAt DateTime @default(now())
 
-  staff     Staff?   @relation(fields: [staffId], references: [id])
+  staff Staff? @relation(fields: [staffId], references: [id])
 
   @@index([staffId])
   @@index([userId])
@@ -542,19 +545,19 @@ model AuditLog {
   userId     String?
   staffId    String?
   borangId   String?
-  module     String   // komite, borang, diklat, admin
+  module     String // komite, borang, diklat, admin
   resource   String
   resourceId String?
-  action     String   // CREATED, UPDATED, DELETED, SUBMITTED, APPROVED, REJECTED
+  action     String // CREATED, UPDATED, DELETED, SUBMITTED, APPROVED, REJECTED
   before     Json?
   after      Json?
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
 
-  user       User?   @relation(fields: [userId], references: [id])
-  staff      Staff?  @relation("StaffAuditLogs", fields: [staffId], references: [id])
-  borang     BorangEntry? @relation("BorangAuditLogs", fields: [borangId], references: [id])
+  user   User?        @relation(fields: [userId], references: [id])
+  staff  Staff?       @relation("StaffAuditLogs", fields: [staffId], references: [id])
+  borang BorangEntry? @relation("BorangAuditLogs", fields: [borangId], references: [id])
 
   @@index([userId])
   @@index([module])
@@ -568,48 +571,61 @@ model AuditLog {
 // ─────────────────────────────────────────────
 
 model MigrationConnection {
-  id              String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   googleAccountEmail String?
-  status          String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
-  scopes          Json?
-  tokenEncrypted  String?  // never store plaintext
-  lastCheckedAt   DateTime?
-  connectedBy     String?
-  connectedAt     DateTime?
-  disconnectedAt  DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status             String    @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  scopes             Json?
+  tokenEncrypted     String? // never store plaintext
+  lastCheckedAt      DateTime?
+  connectedBy        String?
+  connectedAt        DateTime?
+  disconnectedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@map("migration_connections")
 }
 
+model DriveFolder {
+  id        String   @id @default(cuid())
+  /// Logical folder path, e.g. "MYSIMNUSA/staff/<staffId>/str"
+  path      String   @unique
+  name      String
+  /// Google Drive folder id
+  driveId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("drive_folders")
+}
+
 model MigrationBatch {
-  id              String              @id @default(cuid())
+  id              String               @id @default(cuid())
   createdBy       String
-  sourceType      String              // GOOGLE_SHEETS, GOOGLE_DRIVE, XLSX_FILE
+  sourceType      String // GOOGLE_SHEETS, GOOGLE_DRIVE, XLSX_FILE
   sourceReference String
   status          MigrationBatchStatus @default(DRAFT)
-  isDryRun        Boolean             @default(false)
+  isDryRun        Boolean              @default(false)
   scanResult      Json?
   sourceFileKey   String?
   startedAt       DateTime?
   completedAt     DateTime?
-  sourceCount     Int                 @default(0)
-  createdCount    Int                 @default(0)
-  updatedCount    Int                 @default(0)
-  skippedCount    Int                 @default(0)
-  failedCount     Int                 @default(0)
-  warningCount    Int                 @default(0)
-  duplicateCount  Int                 @default(0)
+  sourceCount     Int                  @default(0)
+  createdCount    Int                  @default(0)
+  updatedCount    Int                  @default(0)
+  skippedCount    Int                  @default(0)
+  failedCount     Int                  @default(0)
+  warningCount    Int                  @default(0)
+  duplicateCount  Int                  @default(0)
   reportUrl       String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  createdByUser   User                @relation(fields: [createdBy], references: [id])
-  items           MigrationItem[]
-  fieldMappings   MigrationFieldMapping[]
+  createdByUser    User                       @relation(fields: [createdBy], references: [id])
+  items            MigrationItem[]
+  fieldMappings    MigrationFieldMapping[]
   documentMappings MigrationDocumentMapping[]
-  reconciliation  MigrationReconciliation?
+  reconciliation   MigrationReconciliation?
 
   @@map("migration_batches")
 }
@@ -631,14 +647,14 @@ enum MigrationBatchStatus {
 }
 
 model MigrationFieldMapping {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   batchId     String
   sourceField String
   targetField String
   isIgnored   Boolean @default(false)
-  confidence  Float?  // 0.0-1.0 auto-map confidence
+  confidence  Float? // 0.0-1.0 auto-map confidence
 
-  batch       MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@unique([batchId, sourceField])
   @@map("migration_field_mappings")
@@ -651,7 +667,7 @@ model MigrationDocumentMapping {
   documentTypeId String
   fieldRole      String // FILE, EXPIRY_DATE, NUMBER, ISSUE_DATE
 
-  batch          MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@map("migration_document_mappings")
 }
@@ -659,11 +675,11 @@ model MigrationDocumentMapping {
 model MigrationItem {
   id           String              @id @default(cuid())
   batchId      String
-  entityType   String              // STAFF, DOCUMENT
+  entityType   String // STAFF, DOCUMENT
   sourceId     String
   sourceHash   String?
   targetId     String?
-  action       String?             // CREATE, UPDATE, SKIP, REJECT
+  action       String? // CREATE, UPDATE, SKIP, REJECT
   status       MigrationItemStatus @default(PENDING)
   errorCode    String?
   errorMessage String?
@@ -671,8 +687,8 @@ model MigrationItem {
   processedAt  DateTime?
   staffId      String?
 
-  batch        MigrationBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  staff        Staff?              @relation(fields: [staffId], references: [id])
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  staff Staff?         @relation(fields: [staffId], references: [id])
 
   @@unique([batchId, sourceId, entityType])
   @@index([batchId])
@@ -690,23 +706,108 @@ enum MigrationItemStatus {
 }
 
 model MigrationReconciliation {
-  id                    String   @id @default(cuid())
-  batchId               String   @unique
-  sourceStaffCount      Int      @default(0)
-  targetStaffCount      Int      @default(0)
-  createdCount          Int      @default(0)
-  updatedCount          Int      @default(0)
-  skippedCount          Int      @default(0)
-  failedCount           Int      @default(0)
-  duplicateCandidates   Int      @default(0)
-  sourceDocumentCount   Int      @default(0)
-  documentsImported     Int      @default(0)
-  documentsFailed       Int      @default(0)
-  orphanDocuments       Int      @default(0)
-  recordsMissingDocs    Int      @default(0)
-  reconciledAt          DateTime @default(now())
+  id                  String   @id @default(cuid())
+  batchId             String   @unique
+  sourceStaffCount    Int      @default(0)
+  targetStaffCount    Int      @default(0)
+  createdCount        Int      @default(0)
+  updatedCount        Int      @default(0)
+  skippedCount        Int      @default(0)
+  failedCount         Int      @default(0)
+  duplicateCandidates Int      @default(0)
+  sourceDocumentCount Int      @default(0)
+  documentsImported   Int      @default(0)
+  documentsFailed     Int      @default(0)
+  orphanDocuments     Int      @default(0)
+  recordsMissingDocs  Int      @default(0)
+  reconciledAt        DateTime @default(now())
 
-  batch                 MigrationBatch @relation(fields: [batchId], references: [id])
+  batch MigrationBatch @relation(fields: [batchId], references: [id])
 
   @@map("migration_reconciliations")
+}
+
+// ---------------------------------------------------------------------------
+// STORAGE MIGRATION (file-level: old Drive -> server -> new Drive/R2)
+// ---------------------------------------------------------------------------
+
+model StorageMigrationBatch {
+  id             String                 @id @default(cuid())
+  createdBy      String?
+  sourceProvider String // google-drive | r2 | local
+  targetProvider String // google-drive | r2 | local
+  sourceFolderId String?
+  targetFolderId String?
+  status         StorageMigrationStatus @default(DRAFT)
+  optimize       Boolean                @default(true)
+  targetSizeBytes Int                   @default(2097152)
+  totalFiles     Int                    @default(0)
+  processedFiles Int                    @default(0)
+  succeededFiles Int                    @default(0)
+  failedFiles    Int                    @default(0)
+  skippedFiles   Int                    @default(0)
+  savedBytes     BigInt                 @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastError      String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  items StorageMigrationItem[]
+
+  @@index([status])
+  @@map("storage_migration_batches")
+}
+
+enum StorageMigrationStatus {
+  DRAFT
+  SCANNING
+  READY
+  RUNNING
+  PAUSED
+  FAILED
+  COMPLETED
+  CANCELLED
+}
+
+model StorageMigrationItem {
+  id                String                     @id @default(cuid())
+  batchId           String
+  sourceFileId      String
+  sourceKey         String?
+  destinationFileId String?
+  destinationKey    String?
+  originalFilename  String
+  mimeType          String?
+  originalSize      Int                        @default(0)
+  finalSize         Int                        @default(0)
+  originalChecksum  String?
+  finalChecksum     String?
+  compressionStatus String? // OPTIMIZED | UNCHANGED | FAILED
+  strategy          String?
+  status            StorageMigrationItemStatus @default(PENDING)
+  errorMessage      String?
+  retryCount        Int                        @default(0)
+  attempts          Int                        @default(0)
+  startedAt         DateTime?
+  processedAt       DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  batch StorageMigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, sourceFileId])
+  @@index([batchId])
+  @@index([status])
+  @@map("storage_migration_items")
+}
+
+enum StorageMigrationItemStatus {
+  PENDING
+  PROCESSING
+  OPTIMIZED
+  UPLOADED
+  VERIFIED
+  FAILED
+  SKIPPED
 }

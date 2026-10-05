@@ -8,8 +8,12 @@ const USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
+  // Read access to the legacy Drive collection + Sheets used by Migration Center
   "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/spreadsheets.readonly",
+  // Write access to the MYSIMNUSA document folder (document storage provider).
+  // Files stay private: access is only ever granted through application routes.
+  "https://www.googleapis.com/auth/drive.file",
 ];
 
 export interface GoogleTokenSet {
@@ -274,6 +278,34 @@ export async function fetchGoogle(url: string): Promise<Response> {
     token = await getAccessToken();
     if (!token) throw new Error("Sesi Google kedaluwarsa — silakan sambungkan ulang");
     res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  }
+  return res;
+}
+
+/**
+ * Authenticated request to a Google API with any HTTP method.
+ *
+ * Used by the document storage provider (Drive uploads/deletes) and by the
+ * migration engine. Tokens are refreshed once on 401 before failing.
+ * Credentials never leave the server.
+ */
+export async function googleFetch(
+  url: string,
+  init: RequestInit = {},
+  retryOn401 = true,
+): Promise<Response> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Tidak terhubung ke akun Google");
+
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401 && retryOn401) {
+    await prisma.migrationConnection
+      .update({ where: { id: CONNECTION_ID }, data: { status: "ERROR", lastCheckedAt: new Date() } })
+      .catch(() => undefined);
+    return googleFetch(url, init, false);
   }
   return res;
 }

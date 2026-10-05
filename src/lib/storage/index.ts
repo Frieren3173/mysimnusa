@@ -1,29 +1,30 @@
 import { randomUUID } from "crypto";
-import {
-  buildObjectKey,
-  deleteObject,
-  getObject,
-  isR2Configured,
-  uploadObject,
-} from "./r2";
+import { buildObjectKey } from "./r2";
+import { googleDriveStorage } from "./google-drive";
+import { isR2Configured } from "./r2";
+import type { StorageProvider } from "./provider";
 
 /**
  * Storage facade used by the application routes.
  *
- * - Production (Vercel): every object is stored in Cloudflare R2.
- * - Local development without R2 credentials: falls back to the on-disk
- *   `storage/` folder so the app keeps working offline.
+ * The active backend is chosen by `STORAGE_PROVIDER`:
  *
- * Postgres/Neon only ever holds metadata (`Document.storageKey`, `fileSize`,
+ *   google-drive → Google Drive  (current production document storage)
+ *   r2           → Cloudflare R2 (future provider, kept fully supported)
+ *   local        → on-disk `storage/` folder (development)
+ *
+ * When `STORAGE_PROVIDER` is unset the provider is auto-detected so existing
+ * environments keep working: Drive when Google is configured, otherwise R2,
+ * otherwise local disk.
+ *
+ * Routes only ever call `putObject` / `readObject` / `removeObject`; switching
+ * providers requires no changes to document, Borang or Diklat logic.
+ *
+ * Neon only ever holds metadata (`Document.storageKey`, `fileSize`,
  * `mimeType`, ...) — never the file bytes.
- *
- * NOTE: `fs`/`path` are imported lazily inside the local-disk helpers below so
- * that they are not traced into every serverless function bundle. Statically
- * importing them makes Next.js emit overly broad file-trace patterns and
- * inflates the number of Vercel Functions per deployment.
  */
 
-export type StorageScope = "staff" | "borang" | "diklat" | "certificates";
+export type StorageScope = "staff" | "borang" | "diklat" | "certificates" | "migration";
 
 export type PutObjectInput = {
   scope: StorageScope;
@@ -38,9 +39,19 @@ export type PutObjectInput = {
 export type PutObjectResult = {
   /** Value stored in `Document.storageKey` */
   storageKey: string;
-  /** Actual file name on disk / object name in R2 */
+  /** Actual file name on disk / object name in R2 / Drive file name */
   objectName: string;
   bytes: number;
+  /** Provider-specific identifier (Drive file id, R2 key, local path) */
+  providerId?: string;
+  /** Provider that stored the object */
+  provider: StorageProvider["name"];
+};
+
+export type StoredObject = {
+  body: ReadableStream<Uint8Array>;
+  contentType?: string;
+  contentLength?: number;
 };
 
 function extOf(fileName: string): string {
@@ -61,81 +72,141 @@ async function toArrayBuffer(body: ArrayBuffer | Uint8Array | Blob): Promise<Arr
 
 /** Local-disk helpers — dynamically imported so `fs` stays out of prod bundles. */
 async function localDisk() {
-  const [{ promises: fs }, path] = await Promise.all([
-    import("fs"),
-    import("path"),
-  ]);
+  const [{ promises: fs }, path] = await Promise.all([import("fs"), import("path")]);
   return { fs, path };
 }
 
-function localPathFor(storageKey: string, pathModule: { join: (...parts: string[]) => string }): string {
-  return pathModule.join(process.cwd(), "storage", storageKey);
+const localProvider: StorageProvider = {
+  name: "local",
+  isConfigured: () => true,
+  async put(input) {
+    const { fs, path } = await localDisk();
+    const segments = input.key.split("/");
+    const objectName = segments.pop()!;
+    const dir = path.join(process.cwd(), "storage", ...segments);
+    await fs.mkdir(dir, { recursive: true });
+    const buffer = Buffer.from(await toArrayBuffer(input.body));
+    await fs.writeFile(path.join(dir, objectName), buffer);
+    return { key: input.key, bytes: buffer.byteLength };
+  },
+  async get(key) {
+    const { fs, path } = await localDisk();
+    const filePath = path.join(process.cwd(), "storage", key);
+    try {
+      await fs.access(filePath);
+    } catch {
+      return null;
+    }
+    const buffer = await fs.readFile(filePath);
+    return {
+      body: new Blob([new Uint8Array(buffer)]).stream(),
+      contentLength: buffer.byteLength,
+    };
+  },
+  async remove(key) {
+    const { fs, path } = await localDisk();
+    try {
+      await fs.unlink(path.join(process.cwd(), "storage", key));
+    } catch {
+      // already gone
+    }
+  },
+  async exists(key) {
+    const { fs, path } = await localDisk();
+    try {
+      await fs.access(path.join(process.cwd(), "storage", key));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  async getMetadata(key) {
+    const { fs, path } = await localDisk();
+    try {
+      const stat = await fs.stat(path.join(process.cwd(), "storage", key));
+      return { key, size: stat.size, modifiedAt: stat.mtime.toISOString() };
+    } catch {
+      return null;
+    }
+  },
+};
+
+/** Legacy R2 helpers live in `./r2`; wrapped here behind the provider contract. */
+function r2Provider(): StorageProvider {
+  const legacyKey = (key: string) => key.replace(/^documents\//, "");
+  return {
+    name: "r2",
+    isConfigured: isR2Configured,
+    async put(input) {
+      const { uploadObject } = await import("./r2");
+      const key = legacyKey(input.key);
+      await uploadObject({ key, body: await toArrayBuffer(input.body), contentType: input.contentType });
+      return { key, bytes: byteLength(input.body), providerId: key };
+    },
+    async get(key) {
+      const { getObject } = await import("./r2");
+      return getObject(legacyKey(key));
+    },
+    async remove(key) {
+      const { deleteObject } = await import("./r2");
+      await deleteObject(legacyKey(key));
+    },
+    async exists(key) {
+      const { objectExists } = await import("./r2");
+      return objectExists(legacyKey(key));
+    },
+    async getMetadata(key) {
+      const { objectExists } = await import("./r2");
+      return (await objectExists(legacyKey(key))) ? { key } : null;
+    },
+  };
+}
+
+/** Chooses the active provider from configuration. */
+export function activeProvider(): StorageProvider {
+  const configured = process.env.STORAGE_PROVIDER?.trim().toLowerCase();
+  if (configured === "r2") return r2Provider();
+  if (configured === "local") return localProvider;
+  if (configured === "google-drive") return googleDriveStorage;
+
+  // Auto-detect: prefer Google Drive (production), then R2, then local disk.
+  if (googleDriveStorage.isConfigured()) return googleDriveStorage;
+  if (isR2Configured()) return r2Provider();
+  return localProvider;
 }
 
 export async function putObject(input: PutObjectInput): Promise<PutObjectResult> {
+  const provider = activeProvider();
   const objectName = `${randomUUID()}${extOf(input.fileName)}`;
   const key = buildObjectKey(input.scope, input.ownerId, input.category ?? null, objectName);
 
-  if (isR2Configured()) {
-    await uploadObject({ key, body: await toArrayBuffer(input.body), contentType: input.contentType });
-    return { storageKey: key, objectName, bytes: byteLength(input.body) };
-  }
-
-  // Local-dev fallback: keep the historical `storage/documents/...` layout.
-  const { fs, path } = await localDisk();
-  const legacyDir = path.join(process.cwd(), "storage", "documents", input.ownerId);
-  await fs.mkdir(legacyDir, { recursive: true });
-  const buffer = Buffer.from(await toArrayBuffer(input.body));
-  await fs.writeFile(path.join(legacyDir, objectName), buffer);
+  const result = await provider.put({
+    key,
+    body: input.body,
+    contentType: input.contentType,
+    fileName: input.fileName,
+  });
 
   return {
-    storageKey: `documents/${input.ownerId}/${objectName}`,
+    storageKey: result.key,
     objectName,
-    bytes: buffer.byteLength,
+    bytes: result.bytes,
+    providerId: result.providerId,
+    provider: provider.name,
   };
 }
 
-export type StoredObject = {
-  body: ReadableStream<Uint8Array>;
-  contentType?: string;
-  contentLength?: number;
-};
-
 export async function readObject(storageKey: string): Promise<StoredObject | null> {
-  if (isR2Configured()) {
-    const object = await getObject(storageKey);
-    if (!object) return null;
-    return object;
-  }
-
-  const { fs, path } = await localDisk();
-  const filePath = localPathFor(storageKey, path);
-  try {
-    await fs.access(filePath);
-  } catch {
-    return null;
-  }
-  const buffer = await fs.readFile(filePath);
-  return {
-    body: new Blob([new Uint8Array(buffer)]).stream(),
-    contentType: undefined,
-    contentLength: buffer.byteLength,
-  };
+  return activeProvider().get(storageKey);
 }
 
 export async function removeObject(storageKey: string): Promise<void> {
-  if (isR2Configured()) {
-    await deleteObject(storageKey);
-    return;
-  }
+  await activeProvider().remove(storageKey);
+}
 
-  const { fs, path } = await localDisk();
-  const filePath = localPathFor(storageKey, path);
-  try {
-    await fs.unlink(filePath);
-  } catch {
-    // already gone
-  }
+export async function objectExists(storageKey: string): Promise<boolean> {
+  return activeProvider().exists(storageKey);
 }
 
 export { isR2Configured };
+export type { StorageProvider };

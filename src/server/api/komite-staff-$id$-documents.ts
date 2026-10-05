@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import * as path from "path";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
@@ -72,16 +73,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       create: { code, name: code },
     });
 
-    // Files live in Cloudflare R2 (or local disk during development); Neon
-    // only stores the metadata below. Object keys follow
+    // Files are stored by the active storage provider (Google Drive in
+    // production); Neon only keeps the metadata below. Keys follow
     // staff/{staffId}/{category}/{generated-file-name}.
+    const bytes = await file.arrayBuffer();
+    const checksum = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
+
     const stored = await putObject({
       scope: "staff",
       ownerId: staffId,
       category: code.toLowerCase(),
       fileName: file.name,
       contentType: file.type || "application/octet-stream",
-      body: await file.arrayBuffer(),
+      body: bytes,
     });
 
     const document = await prisma.document.create({
@@ -95,8 +99,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         status: deriveDocumentStatus(expiryDate, isLifetime),
         filename: file.name,
         mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
+        fileSize: stored.bytes,
         storageKey: stored.storageKey,
+        storageProvider: stored.provider,
+        checksum,
         uploadedBy: user.id,
       },
       include: { documentType: true },
