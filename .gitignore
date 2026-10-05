@@ -49,3 +49,13 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# temporary migration runner scripts (local only)
+mig-*.mts
+mig-*.cjs
+verify-*.mts
+verify-*.cjs
+survey*.mts
+pilot*.mts
+check-*.mjs
+check-*.cjs
