@@ -115,7 +115,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       aria-label="Navigasi utama"
     >
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between border-b border-slate-100 px-4">
+      <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-4">
         {collapsed ? (
           <Image
             src="/logo-rsajt.png"
@@ -123,29 +123,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             width={1430}
             height={721}
             priority
-            className="h-7 w-auto"
+            className="h-7 w-auto shrink-0"
           />
         ) : (
-          <div className="flex min-w-0 items-center gap-2.5">
+          <>
             <Image
               src="/logo-rsajt.png"
               alt="Logo RSAJT"
               width={1430}
               height={721}
               priority
-              className="h-9 w-auto shrink-0"
+              className="h-8 w-auto shrink-0"
             />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 truncate">MYSIMNUSA</p>
-              <p className="text-[10px] text-slate-500 leading-tight">
-                Sistem Informasi Manajemen Keperawatan &amp; Kebidanan
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-tight text-slate-900 truncate">MYSIMNUSA</p>
+              <p className="text-[10px] leading-tight text-slate-500 truncate">
+                Manajemen Keperawatan &amp; Kebidanan
               </p>
             </div>
-          </div>
+          </>
         )}
         <button
           onClick={onToggle}
-          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors ml-auto"
+          className={cn(
+            "rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors",
+            collapsed ? "mx-auto" : "shrink-0"
+          )}
           aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
         >
           {collapsed ? <Menu size={16} /> : <Menu size={16} />}

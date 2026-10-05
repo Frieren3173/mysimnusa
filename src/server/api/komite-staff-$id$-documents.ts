@@ -22,6 +22,44 @@ const ALLOWED_MIME: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
 };
 
+/** Lists a staff member's documents, optionally filtered by document-type code. */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_READ);
+  if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);
+  if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
+
+  const { id: staffId } = await params;
+  const typeCode = req.nextUrl.searchParams.get("type")?.trim();
+
+  try {
+    const documents = await prisma.document.findMany({
+      where: {
+        staffId,
+        ...(typeCode ? { documentType: { code: typeCode } } : {}),
+      },
+      include: { documentType: true },
+      orderBy: [{ expiryDate: "asc" }, { createdAt: "desc" }],
+      take: 100,
+    });
+
+    return ok({
+      documents: documents.map((d) => ({
+        id: d.id,
+        filename: d.filename,
+        number: d.number,
+        mimeType: d.mimeType,
+        expiryDate: d.expiryDate?.toISOString() ?? null,
+        isLifetime: d.isLifetime,
+        status: d.status,
+        documentType: { code: d.documentType.code, name: d.documentType.name },
+        hasFile: Boolean(d.storageKey || d.fileId || d.legacyDriveUrl),
+      })),
+    });
+  } catch (e) {
+    return err("LIST_FAILED", e instanceof Error ? e.message : "Gagal memuat dokumen", 500);
+  }
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_UPLOAD);
   if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);

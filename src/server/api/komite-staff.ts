@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { StaffSchema } from "@/lib/schemas/staff";
 import { logAudit, clientIp } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_STAFF_READ);
@@ -24,22 +25,35 @@ export async function GET(req: NextRequest) {
     : { page: 1, perPage: 20, sortOrder: "asc" as const };
 
   const search = typeof params.search === "string" ? params.search.trim() : "";
-  const where = search
-    ? {
-        OR: [
-          { name: { contains: search } },
-          { nip: { contains: search } },
-          { profession: { contains: search } },
-          { email: { contains: search } },
-        ],
-      }
-    : undefined;
+  const profession = url.searchParams.get("profession")?.trim() ?? "";
+  const status = url.searchParams.get("status")?.trim() ?? "";
+  const room = url.searchParams.get("room")?.trim() ?? "";
+
+  const where: Prisma.StaffWhereInput = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search } },
+      { nip: { contains: search } },
+      { profession: { contains: search } },
+      { email: { contains: search } },
+    ];
+  }
+  if (profession) where.profession = profession;
+  if (status) where.employmentStatus = status;
+  if (room) where.roomId = room;
 
   const [total, data] = await Promise.all([
     prisma.staff.count({ where }),
     prisma.staff.findMany({
       where,
-      include: { room: true },
+      include: {
+        room: true,
+        documents: {
+          where: { documentType: { code: "FOTO" } },
+          select: { id: true, documentType: { select: { code: true } } },
+          take: 1,
+        },
+      },
       orderBy: { name: "asc" },
       skip: (params.page - 1) * params.perPage,
       take: params.perPage,
