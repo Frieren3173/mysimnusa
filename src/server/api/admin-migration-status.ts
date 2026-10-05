@@ -1,14 +1,14 @@
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { ok, err } from "@/lib/api";
-import { getConnectionPublic, isGoogleConfigured } from "@/lib/google/auth";
+import { getConnectionsPublic, isGoogleConfigured } from "@/lib/google/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const user = await requireMigrationUser();
   if (!user) return err("UNAUTHORIZED", "Akses Migration Center hanya untuk Super Admin", 401);
 
-  const [connection, batches] = await Promise.all([
-    getConnectionPublic(),
+  const [connections, batches] = await Promise.all([
+    getConnectionsPublic(),
     prisma.migrationBatch.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -16,9 +16,13 @@ export async function GET() {
     }),
   ]);
 
+  // `connection` is kept for backward compatibility with earlier UI builds.
   return ok({
     configured: isGoogleConfigured(),
-    connection,
+    connections,
+    connection: connections.destination,
+    source: connections.source,
+    destination: connections.destination,
     recentBatches: batches,
   });
 }

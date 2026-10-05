@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { googleFetch } from "@/lib/google/auth";
+import { googleFetch, type GoogleRole } from "@/lib/google/auth";
 import { keySegments, type ObjectMetadata, type PutInput, type PutResult, type StorageProvider, type StoredObject } from "./provider";
 
 /**
@@ -27,6 +27,14 @@ const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const ROOT_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER?.trim() || "MYSIMNUSA";
+
+/**
+ * This provider is the production document store, so it is permanently bound to
+ * the DESTINATION Google connection. The role is a hard-coded constant — it is
+ * NOT configurable and NOT accepted from callers — so production files can never
+ * be written into the legacy SOURCE account.
+ */
+const STORAGE_ROLE: GoogleRole = "DESTINATION";
 
 type CachedFolder = { name: string; driveId: string };
 
@@ -62,7 +70,7 @@ async function findChildFolder(parentId: string | null, name: string): Promise<s
   const clauses = [`mimeType='${FOLDER_MIME}'`, `name='${escapeQuery(name)}'`, "trashed=false"];
   if (parentId) clauses.push(`'${parentId}' in parents`);
   const url = `${DRIVE_FILES}?q=${encodeURIComponent(clauses.join(" and "))}&fields=files(id,name)&pageSize=1&spaces=drive`;
-  const res = await googleFetch(url);
+  const res = await googleFetch(STORAGE_ROLE, url);
   if (!res.ok) return null;
   const json = (await res.json()) as { files?: { id: string }[] };
   return json.files?.[0]?.id ?? null;
@@ -71,7 +79,7 @@ async function findChildFolder(parentId: string | null, name: string): Promise<s
 async function createFolder(parentId: string | null, name: string): Promise<string> {
   const metadata: Record<string, unknown> = { name, mimeType: FOLDER_MIME };
   if (parentId) metadata.parents = [parentId];
-  const res = await googleFetch(DRIVE_FILES, {
+  const res = await googleFetch(STORAGE_ROLE, DRIVE_FILES, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(metadata),
@@ -155,7 +163,7 @@ export class GoogleDriveStorage implements StorageProvider {
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
     form.append("file", blob, fileName);
 
-    const res = await googleFetch(`${DRIVE_UPLOAD}?uploadType=multipart&fields=id,name,size`, {
+    const res = await googleFetch(STORAGE_ROLE, `${DRIVE_UPLOAD}?uploadType=multipart&fields=id,name,size`, {
       method: "POST",
       body: form,
     });
@@ -172,7 +180,7 @@ export class GoogleDriveStorage implements StorageProvider {
     const byProperty = `${DRIVE_FILES}?q=${encodeURIComponent(
       `appProperties has { key='mysimnusaKey' and value='${escapeQuery(key)}' } and trashed=false`,
     )}&fields=files(id)&pageSize=1`;
-    const res = await googleFetch(byProperty);
+    const res = await googleFetch(STORAGE_ROLE, byProperty);
     if (res.ok) {
       const json = (await res.json()) as { files?: { id: string }[] };
       if (json.files?.[0]?.id) return json.files[0].id;
@@ -183,7 +191,7 @@ export class GoogleDriveStorage implements StorageProvider {
     const byName = `${DRIVE_FILES}?q=${encodeURIComponent(
       `name='${escapeQuery(name)}' and trashed=false`,
     )}&fields=files(id,createdTime)&orderBy=createdTime desc&pageSize=1`;
-    const res2 = await googleFetch(byName);
+    const res2 = await googleFetch(STORAGE_ROLE, byName);
     if (!res2.ok) return null;
     const json2 = (await res2.json()) as { files?: { id: string }[] };
     return json2.files?.[0]?.id ?? null;
@@ -194,7 +202,7 @@ export class GoogleDriveStorage implements StorageProvider {
     if (!fileId) return null;
 
     const meta = await this.getMetadataByFileId(fileId);
-    const res = await googleFetch(`${DRIVE_FILES}/${fileId}?alt=media`);
+    const res = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${fileId}?alt=media`);
     if (res.status === 404) return null;
     if (!res.ok || !res.body) {
       throw new Error(`[google-drive] unduh gagal (HTTP ${res.status})`);
@@ -207,7 +215,7 @@ export class GoogleDriveStorage implements StorageProvider {
   }
 
   private async getMetadataByFileId(fileId: string): Promise<ObjectMetadata | null> {
-    const res = await googleFetch(`${DRIVE_FILES}/${fileId}?fields=id,name,size,mimeType,modifiedTime`);
+    const res = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${fileId}?fields=id,name,size,mimeType,modifiedTime`);
     if (!res.ok) return null;
     const json = (await res.json()) as { id: string; name?: string; size?: string; mimeType?: string; modifiedTime?: string };
     return {
@@ -233,7 +241,7 @@ export class GoogleDriveStorage implements StorageProvider {
   async remove(key: string): Promise<void> {
     const fileId = await this.resolveFileId(key);
     if (!fileId) return;
-    const res = await googleFetch(`${DRIVE_FILES}/${fileId}`, { method: "DELETE" });
+    const res = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${fileId}`, { method: "DELETE" });
     if (!res.ok && res.status !== 404) {
       throw new Error(`[google-drive] hapus gagal (HTTP ${res.status})`);
     }

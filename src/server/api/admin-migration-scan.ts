@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const user = await requireMigrationUser();
   if (!user) return err("UNAUTHORIZED", "Akses Migration Center hanya untuk Super Admin", 401);
 
-  const connection = await getConnectionPublic();
+  const connection = await getConnectionPublic("SOURCE");
   if (connection.status !== "CONNECTED") {
     return err("NOT_CONNECTED", "Sambungkan akun Google terlebih dahulu", 409);
   }
@@ -50,8 +50,7 @@ export async function POST(req: NextRequest) {
     const batchId = batch.id;
 
     // 1. Sheet metadata (read-only)
-    const metaRes = await fetchGoogle(
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}?fields=sheets(properties(title,gridProperties(rowCount,columnCount)))`
+    const metaRes = await fetchGoogle("SOURCE",       `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}?fields=sheets(properties(title,gridProperties(rowCount,columnCount)))`
     );
     if (!metaRes.ok) {
       if (metaRes.status === 404) throw new Error("Spreadsheet tidak ditemukan atau tidak dapat diakses");
@@ -64,8 +63,7 @@ export async function POST(req: NextRequest) {
     const sheetTitles = (meta.sheets ?? []).map((s) => s.properties?.title ?? "").filter(Boolean);
 
     // 2. Export native sheet → XLSX (reuse the whole XLSX pipeline downstream)
-    const exportRes = await fetchGoogle(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(sheetId)}/export?mimeType=${encodeURIComponent("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}`
+    const exportRes = await fetchGoogle("SOURCE",       `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(sheetId)}/export?mimeType=${encodeURIComponent("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}`
     );
     if (!exportRes.ok) {
       if (exportRes.status === 403) throw new Error("Izin ekspor ditolak — Sheet harus dapat diakses akun ini");

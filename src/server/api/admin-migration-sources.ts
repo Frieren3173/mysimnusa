@@ -15,7 +15,7 @@ export async function GET() {
   if (!user) return err("UNAUTHORIZED", "Akses Migration Center hanya untuk Super Admin", 401);
 
   const configured = isGoogleConfigured();
-  const connection = await getConnectionPublic();
+  const connection = await getConnectionPublic("SOURCE");
   if (connection.status !== "CONNECTED") {
     return ok({ configured, connection, sources: [] });
   }
@@ -23,8 +23,7 @@ export async function GET() {
   try {
     const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
     const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime,webViewLink)");
-    const res = await fetchGoogle(
-      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=50&orderBy=modifiedTime desc`
+    const res = await fetchGoogle("SOURCE",       `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=50&orderBy=modifiedTime desc`
     );
     if (!res.ok) {
       return err("DRIVE_LIST_FAILED", `Gagal membaca daftar Sheet (HTTP ${res.status})`, 502);

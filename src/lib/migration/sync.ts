@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { putObject } from "@/lib/storage";
 import { extractDriveId } from "./source";
+import { googleFetch } from "@/lib/google/auth";
 
 // ─── Status ────────────────────────────────────
 
@@ -94,50 +95,43 @@ function looksHtml(buf: Buffer): boolean {
 }
 
 async function fetchDriveFile(fileId: string, isGoogleDoc: boolean): Promise<Buffer> {
-  const urls = isGoogleDoc
-    ? [`https://docs.google.com/document/d/${fileId}/export?format=pdf`]
-    : [
-        `https://drive.google.com/uc?export=download&id=${fileId}`,
-        `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
-      ];
-  let lastErr = "File tidak dapat diambil dari Google Drive";
-  for (const url of urls) {
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        redirect: "follow",
-        signal: AbortSignal.timeout(45000),
-        headers: { "User-Agent": "RSJAT-Nursing-Management/1.0" },
-      });
-    } catch (e) {
-      lastErr =
-        e instanceof Error && e.name === "TimeoutError"
-          ? "Timeout saat mengunduh file (45s)"
-          : "Gagal terhubung ke Google Drive";
-      continue;
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (!res.ok) {
-      lastErr =
-        res.status === 404
-          ? "File tidak ditemukan di Drive (404)"
-          : res.status === 403
-            ? "Akses ditolak (403) — ubah akses file menjadi publik"
-            : `Drive merespons HTTP ${res.status}`;
-      continue;
-    }
-    if (buf.length === 0) {
-      lastErr = "File kosong dari Drive";
-      continue;
-    }
-    if (looksHtml(buf)) {
-      lastErr =
-        "Drive mengembalikan halaman, bukan file — pastikan akses \"Siapa saja yang memiliki link\" aktif";
-      continue;
-    }
-    return buf;
+  // Legacy source files are read through the authenticated SOURCE connection so
+  // the legacy Drive never has to be made public. Google Docs are exported to
+  // PDF; everything else is streamed with alt=media.
+  const url = isGoogleDoc
+    ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=${encodeURIComponent("application/pdf")}`
+    : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`;
+
+  let res: Response;
+  try {
+    res = await googleFetch("SOURCE", url, { signal: AbortSignal.timeout(45000) });
+  } catch (e) {
+    const message =
+      e instanceof Error && e.name === "TimeoutError"
+        ? "Timeout saat mengunduh file (45s)"
+        : `Gagal terhubung ke Google Drive: ${e instanceof Error ? e.message : "kesalahan tidak diketahui"}`;
+    throw new Error(message);
   }
-  throw new Error(lastErr);
+
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (!res.ok) {
+    const detail =
+      res.status === 404
+        ? "File tidak ditemukan di Drive (404)"
+        : res.status === 403
+          ? "Akses ditolak (403) — file tidak dapat diakses akun sumber"
+          : `Drive merespons HTTP ${res.status}`;
+    throw new Error(detail);
+  }
+  if (buf.length === 0) {
+    throw new Error("File kosong dari Drive");
+  }
+  if (looksHtml(buf)) {
+    throw new Error(
+      "Drive mengembalikan halaman HTML, bukan file — periksa kembali akun sumber dan ID file",
+    );
+  }
+  return buf;
 }
 
 // ─── Deteksi tipe file dari magic bytes ─────────

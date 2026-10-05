@@ -571,19 +571,27 @@ model AuditLog {
 // ─────────────────────────────────────────────
 
 model MigrationConnection {
-  id                 String    @id @default(cuid())
+  id                 String               @id @default(cuid())
+  /// SOURCE = legacy Drive/Sheets (read-only) | DESTINATION = production storage (write)
+  role               GoogleConnectionRole @default(SOURCE)
   googleAccountEmail String?
-  status             String    @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  status             String               @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
   scopes             Json?
   tokenEncrypted     String? // never store plaintext
   lastCheckedAt      DateTime?
   connectedBy        String?
   connectedAt        DateTime?
   disconnectedAt     DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
+  @@unique([role])
   @@map("migration_connections")
+}
+
+enum GoogleConnectionRole {
+  SOURCE
+  DESTINATION
 }
 
 model DriveFolder {
@@ -732,26 +740,26 @@ model MigrationReconciliation {
 // ---------------------------------------------------------------------------
 
 model StorageMigrationBatch {
-  id             String                 @id @default(cuid())
-  createdBy      String?
-  sourceProvider String // google-drive | r2 | local
-  targetProvider String // google-drive | r2 | local
-  sourceFolderId String?
-  targetFolderId String?
-  status         StorageMigrationStatus @default(DRAFT)
-  optimize       Boolean                @default(true)
-  targetSizeBytes Int                   @default(2097152)
-  totalFiles     Int                    @default(0)
-  processedFiles Int                    @default(0)
-  succeededFiles Int                    @default(0)
-  failedFiles    Int                    @default(0)
-  skippedFiles   Int                    @default(0)
-  savedBytes     BigInt                 @default(0)
-  startedAt      DateTime?
-  completedAt    DateTime?
-  lastError      String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  id              String                 @id @default(cuid())
+  createdBy       String?
+  sourceProvider  String // google-drive | r2 | local
+  targetProvider  String // google-drive | r2 | local
+  sourceFolderId  String?
+  targetFolderId  String?
+  status          StorageMigrationStatus @default(DRAFT)
+  optimize        Boolean                @default(true)
+  targetSizeBytes Int                    @default(2097152)
+  totalFiles      Int                    @default(0)
+  processedFiles  Int                    @default(0)
+  succeededFiles  Int                    @default(0)
+  failedFiles     Int                    @default(0)
+  skippedFiles    Int                    @default(0)
+  savedBytes      BigInt                 @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  lastError       String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   items StorageMigrationItem[]
 

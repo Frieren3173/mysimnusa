@@ -16,6 +16,41 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
 ];
 
+/**
+ * Google connections are role-scoped and must never be mixed:
+ *
+ *   SOURCE      → legacy Drive + Sheets. READ ONLY. Never receives new files.
+ *   DESTINATION → production document storage. WRITE ONLY. Never reads legacy data.
+ *
+ * Role selection is enforced *here*, on the server, from a typed value — never
+ * from anything the client sends. A caller cannot pass an arbitrary string and
+ * silently reach the wrong account.
+ */
+export type GoogleRole = "SOURCE" | "DESTINATION";
+
+export function isGoogleRole(value: unknown): value is GoogleRole {
+  return value === "SOURCE" || value === "DESTINATION";
+}
+
+/** Scopes required per role. Kept minimal: source never gets write access. */
+export function scopesForRole(role: GoogleRole): string[] {
+  if (role === "SOURCE") {
+    return [
+      "openid",
+      "email",
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+    ];
+  }
+  return [
+    "openid",
+    "email",
+    // drive.file only grants access to files this app creates/opens — it cannot
+    // list or modify the rest of the account, which is exactly what we want.
+    "https://www.googleapis.com/auth/drive.file",
+  ];
+}
+
 export interface GoogleTokenSet {
   access_token: string;
   refresh_token?: string;
@@ -24,9 +59,17 @@ export interface GoogleTokenSet {
   scope?: string;
 }
 
-const CONNECTION_ID = "default";
 const STATE_TTL_MS = 10 * 60 * 1000;
 const REFRESH_MARGIN_MS = 60 * 1000;
+
+/**
+ * Resolves the stored connection row for a role.
+ * The DESTINATION connection is what GoogleDriveStorage uses; SOURCE is only
+ * ever used to read legacy data.
+ */
+async function findConnection(role: GoogleRole) {
+  return prisma.migrationConnection.findUnique({ where: { role } });
+}
 
 function cfg() {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -78,22 +121,29 @@ function sign(payload: string): string {
   return crypto.createHmac("sha256", encKey()).update(payload).digest("base64url");
 }
 
-export function makeState(userId: string): string {
+/**
+ * Signs the OAuth `state`, binding it to (userId, role). The role is part of the
+ * signed payload, so an SOURCE authorization callback cannot be replayed to
+ * populate the DESTINATION connection (or vice versa).
+ */
+export function makeState(userId: string, role: GoogleRole): string {
   const exp = Date.now() + STATE_TTL_MS;
-  return Buffer.from(`${userId}.${exp}.${sign(`${userId}.${exp}`)}`).toString("base64url");
+  const payload = `${userId}.${role}.${exp}`;
+  return Buffer.from(`${payload}.${sign(payload)}`).toString("base64url");
 }
 
-export function verifyState(state: string): string | null {
+export function verifyState(state: string): { userId: string; role: GoogleRole } | null {
   try {
     const raw = Buffer.from(state, "base64url").toString("utf8");
-    const [userId, expStr, sig] = raw.split(".");
-    if (!userId || !expStr || !sig) return null;
+    const [userId, role, expStr, sig] = raw.split(".");
+    if (!userId || !role || !expStr || !sig) return null;
+    if (!isGoogleRole(role)) return null;
     if (Number(expStr) < Date.now()) return null;
-    const expected = sign(`${userId}.${expStr}`);
+    const expected = sign(`${userId}.${role}.${expStr}`);
     const a = Buffer.from(sig);
     const b = Buffer.from(expected);
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-    return userId;
+    return { userId, role };
   } catch {
     return null;
   }
@@ -101,17 +151,18 @@ export function verifyState(state: string): string | null {
 
 // ─── OAuth endpoints ─────────────────────────────────────────
 
-export function buildAuthUrl(userId: string): string {
+export function buildAuthUrl(userId: string, role: GoogleRole): string {
   const { clientId, redirectUri } = cfg();
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: GOOGLE_SCOPES.join(" "),
+    // Role-scoped scopes: SOURCE is read-only, DESTINATION is write-only.
+    scope: scopesForRole(role).join(" "),
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    state: makeState(userId),
+    state: makeState(userId, role),
   });
   return `${AUTH_URL}?${params.toString()}`;
 }
@@ -147,6 +198,7 @@ export async function fetchUserInfo(accessToken: string): Promise<{ email?: stri
 // ─── Connection persistence ──────────────────────────────────
 
 export interface ConnectionPublic {
+  role: GoogleRole;
   status: "CONNECTED" | "DISCONNECTED" | "ERROR";
   email: string | null;
   scopes: string[];
@@ -154,9 +206,9 @@ export interface ConnectionPublic {
   lastCheckedAt: string | null;
 }
 
-export async function getConnectionPublic(): Promise<ConnectionPublic> {
-  const row = await prisma.migrationConnection.findUnique({ where: { id: CONNECTION_ID } });
+function toPublic(role: GoogleRole, row: Awaited<ReturnType<typeof findConnection>>): ConnectionPublic {
   return {
+    role,
     status: (row?.status as ConnectionPublic["status"]) ?? "DISCONNECTED",
     email: row?.googleAccountEmail ?? null,
     scopes: Array.isArray(row?.scopes) ? (row!.scopes as string[]) : [],
@@ -165,7 +217,21 @@ export async function getConnectionPublic(): Promise<ConnectionPublic> {
   };
 }
 
+export async function getConnectionPublic(role: GoogleRole): Promise<ConnectionPublic> {
+  return toPublic(role, await findConnection(role));
+}
+
+/** Both roles at once, for the Migration Center status panel. */
+export async function getConnectionsPublic(): Promise<{ source: ConnectionPublic; destination: ConnectionPublic }> {
+  const [source, destination] = await Promise.all([
+    getConnectionPublic("SOURCE"),
+    getConnectionPublic("DESTINATION"),
+  ]);
+  return { source, destination };
+}
+
 async function saveConnection(
+  role: GoogleRole,
   tokens: GoogleTokenSet,
   email: string | null,
   userId: string
@@ -179,9 +245,10 @@ async function saveConnection(
     expiry_date: expiryDate,
   };
   const data = {
+    role,
     googleAccountEmail: email,
     status: "CONNECTED",
-    scopes: (tokens.scope ?? GOOGLE_SCOPES.join(" ")).split(/\s+/),
+    scopes: (tokens.scope ?? scopesForRole(role).join(" ")).split(/\s+/),
     tokenEncrypted: encryptJson(stored),
     lastCheckedAt: new Date(),
     connectedBy: userId,
@@ -189,22 +256,32 @@ async function saveConnection(
     disconnectedAt: null,
   };
   await prisma.migrationConnection.upsert({
-    where: { id: CONNECTION_ID },
+    where: { role },
     update: data,
-    create: { id: CONNECTION_ID, ...data },
+    create: data,
   });
 }
 
-/** OAuth callback: exchange code, identify account, persist encrypted tokens. */
-export async function connectFromCode(code: string, userId: string): Promise<ConnectionPublic> {
+/**
+ * OAuth callback: exchange the code, identify the authorizing account and
+ * persist the encrypted tokens **for the requested role only**.
+ *
+ * The role comes from the signed state, so a user cannot connect the legacy
+ * source account into the destination slot or the reverse.
+ */
+export async function connectFromCode(
+  code: string,
+  userId: string,
+  role: GoogleRole
+): Promise<ConnectionPublic> {
   const tokens = await exchangeCode(code);
   const info = await fetchUserInfo(tokens.access_token);
-  await saveConnection(tokens, info.email ?? null, userId);
-  return getConnectionPublic();
+  await saveConnection(role, tokens, info.email ?? null, userId);
+  return getConnectionPublic(role);
 }
 
-export async function disconnect(userId: string): Promise<void> {
-  const row = await prisma.migrationConnection.findUnique({ where: { id: CONNECTION_ID } });
+export async function disconnect(userId: string, role: GoogleRole): Promise<void> {
+  const row = await findConnection(role);
   // Revoke at Google (best-effort; token never logged)
   const tokens = row?.tokenEncrypted ? decryptJson<GoogleTokenSet>(row.tokenEncrypted) : null;
   if (tokens?.access_token) {
@@ -219,6 +296,7 @@ export async function disconnect(userId: string): Promise<void> {
     }
   }
   const data = {
+    role,
     status: "DISCONNECTED",
     tokenEncrypted: null,
     googleAccountEmail: null,
@@ -228,15 +306,20 @@ export async function disconnect(userId: string): Promise<void> {
     connectedBy: userId,
   };
   await prisma.migrationConnection.upsert({
-    where: { id: CONNECTION_ID },
+    where: { role },
     update: data,
-    create: { id: CONNECTION_ID, ...data },
+    create: data,
   });
 }
 
-/** Returns a valid access token, transparently refreshing when expired. */
-export async function getAccessToken(): Promise<string | null> {
-  const row = await prisma.migrationConnection.findUnique({ where: { id: CONNECTION_ID } });
+/**
+ * Returns a valid access token for a role, refreshing transparently.
+ *
+ * The role is a typed server-side value; there is no way to obtain a
+ * DESTINATION token for a source operation or the reverse.
+ */
+export async function getAccessToken(role: GoogleRole): Promise<string | null> {
+  const row = await findConnection(role);
   if (!row?.tokenEncrypted || row.status !== "CONNECTED") return null;
   const tokens = decryptJson<GoogleTokenSet & { expiry_date?: number }>(row.tokenEncrypted);
   if (!tokens?.access_token) return null;
@@ -252,13 +335,13 @@ export async function getAccessToken(): Promise<string | null> {
         expiry_date: fresh.expires_in ? Date.now() + fresh.expires_in * 1000 : tokens.expiry_date,
       };
       await prisma.migrationConnection.update({
-        where: { id: CONNECTION_ID },
+        where: { role },
         data: { tokenEncrypted: encryptJson(merged), lastCheckedAt: new Date() },
       });
       return merged.access_token;
     } catch {
       await prisma.migrationConnection
-        .update({ where: { id: CONNECTION_ID }, data: { status: "ERROR", lastCheckedAt: new Date() } })
+        .update({ where: { role }, data: { status: "ERROR", lastCheckedAt: new Date() } })
         .catch(() => undefined);
       return null;
     }
@@ -266,16 +349,16 @@ export async function getAccessToken(): Promise<string | null> {
   return tokens.access_token;
 }
 
-/** Authenticated GET to a Google API. Retries once after refresh on 401. */
-export async function fetchGoogle(url: string): Promise<Response> {
-  let token = await getAccessToken();
-  if (!token) throw new Error("Tidak terhubung ke akun Google");
+/** Authenticated GET to a Google API for a specific role. */
+export async function fetchGoogle(role: GoogleRole, url: string): Promise<Response> {
+  let token = await getAccessToken(role);
+  if (!token) throw new Error(googleNotConnectedMessage(role));
   let res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) {
     await prisma.migrationConnection
-      .update({ where: { id: CONNECTION_ID }, data: { status: "ERROR", lastCheckedAt: new Date() } })
+      .update({ where: { role }, data: { status: "ERROR", lastCheckedAt: new Date() } })
       .catch(() => undefined);
-    token = await getAccessToken();
+    token = await getAccessToken(role);
     if (!token) throw new Error("Sesi Google kedaluwarsa — silakan sambungkan ulang");
     res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   }
@@ -285,17 +368,18 @@ export async function fetchGoogle(url: string): Promise<Response> {
 /**
  * Authenticated request to a Google API with any HTTP method.
  *
- * Used by the document storage provider (Drive uploads/deletes) and by the
- * migration engine. Tokens are refreshed once on 401 before failing.
+ * Used by the document storage provider (DESTINATION drive writes) and by the
+ * migration engine (SOURCE drive reads). Tokens are refreshed once on 401.
  * Credentials never leave the server.
  */
 export async function googleFetch(
+  role: GoogleRole,
   url: string,
   init: RequestInit = {},
   retryOn401 = true,
 ): Promise<Response> {
-  const token = await getAccessToken();
-  if (!token) throw new Error("Tidak terhubung ke akun Google");
+  const token = await getAccessToken(role);
+  if (!token) throw new Error(googleNotConnectedMessage(role));
 
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
@@ -303,9 +387,49 @@ export async function googleFetch(
   const res = await fetch(url, { ...init, headers });
   if (res.status === 401 && retryOn401) {
     await prisma.migrationConnection
-      .update({ where: { id: CONNECTION_ID }, data: { status: "ERROR", lastCheckedAt: new Date() } })
+      .update({ where: { role }, data: { status: "ERROR", lastCheckedAt: new Date() } })
       .catch(() => undefined);
-    return googleFetch(url, init, false);
+    return googleFetch(role, url, init, false);
   }
   return res;
+}
+
+/** Authenticated JSON request helper (parses the body, throwing on failure). */
+export async function googleFetchJson<T>(
+  role: GoogleRole,
+  url: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const res = await googleFetch(role, url, init);
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    throw new Error(`Google API ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return (text ? JSON.parse(text) : {}) as T;
+}
+
+/** Authenticated streaming request helper (used for file downloads). */
+export async function googleFetchStream(
+  role: GoogleRole,
+  url: string,
+  init: RequestInit = {},
+): Promise<{ body: ReadableStream<Uint8Array>; contentType?: string; contentLength?: number } | null> {
+  const res = await googleFetch(role, url, init);
+  if (res.status === 404) return null;
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Google API ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  const length = res.headers.get("content-length");
+  return {
+    body: res.body as ReadableStream<Uint8Array>,
+    contentType: res.headers.get("content-type") ?? undefined,
+    contentLength: length ? Number(length) : undefined,
+  };
+}
+
+function googleNotConnectedMessage(role: GoogleRole): string {
+  return role === "SOURCE"
+    ? "Akun Google SUMBER belum tersambung. Hubungkan akun sumber (read-only) di Migration Center."
+    : "Akun Google TUJUAN belum tersambung. Hubungkan akun penyimpanan produksi di Migration Center.";
 }
