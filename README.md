@@ -95,6 +95,21 @@ Langkah yang masih perlu dilakukan secara manual (lihat *Manual Steps* di bawah)
    *Manual Steps*).
 4. Deploy.
 
+### Region fungsi (penting)
+
+`vercel.json` menetapkan `"regions": ["sin1"]` agar fungsi berjalan di **Singapore** — satu region
+dengan database Neon (`ap-southeast-1`). Ini memangkas latensi setiap query dari ~200 ms menjadi
+beberapa milidetik jaringan lokal; tanpa ini waktu respons naik ke 2–3 detik.
+
+Jika database dipindah ke region lain, sesuaikan `regions` di `vercel.json` agar tetap
+sekongkolasi dengan Neon.
+
+### Runtime Prisma
+
+`src/lib/prisma.ts` memakai satu `PrismaClient` per instance serverless dengan **Neon driver
+adapter (WebSocket, pooled)**. Pool koneksi aman digunakan ulang antar-request pada runtime
+Node.js Vercel, sehingga tidak ada handshake per-request.
+
 ## Keamanan
 
 Jangan pernah commit atau mencetak nilai: `DATABASE_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
