@@ -159,8 +159,8 @@ export function StaffTable({
           className="h-8 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
         >
           <option value="">Semua Profesi</option>
-          <option value="Perawat">Perawat</option>
-          <option value="Bidan">Bidan</option>
+          <option value="PERAWAT">Perawat</option>
+          <option value="BIDAN">Bidan</option>
         </select>
         <select
           name="status"

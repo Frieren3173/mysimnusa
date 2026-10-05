@@ -16,7 +16,7 @@ export default async function BorangEntryPage() {
       select: { id: true, name: true, profession: true, roomId: true },
       orderBy: { name: "asc" },
     }),
-    prisma.room.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.room.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (

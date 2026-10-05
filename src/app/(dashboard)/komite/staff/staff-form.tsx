@@ -40,7 +40,7 @@ export function StaffForm({ staff, rooms, competencies }: Props) {
   const [form, setForm] = React.useState({
     name: staff?.name ?? "",
     nip: staff?.nip ?? "",
-    profession: staff?.profession ?? "Perawat",
+    profession: staff?.profession ?? "PERAWAT",
     email: staff?.email ?? "",
     phone: staff?.phone ?? "",
     address: staff?.address ?? "",
@@ -138,8 +138,8 @@ export function StaffForm({ staff, rooms, competencies }: Props) {
                 list="profession-list"
               />
               <datalist id="profession-list">
-                <option value="Perawat" />
-                <option value="Bidan" />
+                <option value="PERAWAT" />
+                <option value="BIDAN" />
                 <option value="Tenaga Teknis Kefarmasian" />
               </datalist>
             </FormField>
