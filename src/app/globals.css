@@ -1,52 +1,79 @@
 @import "tailwindcss";
 
+/*
+ * MYSIMNUSA — Ocean Blue design system.
+ *
+ * Semantic tokens are the single source of truth for colour. They are exposed
+ * to Tailwind v4 through @theme so components can use utilities like
+ * `bg-primary`, `text-muted-foreground`, `border-border`, `bg-surface`, etc.
+ *
+ * Identity: calm, medical, trustworthy "deep ocean" blue — never green, never
+ * neon/electric, never gaming-blue. Most surfaces stay neutral/cool; blue is
+ * reserved for brand, primary actions, active navigation, links, selection and
+ * focus states.
+ */
+
+@theme {
+  /* Brand — Ocean Blue ------------------------------------------------------ */
+  --color-primary: oklch(0.55 0.13 240); /* deep ocean blue  ~#1479B8 */
+  --color-primary-hover: oklch(0.48 0.13 241); /* sea blue darker */
+  --color-primary-active: oklch(0.42 0.12 242);
+  --color-primary-foreground: #ffffff;
+  --color-primary-subtle: oklch(0.97 0.02 230); /* very light aqua */
+  --color-primary-muted: oklch(0.93 0.04 230); /* light aqua ~#DFF3FA */
+
+  /* Secondary / accent (deeper navy for structure, aqua for accents) -------- */
+  --color-secondary: oklch(0.36 0.08 248); /* deep ocean ~#0F4C81 */
+  --color-secondary-foreground: #ffffff;
+  --color-accent: oklch(0.75 0.09 220); /* light aqua accent */
+
+  /* Surfaces --------------------------------------------------------------- */
+  --color-background: oklch(0.98 0.005 240); /* near-white cool */
+  --color-surface: #ffffff;
+  --color-surface-raised: oklch(0.97 0.008 240); /* very subtle cool surface */
+  --color-surface-sunken: oklch(0.96 0.01 240);
+
+  /* Foreground ------------------------------------------------------------- */
+  --color-foreground: oklch(0.28 0.04 248); /* deep navy text ~#123047 */
+  --color-muted-foreground: oklch(0.55 0.03 250); /* cool gray-blue */
+
+  /* Borders ---------------------------------------------------------------- */
+  --color-border: oklch(0.92 0.01 240); /* very light blue-gray */
+  --color-border-strong: oklch(0.86 0.015 240);
+  --color-ring: oklch(0.55 0.13 240); /* focus ring = primary */
+
+  /* Semantic --------------------------------------------------------------- */
+  --color-success: oklch(0.62 0.14 155);
+  --color-success-subtle: oklch(0.96 0.04 155);
+  --color-warning: oklch(0.72 0.15 70);
+  --color-warning-subtle: oklch(0.97 0.05 80);
+  --color-danger: oklch(0.58 0.2 25);
+  --color-danger-subtle: oklch(0.96 0.04 25);
+  --color-info: oklch(0.6 0.12 230);
+  --color-info-subtle: oklch(0.96 0.03 230);
+
+  /* Motion tokens ---------------------------------------------------------- */
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @layer base {
   :root {
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 
-    /* Brand */
-    --color-primary:        #2563EB;
-    --color-primary-hover:  #1D4ED8;
-    --color-primary-subtle: #EFF6FF;
+    /* Legacy token aliases (kept for compatibility with existing markup) */
+    --color-bg: var(--color-background);
+    --color-text-primary: var(--color-foreground);
+    --color-text-secondary: var(--color-muted-foreground);
+    --color-text-muted: var(--color-muted-foreground);
 
-    /* Surfaces */
-    --color-bg:              #F8FAFC;
-    --color-surface:         #FFFFFF;
-    --color-surface-raised:  #F1F5F9;
-    --color-border:          #E2E8F0;
-    --color-border-strong:   #CBD5E1;
-
-    /* Text */
-    --color-text-primary:   #0F172A;
-    --color-text-secondary: #475569;
-    --color-text-muted:     #94A3B8;
-
-    /* Semantic */
-    --color-success:        #16A34A;
-    --color-success-subtle: #F0FDF4;
-    --color-warning:        #D97706;
-    --color-warning-subtle: #FFFBEB;
-    --color-danger:         #DC2626;
-    --color-danger-subtle:  #FEF2F2;
-    --color-info:           #0891B2;
-    --color-info-subtle:    #ECFEFF;
-
-    /* Motion */
-    --duration-fast:   150ms;
-    --duration-normal: 220ms;
-    --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .dark {
-    --color-bg:              #0F172A;
-    --color-surface:         #1E293B;
-    --color-surface-raised:  #334155;
-    --color-border:          #334155;
-    --color-border-strong:   #475569;
-    --color-text-primary:    #F1F5F9;
-    --color-text-secondary:  #94A3B8;
-    --color-text-muted:      #64748B;
-    --color-primary-subtle:  #1E3A5F;
+    /* Sticky layers ---------------------------------------------------------
+       --page-sticky-offset is measured by StickyPageHeader (header height +
+       fixed topbar). Table bodies use it so a bounded scroll container leaves
+       exactly enough room for the sticky header + toolbar + table header. */
+    --page-sticky-offset: 220px;
   }
 
   * {
@@ -58,14 +85,15 @@
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text-primary);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-sans);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Reduced motion */
+  /* Reduced motion: collapse all non-essential motion globally. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -75,9 +103,9 @@
     }
   }
 
-  /* Focus visible — never remove outline entirely */
+  /* Focus visible — ocean blue ring, never removed entirely. */
   :focus-visible {
-    outline: 2px solid #2563EB;
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
 
@@ -90,11 +118,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: #CBD5E1;
+    background-color: var(--color-border-strong);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #94A3B8;
+    background-color: var(--color-muted-foreground);
   }
 
   /* Table */
@@ -106,12 +134,80 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+}
 
-  /* Sticky layers ---------------------------------------------------------
-     --page-sticky-offset is measured by StickyPageHeader (header height +
-     fixed topbar). Table bodies use it so a bounded scroll container leaves
-     exactly enough room for the sticky header + toolbar + table header. */
-  :root {
-    --page-sticky-offset: 220px;
+/* ─────────────────────────────────────────────────────────────
+ * Motion language — CSS-first, subtle, fast. No new JS libs.
+ * Everything degrades gracefully and is disabled under reduced motion.
+ * ───────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Page/content entrance: fade + small translate + ease-out. */
+  @keyframes mysim-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.995);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes mysim-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes mysim-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes mysim-drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  .animate-enter {
+    animation: mysim-enter var(--duration-normal) var(--ease-out-quint) both;
+  }
+
+  .animate-overlay-in {
+    animation: mysim-overlay-in var(--duration-fast) var(--ease-standard) both;
+  }
+
+  .animate-dialog-in {
+    animation: mysim-dialog-in var(--duration-normal) var(--ease-out-quint) both;
+  }
+
+  .animate-drawer-in {
+    animation: mysim-drawer-in var(--duration-normal) var(--ease-out-quint) both;
+  }
+
+  /* Staggered entrance for page sections (header → toolbar → cards → table). */
+  .stagger-children > * {
+    animation: mysim-enter var(--duration-normal) var(--ease-out-quint) both;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger-children > *:nth-child(n + 6) { animation-delay: 200ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-enter,
+    .animate-overlay-in,
+    .animate-dialog-in,
+    .animate-drawer-in,
+    .stagger-children > * {
+      animation: none !important;
+    }
   }
 }

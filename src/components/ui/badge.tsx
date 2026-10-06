@@ -5,23 +5,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 // ─── Badge / Status Badge ───────────────────────────────────
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium",
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
   {
     variants: {
       variant: {
-        default:   "bg-slate-100 text-slate-700",
-        active:    "bg-green-50 text-green-700",
-        expiring:  "bg-amber-50 text-amber-700",
-        expired:   "bg-red-50 text-red-700",
-        lifetime:  "bg-blue-50 text-blue-700",
-        missing:   "bg-red-50 text-red-600",
-        pending:   "bg-cyan-50 text-cyan-700",
-        approved:  "bg-green-50 text-green-700",
-        rejected:  "bg-red-50 text-red-700",
-        draft:     "bg-slate-100 text-slate-500",
-        submitted: "bg-cyan-50 text-cyan-700",
-        archived:  "bg-slate-100 text-slate-500",
-        info:      "bg-blue-50 text-blue-700",
+        default:   "bg-[var(--color-surface-raised)] text-[var(--color-muted-foreground)] ring-[var(--color-border)]",
+        active:    "bg-emerald-50 text-emerald-700 ring-emerald-200/70",
+        expiring:  "bg-amber-50 text-amber-700 ring-amber-200/70",
+        expired:   "bg-red-50 text-red-700 ring-red-200/70",
+        lifetime:  "bg-[var(--color-primary-subtle)] text-[var(--color-primary)] ring-[var(--color-primary)]/20",
+        missing:   "bg-red-50 text-red-600 ring-red-200/70",
+        pending:   "bg-[var(--color-primary-subtle)] text-[var(--color-primary)] ring-[var(--color-primary)]/20",
+        approved:  "bg-emerald-50 text-emerald-700 ring-emerald-200/70",
+        rejected:  "bg-red-50 text-red-700 ring-red-200/70",
+        draft:     "bg-[var(--color-surface-raised)] text-[var(--color-muted-foreground)] ring-[var(--color-border)]",
+        submitted: "bg-[var(--color-primary-subtle)] text-[var(--color-primary)] ring-[var(--color-primary)]/20",
+        archived:  "bg-[var(--color-surface-raised)] text-[var(--color-muted-foreground)] ring-[var(--color-border)]",
+        info:      "bg-[var(--color-primary-subtle)] text-[var(--color-primary)] ring-[var(--color-primary)]/20",
       },
     },
     defaultVariants: { variant: "default" },
@@ -29,15 +29,15 @@ const badgeVariants = cva(
 );
 
 const STATUS_DOTS: Record<string, string> = {
-  active:   "bg-green-500",
-  approved: "bg-green-500",
+  active:   "bg-emerald-500",
+  approved: "bg-emerald-500",
   expiring: "bg-amber-500",
   expired:  "bg-red-500",
   missing:  "bg-red-500",
   rejected: "bg-red-500",
-  lifetime: "bg-blue-500",
-  pending:  "bg-cyan-500",
-  submitted:"bg-cyan-500",
+  lifetime: "bg-[var(--color-primary)]",
+  pending:  "bg-[var(--color-primary)]",
+  submitted:"bg-[var(--color-primary)]",
   draft:    "bg-slate-400",
   archived: "bg-slate-400",
 };

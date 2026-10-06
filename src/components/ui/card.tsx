@@ -7,7 +7,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white shadow-sm",
+        "rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_1px_2px_rgba(15,40,70,0.04),0_1px_3px_rgba(15,40,70,0.03)]",
         className
       )}
       {...props}
@@ -19,7 +19,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
 
 export function CardHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex items-center justify-between px-6 py-4 border-b border-slate-100", className)} {...props}>
+    <div className={cn("flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--color-border)]", className)} {...props}>
       {children}
     </div>
   );
@@ -27,7 +27,7 @@ export function CardHeader({ className, children, ...props }: React.HTMLAttribut
 
 export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("text-sm font-semibold text-slate-900", className)} {...props}>
+    <h3 className={cn("text-sm font-semibold text-[var(--color-foreground)]", className)} {...props}>
       {children}
     </h3>
   );
@@ -35,7 +35,7 @@ export function CardTitle({ className, children, ...props }: React.HTMLAttribute
 
 export function CardDescription({ className, children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn("text-xs text-slate-500 mt-0.5", className)} {...props}>
+    <p className={cn("text-xs text-[var(--color-muted-foreground)] mt-0.5", className)} {...props}>
       {children}
     </p>
   );
@@ -51,7 +51,7 @@ export function CardContent({ className, children, ...props }: React.HTMLAttribu
 
 export function CardFooter({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("px-6 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-lg", className)} {...props}>
+    <div className={cn("px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-surface-raised)]/60 rounded-b-xl", className)} {...props}>
       {children}
     </div>
   );
@@ -71,10 +71,10 @@ interface KpiCardProps {
 }
 
 const KPI_VARIANTS = {
-  default: "border-slate-200",
-  warning: "border-amber-200 bg-amber-50/30",
-  danger:  "border-red-200 bg-red-50/30",
-  success: "border-green-200 bg-green-50/30",
+  default: "border-[var(--color-border)]",
+  warning: "border-amber-200 bg-amber-50/40",
+  danger:  "border-red-200 bg-red-50/40",
+  success: "border-green-200 bg-green-50/40",
 };
 
 export function KpiCard({
@@ -88,22 +88,27 @@ export function KpiCard({
   size = "default",
 }: KpiCardProps) {
   return (
-    <div className={cn("rounded-lg border bg-white p-5 shadow-sm", KPI_VARIANTS[variant])}>
+    <div
+      className={cn(
+        "rounded-xl border bg-[var(--color-surface)] p-5 shadow-[0_1px_2px_rgba(15,40,70,0.04)] transition-shadow duration-200 hover:shadow-[0_2px_8px_rgba(15,40,70,0.07)]",
+        KPI_VARIANTS[variant],
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide truncate">
+          <p className="text-xs font-medium text-[var(--color-muted-foreground)] uppercase tracking-wide truncate">
             {title}
           </p>
           <p
             className={cn(
-              "font-bold tabular-nums text-slate-900 mt-1",
+              "font-bold tabular-nums text-[var(--color-foreground)] mt-1",
               size === "large" ? "text-4xl" : "text-3xl"
             )}
           >
             {value}
           </p>
           {subtitle && (
-            <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
+            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">{subtitle}</p>
           )}
           {trend && (
             <p className={cn("text-xs mt-1 font-medium", trend.value >= 0 ? "text-green-600" : "text-red-600")}>
@@ -112,7 +117,7 @@ export function KpiCard({
           )}
         </div>
         {icon && (
-          <div className="shrink-0 text-slate-400">{icon}</div>
+          <div className="shrink-0 text-[var(--color-muted-foreground)]/70">{icon}</div>
         )}
       </div>
       {action && <div className="mt-4">{action}</div>}
@@ -134,8 +139,8 @@ export function Section({ title, description, action, className, children, ...pr
       {(title || action) && (
         <div className="flex items-start justify-between gap-4">
           <div>
-            {title && <h2 className="text-sm font-semibold text-slate-900">{title}</h2>}
-            {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+            {title && <h2 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h2>}
+            {description && <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">{description}</p>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </div>
@@ -150,7 +155,7 @@ export function Section({ title, description, action, className, children, ...pr
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded bg-slate-100", className)}
+      className={cn("animate-pulse rounded-md bg-[var(--color-surface-sunken)]", className)}
       aria-hidden="true"
       {...props}
     />
@@ -197,11 +202,13 @@ export function EmptyState({ title, description, icon, action }: EmptyStateProps
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       {icon && (
-        <div className="mb-4 text-slate-300">{icon}</div>
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+          {icon}
+        </div>
       )}
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h3>
       {description && (
-        <p className="text-xs text-slate-500 mt-1 max-w-sm">{description}</p>
+        <p className="text-xs text-[var(--color-muted-foreground)] mt-1 max-w-sm">{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

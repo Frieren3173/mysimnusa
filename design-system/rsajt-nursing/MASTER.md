@@ -18,53 +18,65 @@
 
 ## Color Tokens
 
-All colors via CSS custom properties. Never use raw hex in components.
+**Identity: Ocean Blue.** Calm, medical, trustworthy — never green, never
+neon/electric, never gaming-blue. Most surfaces stay neutral/cool; blue is
+reserved for brand, primary actions, active navigation, links, selection and
+focus states.
+
+Tokens are declared once in `src/app/globals.css` (`@theme`) and exposed to
+Tailwind v4 as semantic utilities (`bg-primary`, `text-muted-foreground`,
+`border-border`, `bg-surface`, `text-danger`, …). Prefer these over raw hex or
+raw palette shades (`blue-600`, `slate-200`). Reference values below are the
+resolved colours after transpilation.
 
 ```css
-:root {
-  /* Brand */
-  --color-primary:         #2563EB; /* Blue 600 — action, links */
-  --color-primary-hover:   #1D4ED8; /* Blue 700 */
-  --color-primary-subtle:  #EFF6FF; /* Blue 50 — tinted bg */
+/* Brand — Ocean Blue */
+--color-primary:            #0079B4; /* deep ocean blue — action, links */
+--color-primary-hover:      #0A699B; /* sea blue (darker) */
+--color-primary-active:     #0B5A86;
+--color-primary-subtle:     #EAF4FA; /* very light aqua — tinted bg */
+--color-primary-muted:      #CDE7F4; /* light aqua */
+--color-primary-foreground: #FFFFFF;
 
-  /* Surfaces */
-  --color-bg:              #F8FAFC; /* Slate 50 — page background */
-  --color-surface:         #FFFFFF; /* white — card, panel */
-  --color-surface-raised:  #F1F5F9; /* Slate 100 — elevated card */
-  --color-border:          #E2E8F0; /* Slate 200 */
-  --color-border-strong:   #CBD5E1; /* Slate 300 */
+/* Structure / accent */
+--color-secondary:          #0F4C81; /* deep ocean */
+--color-accent:             #7FC6E0; /* light aqua */
 
-  /* Text */
-  --color-text-primary:    #0F172A; /* Slate 900 */
-  --color-text-secondary:  #475569; /* Slate 600 */
-  --color-text-muted:      #94A3B8; /* Slate 400 */
-  --color-text-inverse:    #FFFFFF;
+/* Surfaces */
+--color-background:         #F6F9FB; /* very light cool blue */
+--color-surface:            #FFFFFF;
+--color-surface-raised:     #F1F5F8; /* very subtle cool surface */
+--color-surface-sunken:     #E9EFF3;
 
-  /* Semantic */
-  --color-success:         #16A34A; /* Green 600 */
-  --color-success-subtle:  #F0FDF4; /* Green 50 */
-  --color-warning:         #D97706; /* Amber 600 */
-  --color-warning-subtle:  #FFFBEB; /* Amber 50 */
-  --color-danger:          #DC2626; /* Red 600 */
-  --color-danger-subtle:   #FEF2F2; /* Red 50 */
-  --color-info:            #0891B2; /* Cyan 600 */
-  --color-info-subtle:     #ECFEFF; /* Cyan 50 */
+/* Text */
+--color-foreground:         #182B3C; /* deep navy */
+--color-muted-foreground:   #5A6B7B; /* cool gray-blue */
 
-  /* Dark mode overrides (via .dark class) */
-}
+/* Borders / focus */
+--color-border:             #E3EAEF; /* very light blue-gray */
+--color-border-strong:      #C9D5DD;
+--color-ring:               #0079B4; /* focus ring = primary */
 
-.dark {
-  --color-bg:              #0F172A;
-  --color-surface:         #1E293B;
-  --color-surface-raised:  #334155;
-  --color-border:          #334155;
-  --color-border-strong:   #475569;
-  --color-text-primary:    #F1F5F9;
-  --color-text-secondary:  #94A3B8;
-  --color-text-muted:      #64748B;
-  --color-primary-subtle:  #1E3A5F;
-}
+/* Semantic */
+--color-success:            #168F58;  --color-success-subtle: #ECFAF1;
+--color-warning:            #C77A15;  --color-warning-subtle: #FEF6E7;
+--color-danger:             #DC2626;  --color-danger-subtle:  #FEF2F2;
+--color-info:               #0284B8;  --color-info-subtle:    #EAF4FA;
 ```
+
+**Motion tokens** (CSS-first; no JS animation library is added for app UI):
+
+```css
+--duration-fast:   150ms;
+--duration-normal: 220ms;
+--ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+--ease-out-quint:  cubic-bezier(0.22, 1, 0.36, 1);
+```
+
+Utility classes: `.animate-enter` (page/route entrance), `.animate-dialog-in`
+(modal), `.animate-overlay-in` (overlay fade), `.animate-drawer-in` (side panel),
+`.stagger-children` (30–80 ms staggered section entrance). All are disabled under
+`prefers-reduced-motion: reduce`.
 
 **Contrast**: All text/bg pairs must pass WCAG AA (4.5:1 normal, 3:1 large).
 

@@ -61,14 +61,16 @@ export function StickyPageHeader({
     <header
       ref={ref}
       className={cn(
-        "sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:-mx-6 md:px-6",
+        "sticky top-0 z-20 -mx-4 mb-4 border-b border-[var(--color-border)] bg-[var(--color-background)]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-background)]/80 md:-mx-6 md:px-6",
         className,
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-900">{title}</h1>
-          {description ? <p className="mt-0.5 text-xs text-slate-500">{description}</p> : null}
+          <h1 className="text-xl font-bold tracking-tight text-[var(--color-foreground)]">{title}</h1>
+          {description ? (
+            <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">{description}</p>
+          ) : null}
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>

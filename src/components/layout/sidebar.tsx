@@ -109,13 +109,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-slate-200 bg-white transition-all duration-200 shrink-0",
+        "flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-200 shrink-0",
         collapsed ? "w-14" : "w-60"
       )}
       aria-label="Navigasi utama"
     >
       {/* Branding */}
-      <div className="border-b border-slate-100 px-4 py-3">
+      <div className="border-b border-[var(--color-border)] px-4 py-3">
         {collapsed ? (
           <div className="flex h-8 items-center justify-center">
             <Image
@@ -139,19 +139,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 priority
                 className="h-8 w-auto shrink-0"
               />
-              <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-slate-900">
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--color-foreground)]">
                 MYSIMNUSA
               </p>
               <button
                 onClick={onToggle}
-                className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                className="shrink-0 rounded-md p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
                 aria-label="Ciutkan sidebar"
               >
                 <Menu size={16} />
               </button>
             </div>
             {/* Row 2: committee subtitle spanning the full container width */}
-            <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+            <p className="mt-1.5 text-[11px] leading-snug text-[var(--color-muted-foreground)]">
               Komite Keperawatan dan Kebidanan
             </p>
           </>
@@ -159,7 +159,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {collapsed && (
           <button
             onClick={onToggle}
-            className="mx-auto mt-1 flex rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="mx-auto mt-1 flex rounded-md p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
             aria-label="Perluas sidebar"
           >
             <Menu size={16} />
@@ -177,10 +177,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100",
+                  "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150",
                   active
-                    ? "bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-600 rounded-l-none"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-[var(--color-primary-subtle)] font-medium text-[var(--color-primary)] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--color-primary)]"
+                    : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
                 )}
                 aria-current={active ? "page" : undefined}
               >
@@ -201,10 +201,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <button
                 onClick={() => !collapsed && toggleGroup(item.label)}
                 className={cn(
-                  "flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100",
+                  "flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150",
                   isActiveGroup
-                    ? "text-slate-900 font-semibold"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "font-semibold text-[var(--color-foreground)]"
+                    : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
                 )}
                 aria-expanded={!collapsed ? isOpen : undefined}
               >
@@ -218,7 +218,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     <ChevronDown
                       size={14}
                       className={cn(
-                        "mt-0.5 shrink-0 text-slate-400 transition-transform duration-150",
+                        "mt-0.5 shrink-0 text-[var(--color-muted-foreground)]/70 transition-transform duration-150",
                         isOpen && "rotate-180"
                       )}
                     />
@@ -227,7 +227,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </button>
 
               {!collapsed && isOpen && item.children && (
-                <div className="mt-0.5 ml-4 space-y-0.5 border-l border-slate-200 pl-3">
+                <div className="mt-0.5 ml-4 space-y-0.5 border-l border-[var(--color-border)] pl-3">
                   {item.children.map((child) => {
                     const childActive =
                       pathname === child.href ||
@@ -237,10 +237,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         key={child.href}
                         href={child.href!}
                         className={cn(
-                          "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-100",
+                          "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150",
                           childActive
-                            ? "bg-blue-50 text-blue-700 font-medium"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                            ? "bg-[var(--color-primary-subtle)] font-medium text-[var(--color-primary)]"
+                            : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
                         )}
                         aria-current={childActive ? "page" : undefined}
                       >
@@ -257,8 +257,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Footer */}
       {!collapsed && (
-        <div className="border-t border-slate-100 px-4 py-3">
-          <p className="text-[10px] text-slate-400">v2.0 · MYSIMNUSA</p>
+        <div className="border-t border-[var(--color-border)] px-4 py-3">
+          <p className="text-[10px] text-[var(--color-muted-foreground)]/70">v2.0 · MYSIMNUSA</p>
         </div>
       )}
     </aside>

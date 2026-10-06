@@ -6,19 +6,20 @@ const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2",
     "rounded-md text-sm font-medium",
-    "transition-colors duration-150",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+    "transition-[background-color,box-shadow,transform,color] duration-150 ease-[var(--ease-standard)]",
+    "active:scale-[0.98]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:opacity-50",
     "select-none",
   ].join(" "),
   {
     variants: {
       variant: {
-        primary:   "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800",
-        secondary: "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 active:bg-slate-100",
-        danger:    "bg-red-600 text-white hover:bg-red-700 active:bg-red-800",
-        ghost:     "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-        link:      "text-blue-600 underline-offset-4 hover:underline p-0 h-auto",
+        primary:   "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]",
+        secondary: "bg-white text-[var(--color-foreground)] border border-[var(--color-border)] shadow-sm hover:bg-[var(--color-surface-raised)] active:bg-slate-100",
+        danger:    "bg-[var(--color-danger)] text-white shadow-sm hover:brightness-95 active:brightness-90",
+        ghost:     "text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]",
+        link:      "text-[var(--color-primary)] underline-offset-4 hover:underline p-0 h-auto",
       },
       size: {
         sm:   "h-8 px-3 text-xs",

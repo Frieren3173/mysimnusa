@@ -15,7 +15,7 @@ export function Table({
   return (
     <div
       className={cn(
-        "w-full overflow-x-auto rounded-lg border border-slate-200",
+        "w-full overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]",
         // `overflow-x: auto` alone does not create a scrollable box, which is why
         // a sticky <thead> had nothing to stick to. When `scroll` is set the
         // wrapper becomes the vertical scroll container for the table body only.
@@ -35,7 +35,10 @@ export function Table({
 export function TableHeader({ className, children, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn("bg-slate-50 border-b border-slate-200 sticky top-0 z-10 [&>tr>th]:bg-slate-50", className)}
+      className={cn(
+        "bg-[var(--color-surface-raised)] border-b border-[var(--color-border)] sticky top-0 z-10 [&>tr>th]:bg-[var(--color-surface-raised)] [&>tr>th]:backdrop-blur",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -45,7 +48,7 @@ export function TableHeader({ className, children, ...props }: React.HTMLAttribu
 
 export function TableBody({ className, children, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody className={cn("divide-y divide-slate-100", className)} {...props}>
+    <tbody className={cn("divide-y divide-[var(--color-border)]", className)} {...props}>
       {children}
     </tbody>
   );
@@ -54,7 +57,10 @@ export function TableBody({ className, children, ...props }: React.HTMLAttribute
 export function TableRow({ className, children, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
-      className={cn("hover:bg-slate-50/70 transition-colors duration-100", className)}
+      className={cn(
+        "transition-colors duration-100 hover:bg-[var(--color-primary-subtle)]/60",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -72,8 +78,8 @@ export function Th({ className, sortable, sorted, onSort, children, ...props }: 
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide whitespace-nowrap",
-        sortable && "cursor-pointer select-none hover:text-slate-900",
+        "px-4 py-3 text-left text-[11px] font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider whitespace-nowrap",
+        sortable && "cursor-pointer select-none hover:text-[var(--color-foreground)]",
         className
       )}
       onClick={sortable ? onSort : undefined}
@@ -95,7 +101,7 @@ export function Th({ className, sortable, sorted, onSort, children, ...props }: 
 export function Td({ className, children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn("px-4 py-3 text-slate-700 align-middle", className)}
+      className={cn("px-4 py-3 text-[var(--color-foreground)]/90 align-middle", className)}
       {...props}
     >
       {children}
@@ -126,17 +132,17 @@ export function Pagination({
   const end = Math.min(page * perPage, total);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-white">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="flex items-center gap-3">
-        <p className="text-xs text-slate-500">
-          Menampilkan <span className="font-medium text-slate-700">{start}–{end}</span> dari{" "}
-          <span className="font-medium text-slate-700">{total}</span>
+        <p className="text-xs text-[var(--color-muted-foreground)]">
+          Menampilkan <span className="font-medium text-[var(--color-foreground)]">{start}–{end}</span> dari{" "}
+          <span className="font-medium text-[var(--color-foreground)]">{total}</span>
         </p>
         {onPerPageChange && (
           <select
             value={perPage}
             onChange={(e) => onPerPageChange(Number(e.target.value))}
-            className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="h-7 rounded-md border border-[var(--color-border)] bg-white px-2 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             aria-label="Baris per halaman"
           >
             {[10, 20, 50, 100].map((v) => (
@@ -201,12 +207,12 @@ function PaginationButton({
   return (
     <button
       className={cn(
-        "h-7 min-w-[28px] rounded px-2 text-xs font-medium transition-colors duration-100",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+        "h-7 min-w-[28px] rounded-md px-2 text-xs font-medium transition-colors duration-100",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         active
-          ? "bg-blue-600 text-white"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          ? "bg-[var(--color-primary)] text-white shadow-sm"
+          : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-primary-subtle)] hover:text-[var(--color-primary)]"
       )}
       {...props}
     >

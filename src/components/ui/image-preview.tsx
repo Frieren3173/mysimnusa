@@ -133,22 +133,22 @@ function ImagePreviewDialog({
         type="button"
         aria-label="Tutup pratinjau foto"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/70"
+        className="animate-overlay-in absolute inset-0 cursor-default bg-black/70 backdrop-blur-[2px]"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        className="animate-dialog-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-          <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-3">
+          <h2 className="truncate text-sm font-semibold text-[var(--color-foreground)]">{title}</h2>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="shrink-0 rounded-md p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
           >
             <X size={18} />
           </button>
@@ -160,7 +160,7 @@ function ImagePreviewDialog({
           type="button"
           aria-label="Tutup pratinjau foto"
           onClick={onClose}
-          className="flex min-h-0 flex-1 cursor-default items-center justify-center overflow-auto bg-slate-50 p-4"
+          className="flex min-h-0 flex-1 cursor-default items-center justify-center overflow-auto bg-[var(--color-surface-raised)] p-4"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -168,7 +168,7 @@ function ImagePreviewDialog({
             alt={alt}
             decoding="async"
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[75vh] max-w-full rounded-md object-contain shadow-sm"
+            className="max-h-[75vh] max-w-full rounded-lg object-contain shadow-sm"
           />
         </button>
       </div>
