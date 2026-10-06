@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import "lenis/dist/lenis.css";
 import "./motion.css";
 
@@ -85,6 +86,10 @@ const queryAll = <T extends Element>(selector: string) =>
   Array.from(document.querySelectorAll<T>(selector));
 
 export default function MotionRoot() {
+  // Re-evaluate per route: the landing page uses window scroll (Lenis), while
+  // the app shell scrolls inside `#main-content` and must keep native scroll.
+  const pathname = usePathname();
+
   useEffect(() => {
     const docEl = document.documentElement;
     docEl.classList.add("motion-primed");
@@ -97,6 +102,15 @@ export default function MotionRoot() {
     ).matches;
 
     if (reduced) {
+      return;
+    }
+
+    // Only the landing/intro page uses the window-scroll motion system. The
+    // application shell (sidebar pages) scrolls inside its own `#main-content`
+    // container and must keep native scrolling, so we skip it entirely — this
+    // also guarantees no Lenis instance lingers after client-side navigation.
+    // The app sidebar is a reliable, unique marker of the application shell.
+    if (document.querySelector('aside[aria-label="Navigasi utama"]')) {
       return;
     }
 
@@ -440,6 +454,12 @@ export default function MotionRoot() {
           });
         };
 
+        // ── Smooth scrolling (Lenis) ──────────────────────────────────────
+        // Lenis drives the **window** scroll and calls preventDefault() on wheel
+        // events. The application shell (all sidebar pages) scrolls inside its
+        // own `#main-content` container, so it never reaches this code (see the
+        // early return above) and keeps native scrolling. Lenis therefore only
+        // runs on pages that actually scroll the document (the landing/intro).
         const lenis = new Lenis({ lerp: LENIS_LERP });
         const onLenisScroll = () => {
           ScrollTrigger.update();
@@ -509,7 +529,7 @@ export default function MotionRoot() {
       disposed = true;
       teardown();
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }
