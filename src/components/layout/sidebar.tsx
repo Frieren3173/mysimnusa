@@ -109,7 +109,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-200 shrink-0",
+        "flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] transition-[width] duration-200 ease-[var(--ease-standard)] shrink-0",
         collapsed ? "w-16" : "w-60"
       )}
       aria-label="Navigasi utama"

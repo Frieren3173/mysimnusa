@@ -208,7 +208,7 @@ export function DriveSyncCard() {
             </div>
             <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
-                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                className="h-full rounded-full bg-blue-600 transition-[width] duration-500"
                 style={{ width: `${st.percent}%` }}
               />
             </div>
