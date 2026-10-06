@@ -29,7 +29,7 @@ export default async function LoginPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white">
             <Image
               src="/logo-rsajt.png"
-              alt="Logo RSAJT"
+              alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
               width={1430}
               height={721}
               priority
@@ -68,7 +68,7 @@ export default async function LoginPage() {
 
         <p className="relative flex items-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          Rumah Sakit Al-Jihad Tangerang · Sistem Internal
+          Rumah Sakit Adhyaksa Jawa Timur · Sistem Internal
         </p>
       </aside>
 
@@ -79,7 +79,7 @@ export default async function LoginPage() {
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <Image
               src="/logo-rsajt.png"
-              alt="Logo RSAJT"
+              alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
               width={1430}
               height={721}
               priority

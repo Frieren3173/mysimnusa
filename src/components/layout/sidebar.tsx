@@ -110,22 +110,33 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         "flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-200 shrink-0",
-        collapsed ? "w-14" : "w-60"
+        collapsed ? "w-16" : "w-60"
       )}
       aria-label="Navigasi utama"
     >
       {/* Branding */}
-      <div className="border-b border-[var(--color-border)] px-4 py-3">
+      <div className={cn("border-b border-[var(--color-border)] py-3", collapsed ? "px-2" : "px-4")}>
         {collapsed ? (
-          <div className="flex h-8 items-center justify-center">
-            <Image
-              src="/logo-rsajt.png"
-              alt="Logo RSAJT"
-              width={1430}
-              height={721}
-              priority
-              className="h-7 w-auto shrink-0"
-            />
+          <div className="flex flex-col items-center gap-2">
+            {/* Collapsed: give the logo breathing room and keep its natural
+                aspect ratio (never squash it to fit a narrow slot). */}
+            <div className="flex h-9 w-full items-center justify-center overflow-hidden rounded-md bg-white">
+              <Image
+                src="/logo-rsajt.png"
+                alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
+                width={1430}
+                height={721}
+                priority
+                className="h-auto w-full max-w-[44px] object-contain"
+              />
+            </div>
+            <button
+              onClick={onToggle}
+              className="flex rounded-md p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
+              aria-label="Perluas sidebar"
+            >
+              <Menu size={16} />
+            </button>
           </div>
         ) : (
           <>
@@ -133,11 +144,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="flex items-center gap-2.5">
               <Image
                 src="/logo-rsajt.png"
-                alt="Logo RSAJT"
+                alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
                 width={1430}
                 height={721}
                 priority
-                className="h-8 w-auto shrink-0"
+                className="h-8 w-auto shrink-0 object-contain"
               />
               <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--color-foreground)]">
                 MYSIMNUSA
@@ -155,15 +166,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               Komite Keperawatan dan Kebidanan
             </p>
           </>
-        )}
-        {collapsed && (
-          <button
-            onClick={onToggle}
-            className="mx-auto mt-1 flex rounded-md p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-foreground)]"
-            aria-label="Perluas sidebar"
-          >
-            <Menu size={16} />
-          </button>
         )}
       </div>
 

@@ -69,7 +69,7 @@ export default function Home() {
           <div className="flex items-center gap-3" data-motion-intro-child>
             <Image
               src="/logo-rsajt.png"
-              alt="Logo RSAJT"
+              alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
               width={1430}
               height={721}
               priority
@@ -125,7 +125,7 @@ export default function Home() {
                 data-motion-intro-child
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                Sistem Internal · Rumah Sakit Al-Jihad Tangerang
+                Sistem Internal · Rumah Sakit Adhyaksa Jawa Timur
               </p>
 
               <h1
@@ -250,7 +250,7 @@ export default function Home() {
           className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-8 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"
           data-motion-footer
         >
-          <p>Rumah Sakit Al-Jihad Tangerang · Sistem Internal</p>
+          <p>Rumah Sakit Adhyaksa Jawa Timur · Sistem Internal</p>
           <p>
             © {new Date().getFullYear()} MYSIMNUSA — Sistem Informasi Manajemen Keperawatan &amp; Kebidanan
           </p>
