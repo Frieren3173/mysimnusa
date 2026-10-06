@@ -33,26 +33,43 @@ export function generatePatientCode(roomName: string | null, taken: Iterable<str
   return `${prefix}.${Date.now().toString(36).toUpperCase().slice(-2)}`;
 }
 
-/** No. rekam medis random 6 digit, unik terhadap `taken`. */
+/**
+ * No. rekam medis: tepat 6 digit angka (000001–999999), random, non-sequential,
+ * tidak pernah `000000`, dan unik terhadap `taken`.
+ *
+ * Leading zeros are preserved (e.g. `004821`) by zero-padding to 6 digits.
+ */
 export function generateRmNumber(taken: Iterable<string>): string {
   const used = new Set(taken);
-  for (let i = 0; i < 100; i++) {
-    const n = String(Math.floor(100000 + Math.random() * 900000));
-    if (!used.has(n)) return n;
+  for (let i = 0; i < 500; i++) {
+    const n = Math.floor(1 + Math.random() * 999999); // 1..999999
+    const s = String(n).padStart(6, "0");
+    if (s !== "000000" && !used.has(s)) return s;
   }
-  return String(Date.now()).slice(-6);
+  // Exhausted the random attempts (extremely unlikely) — walk deterministically.
+  for (let n = 1; n <= 999999; n++) {
+    const s = String(n).padStart(6, "0");
+    if (!used.has(s)) return s;
+  }
+  return "000001";
 }
 
 // ─────────────────────────────────────────────────────────────
 // PATIENT ROW EXPANSION (derive-at-display)
 //
 // A single BorangEntry stores one action with a `quantity`. For output
-// (patient list in the UI and the generated DOCX), each entry is expanded into
-// `quantity` anonymised patient rows — one initial per patient, each with a
-// unique medical-record (No. RM) number, unique across the whole document.
+// (patient list in the UI, the generated DOCX, and the preview modal), each
+// entry is expanded into `quantity` anonymised patient rows:
 //
-// Nothing is persisted here: this is a pure, deterministic transform over the
-// existing entries, so the database schema and all master data stay unchanged.
+//   • one patient initial per row (unique within the entry),
+//   • each row has JUMLAH = 1 (the row *is* one patient),
+//   • each row has a unique 6-digit No. RM within the whole document.
+//
+// The RM is a deterministic scramble of (initial, action, index): it looks
+// random and non-sequential, is never 000000, and — crucially — is stable, so
+// the on-screen list, the preview modal and the printed DOCX always show the
+// same numbers for the same entry. Nothing is persisted; the database schema
+// and all master data stay unchanged.
 // ─────────────────────────────────────────────────────────────
 
 const EXPAND_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -70,10 +87,10 @@ export interface PatientRow {
   no: number;
   /** Anonymised patient initial, e.g. TN.A / NY.B / BY.NY.C. */
   name: string;
-  /** Unique medical-record number within the document. */
+  /** Unique 6-digit medical-record number within the document. */
   rmNumber: string;
   actionType: string;
-  /** The action quantity this row was expanded from. */
+  /** Always 1 — each row represents exactly one patient. */
   quantity: number;
 }
 
@@ -101,61 +118,63 @@ function patientCodeAt(prefix: string, letter: string, index: number): string {
 }
 
 /**
+ * FNV-1a style string hash → 32-bit unsigned int. Cheap, stable, well-spread —
+ * good enough to turn a patient key into a random-looking record number.
+ */
+function hashString(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Deterministic 6-digit No. RM (000001–999999, never 000000) for a patient,
+ * unique against `used`. The `salt` lets the caller retry with a different
+ * value when a collision occurs.
+ */
+function scrambledRm(key: string, used: Set<string>): string {
+  for (let salt = 0; salt < 1000; salt++) {
+    const n = 1 + (hashString(`${key}#${salt}`) % 999999); // 1..999999
+    const s = String(n).padStart(6, "0");
+    if (s !== "000000" && !used.has(s)) return s;
+  }
+  // Practically unreachable fallback.
+  for (let n = 1; n <= 999999; n++) {
+    const s = String(n).padStart(6, "0");
+    if (!used.has(s)) return s;
+  }
+  return "000001";
+}
+
+/**
  * Expand entries into `quantity` patient rows each.
  *
  * - Patient initials increment from each entry's stored base code.
- * - No. RM numbers are made unique across the entire document. When the stored
- *   number is numeric it is offset; non-numeric/absent values fall back to a
- *   deterministic sequence from a base value.
+ * - Every row is a single patient (JUMLAH = 1).
+ * - No. RM is a unique, non-sequential, random-looking 6-digit number across
+ *   the whole document, and stable across renders (UI ⇄ modal ⇄ DOCX).
  */
 export function expandPatientRows(entries: PatientEntryInput[]): PatientRow[] {
   const rows: PatientRow[] = [];
   const usedRm = new Set<string>();
-  let counter = 0;
-
-  const nextFallbackRm = (): string => {
-    counter += 1;
-    // Deterministic 6-digit base; uniqueness is enforced by the usedRm loop.
-    let n = 100000 + (counter * 7919) % 900000;
-    let s = String(n);
-    while (usedRm.has(s)) {
-      n = 100000 + ((n + 1) % 900000);
-      s = String(n);
-    }
-    return s;
-  };
 
   for (const entry of entries) {
     const qty = Math.max(1, Math.min(999, Math.floor(entry.quantity) || 1));
     const { prefix, letter } = splitPatientCode(entry.patientIdentifier);
 
-    const baseRmNumeric =
-      entry.rmNumber && /^\d+$/.test(entry.rmNumber) ? Number(entry.rmNumber) : null;
-
     for (let i = 0; i < qty; i++) {
       const name = patientCodeAt(prefix, letter, i);
-
-      let rm: string;
-      if (baseRmNumeric !== null) {
-        let candidate = baseRmNumeric + i;
-        let s = String(candidate);
-        // Keep it a sane 6-digit shape while assuring no duplicate in the doc.
-        while (usedRm.has(s)) {
-          candidate += 1;
-          s = String(candidate);
-        }
-        rm = s;
-      } else {
-        rm = nextFallbackRm();
-      }
-
-      usedRm.add(rm);
+      const rn = scrambledRm(`${entry.patientIdentifier}|${entry.actionType}|${i}`, usedRm);
+      usedRm.add(rn);
       rows.push({
         no: rows.length + 1,
         name,
-        rmNumber: rm,
+        rmNumber: rn,
         actionType: entry.actionType,
-        quantity: qty,
+        quantity: 1,
       });
     }
   }

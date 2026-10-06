@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea, FormField } from "@/components/ui/form";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
-import { Download, Pencil, Send } from "lucide-react";
-import { expandPatientRows } from "@/lib/borang";
+import { Download, Pencil, Send, Users } from "lucide-react";
+import { PatientListModal } from "./patient-list-modal";
 
 interface Entry {
   id: string;
@@ -75,22 +75,8 @@ export function LogbookClient({
   const [editId, setEditId] = React.useState<string | null>(null);
   const [roomActions, setRoomActions] = React.useState<MasterAction[]>([]);
   const [actionsLoading, setActionsLoading] = React.useState(false);
-
-  // Anonymised patient rows derived from the loaded entries (quantity → N rows,
-  // unique initials + unique No. RM). Nothing is persisted — display only.
-  const patientRows = React.useMemo(
-    () =>
-      expandPatientRows(
-        entries.map((e) => ({
-          period: e.period,
-          patientIdentifier: e.patientIdentifier,
-          rmNumber: e.rmNumber,
-          actionType: e.actionType,
-          quantity: e.quantity,
-        }))
-      ),
-    [entries]
-  );
+  // Entry whose patient list is open in the modal (null = closed).
+  const [patientEntry, setPatientEntry] = React.useState<Entry | null>(null);
 
   React.useEffect(() => {
     const roomId = form.roomId;
@@ -458,7 +444,17 @@ export function LogbookClient({
                 entries.map((e) => (
                   <TableRow key={e.id}>
                     <Td className="text-xs font-mono">{e.period}</Td>
-                    <Td className="text-xs">{e.staff.name}</Td>
+                    <Td className="text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setPatientEntry(e)}
+                        className="inline-flex items-center gap-1.5 rounded-md text-left font-medium text-[var(--color-foreground)] underline-offset-2 transition-colors hover:text-[var(--color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-1"
+                        title="Lihat daftar pasien"
+                      >
+                        {e.staff.name}
+                        <Users size={12} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
+                      </button>
+                    </Td>
                     <Td className="text-xs">{e.room?.name ?? "—"}</Td>
                     <Td className="text-xs font-mono">
                       {e.patientIdentifier}
@@ -509,47 +505,10 @@ export function LogbookClient({
         </CardContent>
       </Card>
 
-      {/* Daftar pasien (anonymized) — dihasilkan otomatis dari jumlah tindakan */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Pasien ({patientRows.length})</CardTitle>
-          <span className="text-xs text-slate-500">
-            Dibuat otomatis dari jumlah tindakan — inisial &amp; No. RM unik per dokumen
-          </span>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table scroll>
-            <TableHeader>
-              <TableRow>
-                <Th className="w-12">No</Th>
-                <Th>Nama Pasien</Th>
-                <Th>No. RM</Th>
-                <Th>Tindakan</Th>
-                <Th className="text-center">Jumlah</Th>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patientRows.length === 0 ? (
-                <TableRow>
-                  <Td colSpan={5} className="text-center text-xs text-slate-400 py-8">
-                    Belum ada data pasien.
-                  </Td>
-                </TableRow>
-              ) : (
-                patientRows.map((p) => (
-                  <TableRow key={`${p.no}-${p.rmNumber}`}>
-                    <Td className="text-xs tabular-nums text-slate-500">{p.no}</Td>
-                    <Td className="text-xs font-mono font-medium text-slate-900">{p.name}</Td>
-                    <Td className="text-xs font-mono text-slate-600">{p.rmNumber}</Td>
-                    <Td className="text-xs">{p.actionType}</Td>
-                    <Td className="text-center text-xs tabular-nums">{p.quantity}</Td>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Patient list popup — opened by clicking a staff name in a row. */}
+      {patientEntry && (
+        <PatientListModal entry={patientEntry} onClose={() => setPatientEntry(null)} />
+      )}
     </div>
   );
 }

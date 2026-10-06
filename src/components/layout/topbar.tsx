@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, Search, ChevronDown, LogOut, User, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,20 +15,32 @@ interface TopbarProps {
 export function Topbar({ breadcrumbs = [], user }: TopbarProps) {
   const [profileOpen, setProfileOpen] = React.useState(false);
   const profileRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
+  // Close on outside click — account for both the trigger and the portalled menu.
   React.useEffect(() => {
     function handler(e: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
+      const target = e.target as Node;
+      if (profileRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setProfileOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close on Escape.
+  React.useEffect(() => {
+    if (!profileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setProfileOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [profileOpen]);
+
   return (
-    <header data-app-topbar className="flex h-14 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/85 md:px-6 shrink-0">
+    <header data-app-topbar className="relative z-40 flex h-14 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/85 md:px-6 shrink-0">
       {/* Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="min-w-0">
         <ol className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
@@ -101,37 +115,99 @@ export function Topbar({ breadcrumbs = [], user }: TopbarProps) {
             </div>
             <ChevronDown size={14} className={cn("text-[var(--color-muted-foreground)] hidden md:block transition-transform duration-150", profileOpen && "rotate-180")} />
           </button>
-
-          {profileOpen && (
-            <div
-              className="animate-dialog-in absolute right-0 top-full mt-1 w-56 origin-top-right rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-[0_8px_24px_rgba(15,40,70,0.12)] z-50"
-              role="menu"
-            >
-              <div className="px-4 py-2.5 border-b border-[var(--color-border)]">
-                <p className="text-xs font-semibold text-[var(--color-foreground)] truncate">{user?.name}</p>
-                <p className="text-[10px] text-[var(--color-muted-foreground)] truncate">{user?.email}</p>
-              </div>
-              <div className="py-1">
-                <DropdownItem href="/profile" icon={<User size={13} />} label="Profil Saya" />
-                <DropdownItem href="/settings" icon={<Settings size={13} />} label="Pengaturan" />
-              </div>
-              <div className="border-t border-[var(--color-border)] py-1">
-                <form action="/api/auth/logout" method="POST">
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-2.5 px-4 py-2 text-xs text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger-subtle)]"
-                    role="menuitem"
-                  >
-                    <LogOut size={13} />
-                    Keluar
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {profileOpen && (
+        <ProfileMenu anchorRef={profileRef} menuRef={menuRef} user={user} />
+      )}
     </header>
+  );
+}
+
+/**
+ * Account dropdown, rendered in a portal on `document.body`.
+ *
+ * The topbar lives inside `overflow-hidden` flex ancestors and competes with the
+ * sticky page header (z-20) and sticky table headers (z-10). Rendering the menu
+ * through a portal escapes every ancestor stacking/clipping context, and a high
+ * z-index keeps it above all page content and modals.
+ */
+function ProfileMenu({
+  anchorRef,
+  menuRef,
+  user,
+}: {
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+  user?: { name: string; email: string; role: string };
+}) {
+  const router = useRouter();
+  const [pos, setPos] = React.useState<{ top: number; right: number } | null>(null);
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [anchorRef]);
+
+  async function handleLogout() {
+    setSigningOut(true);
+    try {
+      // Session row + cookie are cleared server-side before we navigate.
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      // Navigate regardless — never leave the user on a stale page.
+    }
+    router.replace("/");
+    router.refresh();
+  }
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={{ top: pos?.top ?? -9999, right: pos?.right ?? 8 }}
+      className="animate-dialog-in fixed z-[100] w-56 origin-top-right rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-[0_12px_32px_rgba(15,40,70,0.18)]"
+      role="menu"
+    >
+      <div className="px-4 py-2.5 border-b border-[var(--color-border)]">
+        <p className="text-xs font-semibold text-[var(--color-foreground)] truncate">{user?.name}</p>
+        <p className="text-[10px] text-[var(--color-muted-foreground)] truncate">{user?.email}</p>
+      </div>
+      <div className="py-1">
+        <DropdownItem href="/profile" icon={<User size={13} />} label="Profil Saya" />
+        <DropdownItem href="/settings" icon={<Settings size={13} />} label="Pengaturan" />
+      </div>
+      <div className="border-t border-[var(--color-border)] py-1">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={signingOut}
+          className="flex w-full items-center gap-2.5 px-4 py-2 text-xs text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger-subtle)] disabled:opacity-60"
+          role="menuitem"
+        >
+          <LogOut size={13} />
+          {signingOut ? "Keluar…" : "Keluar"}
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
