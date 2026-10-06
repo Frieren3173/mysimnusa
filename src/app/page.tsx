@@ -3,46 +3,11 @@ import Image from "next/image";
 import Script from "next/script";
 import "./scroll-story.css";
 import {
-  Users,
-  FileText,
-  GraduationCap,
-  ShieldCheck,
   ArrowRight,
   Activity,
   ClipboardCheck,
   BadgeCheck,
 } from "lucide-react";
-
-const modules = [
-  {
-    icon: Users,
-    tag: "Komite Keperawatan",
-    title: "Data SDM Perawat & Bidan",
-    description:
-      "Basis data terpusat tenaga keperawatan: identitas, kepegawaian, struktur unit, pendidikan, dan riwayat karier.",
-  },
-  {
-    icon: ShieldCheck,
-    tag: "Komite Keperawatan",
-    title: "Legalitas & Kompetensi",
-    description:
-      "Pemantauan STR, SIP, dan sertifikat kompetensi dengan peringatan masa berlaku otomatis.",
-  },
-  {
-    icon: FileText,
-    tag: "Borang",
-    title: "Borang & Dokumentasi",
-    description:
-      "Pengelolaan borang akreditasi, logbook tindakan, dan alur verifikasi yang tertelusur.",
-  },
-  {
-    icon: GraduationCap,
-    tag: "Diklat",
-    title: "Pendidikan & Pelatihan",
-    description:
-      "Penjadwalan diklat, presensi, penilaian, dan penerbitan sertifikat dalam satu alur.",
-  },
-];
 
 const capabilities = [
   {
@@ -62,9 +27,37 @@ const capabilities = [
   },
 ];
 
+/**
+ * Scene content for the two cinematic text sections.
+ * Each scene: a small uppercase label (only on the first scene) + a big line.
+ * `accent` words inside a line are wrapped in <em> for a blue highlight.
+ */
+const SECTION_SCENES = [
+  {
+    id: "sumber-data",
+    label: "Satu Sumber Data",
+    video: 2,
+    scenes: [
+      "Data tenaga keperawatan, tidak lagi tersebar.",
+      "Satu platform untuk Komite Keperawatan, Borang, dan Diklat.",
+      "Akurat. Tertelusur. Akuntabel.",
+    ],
+  },
+  {
+    id: "mutu-pelayanan",
+    label: "Mutu Pelayanan",
+    video: 3,
+    scenes: [
+      "Setiap pengajuan terverifikasi.",
+      "Pemantauan STR, SIP, dan kompetensi otomatis.",
+      "Untuk pelayanan yang lebih bermutu.",
+    ],
+  },
+];
+
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="story-page flex min-h-screen flex-col bg-slate-950 text-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
@@ -101,7 +94,7 @@ export default function Home() {
         <section
           id="hero"
           data-story
-          className="story-hero relative border-b border-slate-200 bg-slate-950"
+          className="story-hero relative bg-slate-950"
         >
           <div className="story__sticky">
             {/* Background video (loops, never scroll-controlled) */}
@@ -119,11 +112,8 @@ export default function Home() {
                 <source src="/assets/video-1.webm" type="video/webm" />
                 <source src="/assets/video-1.mp4" type="video/mp4" />
               </video>
-              <div className="story__overlay" />
+              <div className="story__overlay" data-overlay-tone="navy" />
             </div>
-
-            {/* Soft blend into the light page below (modules start dark too). */}
-            <div className="story__fade story__fade--top" aria-hidden="true" />
 
             <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:py-28">
               <div data-parallax data-speed="1.05">
@@ -161,10 +151,10 @@ export default function Home() {
                     <ArrowRight className="motion-arrow h-4 w-4" aria-hidden="true" />
                   </Link>
                   <a
-                    href="#modul"
+                    href="#sumber-data"
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 px-6 text-sm font-medium text-white backdrop-blur transition-colors duration-150 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60"
                   >
-                    Lihat Modul
+                    Lihat Selengkapnya
                   </a>
                 </div>
               </div>
@@ -197,72 +187,64 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Modules — sticky section with looping background video (video-2).
-            Title → subtitle → cards reveal in sequence on scroll. */}
-        <section id="modul" data-story className="story-modul relative border-b border-slate-200 bg-slate-950">
-          <div className="story__sticky">
-            <div className="story__media" aria-hidden="true">
-              <video
-                className="story__video"
-                data-video="2"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-                poster="/assets/poster-2.webp"
-              >
-                <source src="/assets/video-2.webm" type="video/webm" />
-                <source src="/assets/video-2.mp4" type="video/mp4" />
-              </video>
-              <div className="story__overlay" />
-            </div>
-
-            {/* Fade back to the light CTA section below (no hard edge). */}
-            <div className="story__fade story__fade--bottom" aria-hidden="true" />
-
-            <div className="relative mx-auto w-full max-w-6xl px-6 py-20 lg:py-28">
-              <div className="max-w-2xl" data-parallax data-speed="1.05">
-                <h2
-                  data-hero-step
-                  className="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+        {/* Sections 2 & 3 — cinematic text scenes over their own looping video.
+            No cards: just a small label + a big line per scene, revealed in
+            sequence with parallax (see /scroll-story.js). */}
+        {SECTION_SCENES.map((section, si) => (
+          <section
+            key={section.id}
+            id={section.id}
+            data-story
+            data-scene-section
+            className="story-scene-section"
+          >
+            <div className="story__sticky">
+              <div className="story__media" aria-hidden="true">
+                <video
+                  className="story__video"
+                  data-video={String(section.video)}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster={`/assets/poster-${section.video}.webp`}
                 >
-                  Modul Terpadu
-                </h2>
-                <p
-                  data-hero-step
-                  className="mt-3 text-sm leading-relaxed text-white/75"
-                >
-                  Tiga modul inti yang saling terhubung, dengan data SDM sebagai fondasi bersama.
-                </p>
+                  <source src={`/assets/video-${section.video}.webm`} type="video/webm" />
+                  <source src={`/assets/video-${section.video}.mp4`} type="video/mp4" />
+                </video>
+                <div className="story__overlay" data-overlay-tone={si === 0 ? "blue" : "teal"} />
               </div>
 
-              <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {modules.map((module) => (
-                  <article
-                    key={module.title}
-                    data-hero-step
-                    data-parallax
-                    data-speed="0.92"
-                    className="story-glass group flex flex-col rounded-lg border border-white/15 p-5 shadow-lg transition-colors duration-150 hover:border-white/30"
-                  >
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/15 text-blue-200">
-                      <module.icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <p className="mt-4 text-[11px] font-medium uppercase tracking-wide text-white/60">
-                      {module.tag}
+              {/* Progress marker (right edge): counter + vertical ticks. */}
+              <div className="story__progress" aria-hidden="true">
+                <span className="story__counter">
+                  <span data-scene-current>01</span> / {String(section.scenes.length).padStart(2, "0")}
+                </span>
+                <span className="story__ticks">
+                  {section.scenes.map((line, i) => (
+                    <span key={line} className="story__tick" data-scene-tick={i} />
+                  ))}
+                </span>
+              </div>
+
+              <div className="story__scenes">
+                {section.scenes.map((line, i) => (
+                  <div key={line} className="story__scene" data-scene={i}>
+                    {i === 0 && <p className="story__scene-label">{section.label}</p>}
+                    <p className="story__scene-line" data-scene-line data-speed={String(1 + i * 0.04)}>
+                      {line}
                     </p>
-                    <h3 className="mt-1 text-sm font-semibold text-white">{module.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-white/75">{module.description}</p>
-                  </article>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ))}
 
-        {/* Closing band */}
-        <section className="border-y border-slate-200 bg-white">
+        {/* CTA — light section. Its top edge blends from the dark video band. */}
+        <section className="story-cta relative bg-white">
+          <div className="story-cta__fade" aria-hidden="true" />
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-6 py-14 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">

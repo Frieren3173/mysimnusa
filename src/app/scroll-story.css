@@ -1,28 +1,46 @@
 /* =====================================================================
  * scroll-story.css — MYSIMNUSA landing cinematic sections
  * ---------------------------------------------------------------------
- * Applies a looping background video + scroll-driven reveal/parallax to the
- * TWO EXISTING landing sections (not new sections):
- *   • #hero  → video-1  (`.story-hero`)
- *   • #modul → video-2  (`.story-modul`)
+ * Three sticky video sections (NO extra sections beyond the page structure):
+ *   #hero            (.story-hero)          → video-1  · hero reveal
+ *   #sumber-data     (.story-scene-section) → video-2  · 3 text scenes
+ *   #mutu-pelayanan  (.story-scene-section) → video-3  · 3 text scenes
  *
- * Self-contained: every rule is scoped under `[data-story]` / `.story-*`, so
- * nothing leaks into other parts of the app. Only transform / opacity / filter
- * are animated (see scroll-story.js). Reduced-motion is fully respected.
+ * Self-contained (scoped under [data-story] / .story-*). Only transform /
+ * opacity / filter are animated (see scroll-story.js). No borders between
+ * sections (the navy wrapper + fades remove any light seam). Reduced-motion is
+ * fully respected.
  * ===================================================================== */
 
-/* ── Sticky scroll track (desktop) ───────────────────────────────────── */
-[data-story] {
-  position: relative;
-  background: #020617; /* deep navy behind the video */
+/* ── Page wrapper: navy behind everything so sub-pixel seams read dark ── */
+.story-page {
+  background: #020617;
 }
 
-/* Hero gets a slightly longer track (~280vh); modules a little shorter. */
-.story-hero {
-  height: 280vh;
+/* ── Sticky scroll track ─────────────────────────────────────────────── */
+[data-story] {
+  position: relative;
+  background: #020617; /* deep navy behind the video, flush to the next section */
+  /* Kill any inherited line/gap between sections. */
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  outline: none;
 }
-.story-modul {
-  height: 260vh;
+
+/* One viewport of scroll per scene (hero keeps a fixed comfortable length). */
+.story-hero {
+  height: 280vh; /* hero has 1 composed view, kept long for a calm reveal */
+}
+.story-scene-section {
+  height: 300vh; /* 3 scenes × 100vh */
+}
+
+/* Overlap 1px to defeat sub-pixel light seams between adjacent sections. */
+.story-scene-section + .story-scene-section,
+.story-hero + .story-scene-section,
+.story-scene-section + .story-cta {
+  margin-top: -1px;
 }
 
 .story__sticky {
@@ -33,9 +51,11 @@
   isolation: isolate;
   display: flex;
   align-items: center;
+  border: 0;
+  box-shadow: none;
 }
 
-/* ── Background video (looping, never scroll-controlled) ─────────────── */
+/* ── Background video (looping boomerang, never scroll-controlled) ───── */
 .story__media {
   position: absolute;
   inset: 0;
@@ -56,44 +76,36 @@
   opacity: 1;
 }
 
-/* ── Dark overlay for text legibility ────────────────────────────────── */
+/* ── Overlay (dark) with per-section tone ────────────────────────────── */
 .story__overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
+  pointer-events: none;
+  /* Base navy gradient; JS shifts the tone per scene. */
   background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.62) 0%, rgba(2, 6, 23, 0.5) 45%, rgba(2, 6, 23, 0.66) 100%);
-  pointer-events: none;
+    linear-gradient(180deg, rgba(2, 6, 23, 0.66) 0%, rgba(2, 6, 23, 0.5) 45%, rgba(2, 6, 23, 0.7) 100%);
+  transition: background 1s ease;
+}
+/* Tone variants — subtle per-section nuance (scenes morph it further in JS). */
+.story__overlay[data-overlay-tone="blue"] {
+  background:
+    linear-gradient(180deg, rgba(3, 20, 48, 0.66) 0%, rgba(8, 34, 74, 0.5) 45%, rgba(2, 6, 23, 0.7) 100%);
+}
+.story__overlay[data-overlay-tone="teal"] {
+  background:
+    linear-gradient(180deg, rgba(2, 24, 30, 0.68) 0%, rgba(6, 40, 46, 0.5) 45%, rgba(2, 12, 16, 0.72) 100%);
 }
 
-/* Gradient fades so light/dark boundaries have no hard edge. */
-.story__fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 120px;
-  z-index: 2;
-  pointer-events: none;
-}
-.story__fade--top {
-  top: 0;
-  background: linear-gradient(to bottom, #f8fafc, transparent);
-}
-.story__fade--bottom {
-  bottom: 0;
-  background: linear-gradient(to top, #f8fafc, transparent);
-}
-
-/* ── Glass card style (used by the capability + module cards) ────────── */
+/* ── Glass card style (hero capability panel only) ───────────────────── */
 .story-glass {
   background: rgba(255, 255, 255, 0.1);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
 }
 
-/* ── Reveal elements (hero steps + module cards) ─────────────────────── */
-/* Hidden ONLY when JS is active (html.story-js). Without JS the content is
-   visible immediately, so the page degrades gracefully. */
+/* ── Hero reveal elements ────────────────────────────────────────────── */
+/* Hidden ONLY when JS is active (html.story-js) → graceful no-JS fallback. */
 html.story-js [data-hero-step],
 html.story-js [data-hero-item] {
   will-change: transform, opacity, filter;
@@ -102,11 +114,124 @@ html.story-js [data-hero-item] {
   filter: blur(8px);
 }
 
+/* ── Scene sections: stacked scenes, text-only, aligned to the content grid */
+.story__scenes {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 72rem; /* same max-w-6xl content column */
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: grid;
+  place-items: center start;
+  min-height: 100vh;
+}
+.story__scene {
+  grid-area: 1 / 1;
+  max-width: 56rem;
+  will-change: transform, opacity, filter;
+}
+html.story-js .story__scene {
+  opacity: 0; /* JS drives the in/out states */
+}
+
+.story__scene-label {
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(191, 219, 254, 0.85); /* blue-200 */
+}
+.story__scene-line {
+  font-size: clamp(2rem, 6vw, 5rem);
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-shadow: 0 2px 30px rgba(2, 6, 23, 0.6), 0 1px 4px rgba(2, 6, 23, 0.55);
+}
+/* Accent keyword highlight. */
+.story__scene-line em,
+.story__scene-line .accent {
+  font-style: normal;
+  color: #7dd3fc; /* sky-300 */
+}
+
+/* Word-level mask for the slide-up reveal (JS splits the line into words). */
+.story-word-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Allow descenders (g, y, p) to show without clipping. */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.story-word {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* ── Progress marker (right edge): counter + vertical ticks ──────────── */
+.story__progress {
+  position: absolute;
+  top: 50%;
+  right: clamp(1rem, 3vw, 2.5rem);
+  transform: translateY(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.story__progress.is-visible {
+  opacity: 1;
+}
+.story__counter {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.75);
+}
+.story__ticks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.story__tick {
+  width: 2px;
+  height: 22px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.28);
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+.story__tick.is-active {
+  background: #7dd3fc;
+  transform: scaleY(1.25);
+}
+
+/* ── CTA top fade (dark band → light) ────────────────────────────────── */
+.story-cta {
+  position: relative;
+  margin: 0;
+}
+.story-cta__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 140px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, #020617, rgba(2, 6, 23, 0));
+}
+
 /* ── Reduced motion / no-JS fallback ─────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .story-hero,
-  .story-modul {
-    height: auto; /* collapse the scroll track */
+  .story-scene-section {
+    height: auto;
   }
   .story__sticky {
     position: relative;
@@ -119,25 +244,46 @@ html.story-js [data-hero-item] {
     transform: none !important;
     filter: none !important;
   }
+  .story__scenes {
+    display: block;
+    min-height: 0;
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+  .story__scene {
+    grid-area: auto;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    margin-bottom: 4rem;
+  }
   .story__video {
     transform: none !important;
   }
+  .story__progress {
+    display: none;
+  }
 }
 
-/* ── Mobile: shorter tracks, gentler parallax handled in JS ──────────── */
+/* ── Mobile: shorter tracks, smaller type, calmer parallax (JS) ──────── */
 @media (max-width: 640px) {
   .story-hero {
     height: 200vh;
   }
-  .story-modul {
-    height: 200vh;
+  .story-scene-section {
+    height: 210vh; /* ±70vh per scene */
   }
-  .story__fade {
-    height: 80px;
+  .story__scene-line {
+    font-size: clamp(1.6rem, 8.5vw, 2.6rem);
   }
-  [data-hero-step],
-  [data-hero-item] {
-    /* Smaller travel on mobile. */
-    transform: translateY(24px);
+  .story__scene-label {
+    margin-bottom: 0.75rem;
+    font-size: 0.65rem;
+  }
+  .story__progress {
+    right: 0.75rem;
+  }
+  .story-cta__fade {
+    height: 90px;
   }
 }
