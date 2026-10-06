@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard } from "@/components/ui/card";
-import { ChartCard, BarChart, type BarDatum } from "@/components/ui/chart";
+import { ChartCard, BarChart, HorizontalBarChart, type BarDatum } from "@/components/ui/chart";
 import { PhotoCarousel } from "@/components/dashboard/photo-carousel";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { requirePermission } from "@/lib/authorization";
@@ -26,14 +26,16 @@ const STATUS_ORDER = [
 ] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  "SEUMUR HIDUP": "#8b5cf6",
-  AKTIF: "#22c55e",
-  "AKAN HABIS": "#f59e0b",
-  EXPIRED: "#ef4444",
-  "TIDAK ADA TANGGAL": "#94a3b8",
-  "TIDAK PUNYA": "#94a3b8",
-  "TIDAK MEMILIKI": "#cbd5e1",
-  MEMILIKI: "#3b82f6",
+  // Ocean-coherent base for "good/owned" states; amber/red reserved for the
+  // semantic warning/error states so meaning stays clear.
+  "SEUMUR HIDUP": "#0f4c81", // deep ocean
+  AKTIF: "#1479b8", // ocean blue
+  "AKAN HABIS": "#d97706", // warning (amber, semantic)
+  EXPIRED: "#dc2626", // danger (red, semantic)
+  "TIDAK ADA TANGGAL": "#94a3b8", // muted
+  "TIDAK PUNYA": "#94a3b8", // muted
+  "TIDAK MEMILIKI": "#cbd5e1", // light muted
+  MEMILIKI: "#1479b8", // ocean blue
 };
 
 interface BestDoc {
@@ -231,7 +233,7 @@ export default async function KomiteDashboardPage() {
 
   return (
     <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl space-y-6 stagger-children">
         <StickyPageHeader
           title="Dashboard Komite Keperawatan dan Kebidanan"
           description={`Diperbarui: ${updated}`}
@@ -242,7 +244,7 @@ export default async function KomiteDashboardPage() {
         <PhotoCarousel slides={slides} />
 
         {/* KPI Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <KpiCard title="Total Perawat" value={stats.perawat} />
           <KpiCard title="Total Bidan" value={stats.bidan} />
           <KpiCard title="Total Ruangan" value={stats.ruangan} />
@@ -251,13 +253,13 @@ export default async function KomiteDashboardPage() {
           <KpiCard title="SIP Aktif" value={stats.sipValid} />
         </div>
 
-        {/* Alerts */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* Alerts — its own row with its own vertical breathing room */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           {alertCards.map((a) => (
             <div
               key={a.label}
               className={cn(
-                "rounded-lg border border-slate-200 border-l-4 bg-white p-4 shadow-sm",
+                "group rounded-xl border border-[var(--color-border)] border-l-4 bg-[var(--color-surface)] p-4 shadow-[0_1px_2px_rgba(15,40,70,0.04)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-8px_rgba(15,40,70,0.2)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                 a.tone === "amber" ? "border-l-amber-400" : "border-l-red-400"
               )}
             >
@@ -269,7 +271,7 @@ export default async function KomiteDashboardPage() {
               >
                 {a.n}
               </p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-600">
+              <p className="mt-1 text-[11px] font-medium uppercase leading-snug tracking-wide text-[var(--color-muted-foreground)]">
                 {a.label}
               </p>
             </div>
@@ -277,9 +279,9 @@ export default async function KomiteDashboardPage() {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ChartCard title="Distribusi Ruangan">
-            <BarChart data={charts.rooms} rotateLabels />
+            <HorizontalBarChart data={charts.rooms} total={stats.totalStaff} />
           </ChartCard>
           <ChartCard title="Status STR">
             <BarChart data={charts.str} />
@@ -300,7 +302,7 @@ export default async function KomiteDashboardPage() {
             <BarChart data={charts.aclsStatus} />
           </ChartCard>
           <ChartCard title="Sertifikat Kompetensi">
-            <BarChart data={charts.comp} rotateLabels />
+            <HorizontalBarChart data={charts.comp} />
           </ChartCard>
         </div>
       </div>
