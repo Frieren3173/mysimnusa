@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ImagePreview } from "@/components/ui/image-preview";
 
 /**
  * Staff profile photo.
@@ -9,8 +10,10 @@ import * as React from "react";
  * authenticated document endpoint (`/api/documents/:id/download`). The browser
  * never talks to Google Drive directly and no private Drive URL is exposed.
  *
- * Falls back to an initials avatar when there is no photo or when loading
- * fails — never a broken image icon.
+ * When a photo exists, the avatar is clickable and opens a full-size preview
+ * (lightbox) showing the same authenticated image URL with its natural aspect
+ * ratio. Falls back to a non-clickable initials avatar when there is no photo
+ * or when loading fails — never a broken image icon.
  */
 
 export function StaffPhoto({
@@ -32,16 +35,19 @@ export function StaffPhoto({
   const box = size === "lg" ? "h-14 w-14 text-lg" : "h-8 w-8 text-[11px]";
 
   if (photoDocId && !failed) {
+    const src = `/api/documents/${photoDocId}/download`;
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`/api/documents/${photoDocId}/download`}
-        alt={`Foto ${name}`}
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-        className={`${box} shrink-0 rounded-full border border-slate-200 object-cover`}
-      />
+      <ImagePreview src={src} alt={`Foto ${name}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={`Foto ${name}`}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className={`${box} shrink-0 rounded-full border border-slate-200 object-cover`}
+        />
+      </ImagePreview>
     );
   }
 
