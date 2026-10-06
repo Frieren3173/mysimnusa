@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, TrainingStatusBadge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { CheckCircle2, Trash2, Award, UserPlus } from "lucide-react";
+import { CertificateGenerator } from "./certificate-generator";
 
 export interface TrainingOption {
   id: string;
@@ -454,65 +455,82 @@ export function TrainingManager({
           )}
 
           {tab === "certificates" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Sertifikat</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table scroll>
-                  <TableHeader>
-                    <TableRow>
-                      <Th>Peserta</Th>
-                      <Th>Nomor Sertifikat</Th>
-                      <Th>Tanggal Terbit</Th>
-                      <Th></Th>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {participants.length === 0 ? (
+            <div className="space-y-4">
+              {/* IHT certificate generator */}
+              <CertificateGenerator
+                key={detail.id}
+                detail={{
+                  id: detail.id,
+                  title: detail.title,
+                  startDate: detail.startDate,
+                  endDate: detail.endDate,
+                  location: detail.location,
+                  participants: detail.participants,
+                }}
+                canIssue={perms.issueCertificate}
+              />
+
+              {/* Issued certificates register */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sertifikat Terbit</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table scroll>
+                    <TableHeader>
                       <TableRow>
-                        <Td colSpan={4} className="text-center text-xs text-slate-400 py-6">
-                          Tidak ada peserta.
-                        </Td>
+                        <Th>Peserta</Th>
+                        <Th>Nomor Sertifikat</Th>
+                        <Th>Tanggal Terbit</Th>
+                        <Th></Th>
                       </TableRow>
-                    ) : (
-                      participants.map((p) => {
-                        const c = certFor(p.staffId);
-                        return (
-                          <TableRow key={p.id}>
-                            <Td className="text-xs font-medium">{p.staff.name}</Td>
-                            <Td className="text-xs font-mono">{c?.certificateNumber ?? "—"}</Td>
-                            <Td className="text-xs text-slate-500">
-                              {c ? new Date(c.issuedDate).toLocaleDateString("id-ID") : "—"}
-                            </Td>
-                            <Td className="text-right">
-                              {!c && perms.issueCertificate && (
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  disabled={busy !== null}
-                                  loading={busy === "cert" + p.staffId}
-                                  onClick={() =>
-                                    call(
-                                      `/api/diklat/trainings/${trainingId}/certificates`,
-                                      { method: "POST", body: JSON.stringify({ staffId: p.staffId }) },
-                                      "cert" + p.staffId,
-                                      "Sertifikat diterbitkan."
-                                    )
-                                  }
-                                >
-                                  <Award size={12} /> Terbitkan
-                                </Button>
-                              )}
-                            </Td>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {participants.length === 0 ? (
+                        <TableRow>
+                          <Td colSpan={4} className="text-center text-xs text-slate-400 py-6">
+                            Tidak ada peserta.
+                          </Td>
+                        </TableRow>
+                      ) : (
+                        participants.map((p) => {
+                          const c = certFor(p.staffId);
+                          return (
+                            <TableRow key={p.id}>
+                              <Td className="text-xs font-medium">{p.staff.name}</Td>
+                              <Td className="text-xs font-mono">{c?.certificateNumber ?? "—"}</Td>
+                              <Td className="text-xs text-slate-500">
+                                {c ? new Date(c.issuedDate).toLocaleDateString("id-ID") : "—"}
+                              </Td>
+                              <Td className="text-right">
+                                {!c && perms.issueCertificate && (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    disabled={busy !== null}
+                                    loading={busy === "cert" + p.staffId}
+                                    onClick={() =>
+                                      call(
+                                        `/api/diklat/trainings/${trainingId}/certificates`,
+                                        { method: "POST", body: JSON.stringify({ staffId: p.staffId }) },
+                                        "cert" + p.staffId,
+                                        "Nomor sertifikat diterbitkan."
+                                      )
+                                    }
+                                  >
+                                    <Award size={12} /> Terbitkan Nomor
+                                  </Button>
+                                )}
+                              </Td>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </>
       )}
