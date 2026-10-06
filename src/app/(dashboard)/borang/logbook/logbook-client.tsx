@@ -411,7 +411,7 @@ export function LogbookClient({
           <CardTitle>Entri ({total})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Periode</Th>

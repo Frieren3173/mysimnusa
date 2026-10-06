@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { StaffDetailButton } from "./staff-detail-modal";
 import { StaffPhoto } from "./staff-photo";
 import { Loader2 } from "lucide-react";
-import { StickyPageHeader, searchInputClass, filterSelectClass } from "@/components/layout/page-header";
+import { StickyPageHeader } from "@/components/layout/page-header";
+import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
 
 /**
  * Staff table with server-side pagination and infinite scroll.
@@ -199,7 +200,7 @@ export function StaffTable({
       />
       {action ? <div className="mb-3 flex justify-end">{action}</div> : null}
 
-      <Table>
+      <Table scroll>
         <TableHeader>
           <TableRow>
             <Th className="w-12">No</Th>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -32,12 +33,7 @@ export default async function ParticipantsPage() {
       }}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Penilaian Diklat</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Beri nilai dan grade untuk setiap peserta pelatihan.
-          </p>
-        </div>
+        <StickyPageHeader title="Penilaian Diklat" description={"Beri nilai dan grade untuk setiap peserta pelatihan."} />
         <TrainingManager
           trainings={trainings.map((t) => ({
             id: t.id,

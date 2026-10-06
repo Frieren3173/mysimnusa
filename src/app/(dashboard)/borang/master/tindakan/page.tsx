@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { ActionsMasterClient } from "./actions-master-client";
@@ -22,13 +23,7 @@ export default async function MasterActionsPage() {
       }}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Master Tindakan Keperawatan</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Sumber data pilihan Tindakan pada Logbook. Pilihan disaring sesuai ruangan yang
-            dipilih — atur relasinya di halaman detail ruangan.
-          </p>
-        </div>
+        <StickyPageHeader title="Master Tindakan Keperawatan" description={"Sumber data pilihan Tindakan pada Logbook. Pilihan disaring sesuai ruangan yang dipilih — atur relasinya di halaman detail ruangan."} />
 
         <ActionsMasterClient />
       </div>

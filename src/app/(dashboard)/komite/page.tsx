@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard } from "@/components/ui/card";
 import { ChartCard, BarChart, type BarDatum } from "@/components/ui/chart";
 import { PhotoCarousel } from "@/components/dashboard/photo-carousel";
@@ -230,19 +231,12 @@ export default async function KomiteDashboardPage() {
 
   return (
     <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
-      <div className="space-y-6 max-w-7xl mx-auto">
-        {/* Page Header */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-          <h1 className="text-xl font-bold text-slate-900">
-            Dashboard Komite Keperawatan dan Kebidanan
-          </h1>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Diperbarui: {updated}
-          </p>
-          <div className="flex justify-end">
-            <RefreshButton />
-          </div>
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <StickyPageHeader
+          title="Dashboard Komite Keperawatan dan Kebidanan"
+          description={`Diperbarui: ${updated}`}
+          actions={<RefreshButton />}
+        />
 
         {/* Photo Carousel */}
         <PhotoCarousel slides={slides} />

@@ -137,7 +137,7 @@ export default async function BorangDashboardPage() {
             />
           ) : (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <Table>
+              <Table scroll>
                 <TableHeader>
                   <TableRow>
                     <Th>Periode</Th>

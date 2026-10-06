@@ -26,7 +26,7 @@ export function Topbar({ breadcrumbs = [], user }: TopbarProps) {
   }, []);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6 shrink-0">
+    <header data-app-topbar className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6 shrink-0">
       {/* Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="min-w-0">
         <ol className="flex items-center gap-1.5 text-xs text-slate-500">

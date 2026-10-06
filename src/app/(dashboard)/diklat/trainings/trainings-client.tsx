@@ -227,7 +227,7 @@ export function TrainingsClient({
           <CardTitle>{trainings.length} Pelatihan</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Judul</Th>

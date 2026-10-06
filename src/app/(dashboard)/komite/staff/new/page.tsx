@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -30,13 +31,11 @@ export default async function NewStaffPage() {
         role: currentUser.roles[0] ?? "Staff",
       }}
     >
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold text-slate-900">Tambah Tenaga Baru</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Data identitas, pendidikan, dan kompetensi klinis tenaga kesehatan.
-          </p>
-        </div>
+      <div className="mx-auto max-w-4xl">
+        <StickyPageHeader
+          title="Tambah Tenaga Baru"
+          description="Data identitas, pendidikan, dan kompetensi klinis tenaga kesehatan."
+        />
         <StaffForm rooms={rooms} competencies={competencies} />
       </div>
     </AppShell>

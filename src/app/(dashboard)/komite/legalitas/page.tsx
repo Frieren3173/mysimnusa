@@ -10,7 +10,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { deriveDocumentStatus, formatDateShort, daysUntilExpiry } from "@/lib/utils";
 import { ShieldCheck } from "lucide-react";
-import { StickyPageHeader, searchInputClass } from "@/components/layout/page-header";
+import { StickyPageHeader } from "@/components/layout/page-header";
+import { searchInputClass } from "@/components/layout/page-toolbar";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
 
 export const metadata: Metadata = { title: "Legalitas — Komite Keperawatan" };
@@ -150,7 +151,7 @@ export default async function LegalitasPage({
         />
 
         <Section>
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th className="w-12">No</Th>

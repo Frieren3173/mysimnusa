@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard, Section, AlertItem } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
@@ -85,30 +86,25 @@ export default async function DashboardPage() {
 
   return (
     <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
-      <div className="space-y-6 max-w-7xl mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Selamat datang, {userInfo.name}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Dashboard Terpadu MYSIMNUSA · Pantau seluruh operasional hari ini
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/borang/entry">
-              <Button variant="secondary" size="sm">
-                + Input Borang
-              </Button>
-            </Link>
-            <Link href="/komite/staff/new">
-              <Button variant="primary" size="sm">
-                + Tambah SDM
-              </Button>
-            </Link>
-          </div>
-        </div>
+      <div className="mx-auto max-w-7xl">
+        <StickyPageHeader
+          title={`Selamat datang, ${userInfo.name}`}
+          description="Dashboard Terpadu MYSIMNUSA - Pantau seluruh operasional hari ini"
+          actions={
+            <>
+              <Link href="/borang/entry">
+                <Button variant="secondary" size="sm">
+                  + Input Borang
+                </Button>
+              </Link>
+              <Link href="/komite/staff/new">
+                <Button variant="primary" size="sm">
+                  + Tambah SDM
+                </Button>
+              </Link>
+            </>
+          }
+        />
 
         {/* Attention Center — philosophy: "What needs attention right now?" */}
         {(expiringDocsCount > 0 || pendingBorangCount > 0) && (
@@ -189,7 +185,7 @@ export default async function DashboardPage() {
               </Link>
             }
           >
-            <Table>
+            <Table scroll>
               <TableHeader>
                 <TableRow>
                   <Th>Nama</Th>
@@ -231,7 +227,7 @@ export default async function DashboardPage() {
               </Link>
             }
           >
-            <Table>
+            <Table scroll>
               <TableHeader>
                 <TableRow>
                   <Th>Staff</Th>

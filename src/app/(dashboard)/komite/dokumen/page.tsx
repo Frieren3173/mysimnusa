@@ -11,7 +11,8 @@ import type { Prisma } from "@prisma/client";
 import { deriveDocumentStatus, formatDateShort, formatFileSize } from "@/lib/utils";
 import { FileText, Download } from "lucide-react";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
-import { StickyPageHeader, searchInputClass } from "@/components/layout/page-header";
+import { StickyPageHeader } from "@/components/layout/page-header";
+import { searchInputClass } from "@/components/layout/page-toolbar";
 
 export const metadata: Metadata = { title: "Dokumen — Komite Keperawatan" };
 
@@ -105,7 +106,7 @@ export default async function DokumenPage({
         />
 
         <Section>
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th className="w-12">No</Th>

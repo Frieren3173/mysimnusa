@@ -269,7 +269,7 @@ export function ActionsMasterClient() {
           <CardTitle>Tindakan ({total})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Kode</Th>

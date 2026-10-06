@@ -268,7 +268,7 @@ export function RoomsMasterClient() {
           <CardTitle>Ruangan ({total})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Kode</Th>

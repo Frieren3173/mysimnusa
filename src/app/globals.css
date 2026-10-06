@@ -106,4 +106,12 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Sticky layers ---------------------------------------------------------
+     --page-sticky-offset is measured by StickyPageHeader (header height +
+     fixed topbar). Table bodies use it so a bounded scroll container leaves
+     exactly enough room for the sticky header + toolbar + table header. */
+  :root {
+    --page-sticky-offset: 220px;
+  }
 }

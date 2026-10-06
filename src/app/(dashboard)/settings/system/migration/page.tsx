@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { requireRole } from "@/lib/authorization";
 import { ROLES } from "@/lib/constants";
 import { MigrationCenterClient } from "./migration-client";
@@ -27,12 +28,7 @@ export default async function MigrationCenterPage() {
       }}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Migration Center</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Migrasi data dan dokumen resmi dari ekosistem Google Sheets dan Google Drive lama.
-          </p>
-        </div>
+        <StickyPageHeader title="Migration Center" description={"Migrasi data dan dokumen resmi dari ekosistem Google Sheets dan Google Drive lama."} />
 
         <GoogleConnectionCard />
 

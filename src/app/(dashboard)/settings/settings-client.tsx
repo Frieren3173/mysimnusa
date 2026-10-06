@@ -100,7 +100,7 @@ export function SettingsClient({
                 Tambah
               </Button>
             </form>
-            <Table>
+            <Table scroll>
               <TableHeader>
                 <TableRow>
                   <Th>Nama</Th>

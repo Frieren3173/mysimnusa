@@ -91,7 +91,7 @@ export function ArchiveClient({ canArchive }: { canArchive: boolean }) {
           <CardTitle>Menunggu Arsip ({approved.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Periode</Th>
@@ -153,7 +153,7 @@ export function ArchiveClient({ canArchive }: { canArchive: boolean }) {
           <CardTitle>Arsip ({archived.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Periode</Th>

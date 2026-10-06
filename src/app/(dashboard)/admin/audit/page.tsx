@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
+import { StickyPageHeader } from "@/components/layout/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
@@ -66,12 +67,7 @@ export default async function AdminAuditPage({
       }}
     >
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Audit Log</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Jejak perubahan data sistem ({total} entri).
-          </p>
-        </div>
+        <StickyPageHeader title="Audit Log" description={`Jejak perubahan data sistem (${total} entri).`} />
 
         {/* Filters */}
         <form method="GET" className="flex flex-wrap items-end gap-3">
@@ -118,7 +114,7 @@ export default async function AdminAuditPage({
             <CardTitle>Entri Log</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <Table scroll>
               <TableHeader>
                 <TableRow>
                   <Th>Waktu</Th>

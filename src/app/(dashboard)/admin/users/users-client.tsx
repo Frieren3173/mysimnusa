@@ -221,7 +221,7 @@ export function UsersClient({
           <CardTitle>Daftar Pengguna ({users.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Username</Th>

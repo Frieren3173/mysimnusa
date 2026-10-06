@@ -273,7 +273,7 @@ export function TrainingManager({
                 )}
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table scroll>
                   <TableHeader>
                     <TableRow>
                       <Th>Nama</Th>
@@ -375,7 +375,7 @@ export function TrainingManager({
                 />
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table scroll>
                   <TableHeader>
                     <TableRow>
                       <Th>Peserta</Th>
@@ -459,7 +459,7 @@ export function TrainingManager({
                 <CardTitle>Sertifikat</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table scroll>
                   <TableHeader>
                     <TableRow>
                       <Th>Peserta</Th>
@@ -544,7 +544,7 @@ function AssessmentPanel({
         <CardTitle>Penilaian</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <Table>
+        <Table scroll>
           <TableHeader>
             <TableRow>
               <Th>Peserta</Th>

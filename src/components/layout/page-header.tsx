@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +19,9 @@ import { cn } from "@/lib/utils";
  * the page content scrolls beneath it, so the title, description, actions and
  * filters all stay reachable.
  *
- * Sticky notes:
- *  - `top-0` inside `AppShell`'s `overflow-y-auto` main element.
- *  - Solid opaque background + bottom hairline + subtle shadow so scrolling
- *    content never bleeds through.
- *  - Negative horizontal margins cancel the shell padding, then re-apply it, so
- *    the bar spans the full width without a visible gap.
+ * It also publishes its measured height to `--page-sticky-offset` on <html>, so
+ * a table's bounded scroll container can size itself correctly (app header +
+ * topbar + this header) on both desktop and mobile.
  */
 export function StickyPageHeader({
   title,
@@ -37,10 +36,32 @@ export function StickyPageHeader({
   toolbar?: React.ReactNode;
   className?: string;
 }) {
+  const ref = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const publish = () => {
+      // Height of this sticky header + the fixed chrome above it (topbar).
+      const topbar = document.querySelector("[data-app-topbar]") as HTMLElement | null;
+      const offset = el.offsetHeight + (topbar?.offsetHeight ?? 0) + 16;
+      document.documentElement.style.setProperty("--page-sticky-offset", `${offset}px`);
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    window.addEventListener("resize", publish);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", publish);
+    };
+  }, []);
+
   return (
     <header
+      ref={ref}
       className={cn(
-        "sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6",
+        "sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:-mx-6 md:px-6",
         className,
       )}
     >
@@ -68,12 +89,3 @@ export function PageToolbar({
     <div className={cn("flex flex-wrap items-center gap-2", className)}>{children}</div>
   );
 }
-
-/** Shared input styling for search fields. */
-export function searchInputClass(width = "w-56"): string {
-  return `h-8 ${width} rounded border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500`;
-}
-
-/** Shared styling for filter selects. */
-export const filterSelectClass =
-  "h-8 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500";

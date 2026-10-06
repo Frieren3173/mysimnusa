@@ -556,7 +556,7 @@ export function MigrationCenterClient() {
             {history.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-slate-700 mb-2">Batch Sebelumnya</h4>
-                <Table>
+                <Table scroll>
                   <TableHeader>
                     <TableRow>
                       <Th>File</Th>
@@ -630,7 +630,7 @@ export function MigrationCenterClient() {
               </div>
             )}
 
-            <Table>
+            <Table scroll>
               <TableHeader>
                 <TableRow>
                   <Th>Kolom Sumber</Th>
@@ -974,7 +974,7 @@ export function MigrationCenterClient() {
             ) : (
               <>
                 <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <Table>
+                  <Table scroll>
                     <TableHeader>
                       <TableRow>
                         <Th>Metrik</Th>

@@ -9,7 +9,8 @@ import type { Prisma } from "@prisma/client";
 import { Award } from "lucide-react";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
 import { CompetencyBadgeButton } from "./competency-cell";
-import { StickyPageHeader, searchInputClass, filterSelectClass } from "@/components/layout/page-header";
+import { StickyPageHeader } from "@/components/layout/page-header";
+import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
 
 export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" };
 
@@ -152,10 +153,7 @@ export default async function KompetensiPage({
 
         <div className="mt-3">
           <Section>
-            {/* Scroll container: the toolbar above stays sticky, and the table
-                header sticks to the top of this container while it scrolls. */}
-            <div className="max-h-[70vh] overflow-auto rounded-lg">
-              <Table>
+            <Table scroll>
                 <TableHeader>
                   <TableRow>
                     <Th className="w-12">No</Th>
@@ -211,7 +209,6 @@ export default async function KompetensiPage({
                   )}
                 </TableBody>
               </Table>
-            </div>
           </Section>
         </div>
       </div>

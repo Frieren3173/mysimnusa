@@ -5,9 +5,23 @@ import { cn } from "@/lib/utils";
 
 // ─── Table ───────────────────────────────────────────────────
 
-export function Table({ className, children, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+export function Table({
+  className,
+  children,
+  /** Bounded-height scroll container so the sticky <thead> actually sticks. */
+  scroll,
+  ...props
+}: React.HTMLAttributes<HTMLTableElement> & { scroll?: boolean }) {
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-slate-200">
+    <div
+      className={cn(
+        "w-full overflow-x-auto rounded-lg border border-slate-200",
+        // `overflow-x: auto` alone does not create a scrollable box, which is why
+        // a sticky <thead> had nothing to stick to. When `scroll` is set the
+        // wrapper becomes the vertical scroll container for the table body only.
+        scroll && "max-h-[calc(100vh-var(--page-sticky-offset,220px))] overflow-y-auto",
+      )}
+    >
       <table
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
@@ -20,7 +34,10 @@ export function Table({ className, children, ...props }: React.HTMLAttributes<HT
 
 export function TableHeader({ className, children, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={cn("bg-slate-50 border-b border-slate-200 sticky top-0 z-10", className)} {...props}>
+    <thead
+      className={cn("bg-slate-50 border-b border-slate-200 sticky top-0 z-10 [&>tr>th]:bg-slate-50", className)}
+      {...props}
+    >
       {children}
     </thead>
   );

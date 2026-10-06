@@ -110,7 +110,7 @@ export function VerificationClient({
           <CardTitle>Antrean Verifikasi ({entries.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table scroll>
             <TableHeader>
               <TableRow>
                 <Th>Periode</Th>
