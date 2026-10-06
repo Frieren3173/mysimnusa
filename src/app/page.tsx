@@ -13,30 +13,6 @@ import {
   BadgeCheck,
 } from "lucide-react";
 
-/** Text lines for the two cinematic scroll-story sections. */
-const STORY_SECTIONS = [
-  {
-    key: "data",
-    kicker: "Satu Sumber Data",
-    video: 1,
-    items: [
-      "Data tenaga keperawatan, tidak lagi tersebar.",
-      "Satu platform untuk Komite Keperawatan, Borang, dan Diklat.",
-      "Akurat. Tertelusur. Akuntabel.",
-    ],
-  },
-  {
-    key: "mutu",
-    kicker: "Mutu Pelayanan",
-    video: 2,
-    items: [
-      "Setiap pengajuan terverifikasi.",
-      "Pemantauan STR, SIP, dan kompetensi otomatis.",
-      "Untuk pelayanan yang lebih bermutu.",
-    ],
-  },
-];
-
 const modules = [
   {
     icon: Users,
@@ -90,7 +66,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-3" data-motion-intro-child>
             <Image
@@ -120,187 +96,170 @@ export default function Home() {
       </header>
 
       <main id="main-content" className="flex-1">
-        {/* Hero */}
-        <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-          {/* Depth layer 1 (background) — slowest movement */}
-          <div
-            aria-hidden="true"
-            data-motion-pointer
-            data-motion-depth="0.35"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_70%_-10%,rgba(37,99,235,0.07),transparent)]"
-          />
-          {/* Depth layer 2 (midground decoration) — moderate movement */}
-          <div
-            aria-hidden="true"
-            data-motion-pointer
-            data-motion-depth="0.7"
-            className="pointer-events-none absolute -left-16 top-24 h-64 w-64 rounded-full bg-blue-100/40 blur-2xl sm:h-80 sm:w-80"
-          />
-          {/* Depth layer 3 (foreground decoration) — stronger movement */}
-          <div
-            aria-hidden="true"
-            data-motion-pointer
-            data-motion-depth="1.25"
-            className="pointer-events-none absolute right-10 top-16 hidden h-40 w-40 rounded-full border border-slate-200/70 bg-white/50 backdrop-blur-sm lg:block"
-          />
-
-          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:py-28">
-            <div data-motion-parallax data-motion-pointer data-motion-depth="0.45">
-              <p
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
-                data-motion-intro-child
+        {/* Hero — sticky section with looping background video. Elements reveal
+            one-by-one on scroll (see /scroll-story.js). */}
+        <section
+          id="hero"
+          data-story
+          className="story-hero relative border-b border-slate-200 bg-slate-950"
+        >
+          <div className="story__sticky">
+            {/* Background video (loops, never scroll-controlled) */}
+            <div className="story__media" aria-hidden="true">
+              <video
+                className="story__video"
+                data-video="1"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster="/assets/poster-1.webp"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                Sistem Internal · Rumah Sakit Adhyaksa Jawa Timur
-              </p>
-
-              <h1
-                data-motion-intro="headline"
-                data-motion-scene-exit
-                className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl"
-              >
-                Sistem Informasi Manajemen
-                <span className="block text-slate-500">Keperawatan &amp; Kebidanan</span>
-              </h1>
-
-              <p
-                className="mt-6 max-w-xl text-base leading-relaxed text-slate-600"
-                data-motion-intro-child
-              >
-                MYSIMNUSA menyatukan pengelolaan Komite Keperawatan, Borang, dan Diklat
-                dalam satu platform terpadu — akurat, tertelusur, dan akuntabel untuk
-                mendukung mutu pelayanan.
-              </p>
-
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row" data-motion-intro-child>
-                <Link
-                  href="/login"
-                  data-motion-magnetic
-                  className="motion-underline inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                >
-                  Masuk ke MYSIMNUSA
-                  <ArrowRight className="motion-arrow h-4 w-4" aria-hidden="true" />
-                </Link>
-                <Link
-                  href="#modul"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition-colors duration-150 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
-                >
-                  Lihat Modul
-                </Link>
-              </div>
+                <source src="/assets/video-1.webm" type="video/webm" />
+                <source src="/assets/video-1.mp4" type="video/mp4" />
+              </video>
+              <div className="story__overlay" />
             </div>
 
-            {/* Capability panel */}
-            <div
-              className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-sm"
-              data-motion-reveal
-              data-motion-pointer
-              data-motion-depth="0.9"
-            >
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Fondasi sistem
-              </p>
-              <dl className="mt-5 space-y-4">
-                {capabilities.map((cap) => (
-                  <div key={cap.label} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-blue-600">
-                      <cap.icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                      <dt className="text-sm font-semibold text-slate-800">{cap.label}</dt>
-                      <dd className="text-xs leading-relaxed text-slate-500">{cap.detail}</dd>
-                    </div>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </div>
-        </section>
+            {/* Soft blend into the light page below (modules start dark too). */}
+            <div className="story__fade story__fade--top" aria-hidden="true" />
 
-        {/* Modules */}
-        <section id="modul" className="mx-auto w-full max-w-6xl px-6 py-20">
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900" data-motion-lines>
-              Modul Terpadu
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Tiga modul inti yang saling terhubung, dengan data SDM sebagai fondasi bersama.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {modules.map((module) => (
-              <article
-                key={module.title}
-                data-motion-reveal
-                className="group flex flex-col rounded-lg border border-slate-200 bg-white p-5 transition-colors duration-150 hover:border-slate-300"
-              >
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                  <module.icon className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <p className="mt-4 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                  {module.tag}
+            <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:py-28">
+              <div data-parallax data-speed="1.05">
+                <p
+                  data-hero-step
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                  Sistem Internal · Rumah Sakit Adhyaksa Jawa Timur
                 </p>
-                <h3 className="mt-1 text-sm font-semibold text-slate-900">{module.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{module.description}</p>
-              </article>
-            ))}
+
+                <h1
+                  data-hero-step
+                  className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl"
+                >
+                  Sistem Informasi Manajemen
+                  <span className="block text-white/70">Keperawatan &amp; Kebidanan</span>
+                </h1>
+
+                <p
+                  data-hero-step
+                  className="mt-6 max-w-xl text-base leading-relaxed text-white/80"
+                >
+                  MYSIMNUSA menyatukan pengelolaan Komite Keperawatan, Borang, dan Diklat
+                  dalam satu platform terpadu — akurat, tertelusur, dan akuntabel untuk
+                  mendukung mutu pelayanan.
+                </p>
+
+                <div data-hero-step className="mt-9 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/login"
+                    className="motion-underline inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  >
+                    Masuk ke MYSIMNUSA
+                    <ArrowRight className="motion-arrow h-4 w-4" aria-hidden="true" />
+                  </Link>
+                  <a
+                    href="#modul"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 px-6 text-sm font-medium text-white backdrop-blur transition-colors duration-150 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60"
+                  >
+                    Lihat Modul
+                  </a>
+                </div>
+              </div>
+
+              {/* Capability panel — glass card over the video */}
+              <div
+                data-hero-step
+                data-parallax
+                data-speed="0.9"
+                className="story-glass rounded-xl border border-white/15 p-6 shadow-lg"
+              >
+                <p className="text-xs font-medium uppercase tracking-wide text-white/70">
+                  Fondasi sistem
+                </p>
+                <dl className="mt-5 space-y-4">
+                  {capabilities.map((cap) => (
+                    <div key={cap.label} data-hero-item className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/20 bg-white/10 text-blue-200">
+                        <cap.icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <div>
+                        <dt className="text-sm font-semibold text-white">{cap.label}</dt>
+                        <dd className="text-xs leading-relaxed text-white/70">{cap.detail}</dd>
+                      </div>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ── Cinematic scroll-story sections ──────────────────────────────
-            Two sticky sections with looping background video, scroll-driven
-            text reveals and parallax. Behaviour lives in /scroll-story.js
-            (vanilla); styling in ./scroll-story.css. Reduced-motion shows all
-            text immediately with no parallax. */}
-        {STORY_SECTIONS.map((story, si) => (
-          <section
-            key={story.key}
-            className={si > 0 ? "story story--cont" : "story"}
-            data-story
-            aria-label={story.kicker}
-          >
-            <div className="story__sticky">
-              <div className="story__media" aria-hidden="true">
-                <video
-                  className="story__video"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  poster={`/assets/poster-${story.video}.webp`}
+        {/* Modules — sticky section with looping background video (video-2).
+            Title → subtitle → cards reveal in sequence on scroll. */}
+        <section id="modul" data-story className="story-modul relative border-b border-slate-200 bg-slate-950">
+          <div className="story__sticky">
+            <div className="story__media" aria-hidden="true">
+              <video
+                className="story__video"
+                data-video="2"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster="/assets/poster-2.webp"
+              >
+                <source src="/assets/video-2.webm" type="video/webm" />
+                <source src="/assets/video-2.mp4" type="video/mp4" />
+              </video>
+              <div className="story__overlay" />
+            </div>
+
+            {/* Fade back to the light CTA section below (no hard edge). */}
+            <div className="story__fade story__fade--bottom" aria-hidden="true" />
+
+            <div className="relative mx-auto w-full max-w-6xl px-6 py-20 lg:py-28">
+              <div className="max-w-2xl" data-parallax data-speed="1.05">
+                <h2
+                  data-hero-step
+                  className="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
                 >
-                  <source src={`/assets/video-${story.video}.webm`} type="video/webm" />
-                  <source src={`/assets/video-${story.video}.mp4`} type="video/mp4" />
-                </video>
-                <div className="story__overlay" />
+                  Modul Terpadu
+                </h2>
+                <p
+                  data-hero-step
+                  className="mt-3 text-sm leading-relaxed text-white/75"
+                >
+                  Tiga modul inti yang saling terhubung, dengan data SDM sebagai fondasi bersama.
+                </p>
               </div>
 
-              <div className="story__fade story__fade--top" aria-hidden="true" />
-              <div className="story__fade story__fade--bottom" aria-hidden="true" />
-
-              <div className="story__content">
-                <p className="story__kicker">{story.kicker}</p>
-                {story.items.map((line, i) => (
-                  <p
-                    key={line}
-                    className="story__item"
-                    data-speed={["1", "1.15", "0.9"][i]}
+              <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {modules.map((module) => (
+                  <article
+                    key={module.title}
+                    data-hero-step
+                    data-parallax
+                    data-speed="0.92"
+                    className="story-glass group flex flex-col rounded-lg border border-white/15 p-5 shadow-lg transition-colors duration-150 hover:border-white/30"
                   >
-                    {line}
-                  </p>
-                ))}
-              </div>
-
-              <div className="story__dots" aria-hidden="true">
-                {story.items.map((line) => (
-                  <span key={line} className="story__dot" />
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/15 text-blue-200">
+                      <module.icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <p className="mt-4 text-[11px] font-medium uppercase tracking-wide text-white/60">
+                      {module.tag}
+                    </p>
+                    <h3 className="mt-1 text-sm font-semibold text-white">{module.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/75">{module.description}</p>
+                  </article>
                 ))}
               </div>
             </div>
-          </section>
-        ))}
+          </div>
+        </section>
 
         {/* Closing band */}
         <section className="border-y border-slate-200 bg-white">
@@ -342,3 +301,4 @@ export default function Home() {
     </div>
   );
 }
+
