@@ -3,21 +3,25 @@
 import * as React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/form";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
 import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
+import { expandPatientRows } from "@/lib/borang";
+import { SignatureBlock } from "./signature-block";
 
 interface Entry {
   id: string;
   period: string;
   patientIdentifier: string;
+  rmNumber: string | null;
   actionType: string;
   quantity: number;
   notes: string | null;
   status: string;
   rejectReason: string | null;
   createdAt: string;
-  staff: { id: string; name: string; profession: string };
+  staff: { id: string; name: string; profession: string; nip: string | null };
   room: { name: string } | null;
 }
 
@@ -34,6 +38,7 @@ export function VerificationClient({
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [sigEntryId, setSigEntryId] = React.useState<string>("");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -55,6 +60,25 @@ export function VerificationClient({
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // Keep a valid entry selected for the signature preview.
+  const sigEntry =
+    entries.find((e) => e.id === sigEntryId) ?? entries[0] ?? null;
+  const sigPatients = React.useMemo(
+    () =>
+      sigEntry
+        ? expandPatientRows([
+            {
+              period: sigEntry.period,
+              patientIdentifier: sigEntry.patientIdentifier,
+              rmNumber: sigEntry.rmNumber,
+              actionType: sigEntry.actionType,
+              quantity: sigEntry.quantity,
+            },
+          ])
+        : [],
+    [sigEntry]
+  );
 
   async function act(id: string, action: "VERIFY" | "APPROVE" | "REJECT") {
     let reason: string | undefined;
@@ -103,6 +127,50 @@ export function VerificationClient({
         >
           {msg.text}
         </div>
+      )}
+
+      {sigEntry && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pratinjau Tanda Tangan ({sigEntry.staff.name})</CardTitle>
+            <Select
+              className="w-72"
+              value={sigEntryId || sigEntry.id}
+              onChange={(e) => setSigEntryId(e.target.value)}
+              aria-label="Pilih entri untuk pratinjau tanda tangan"
+            >
+              {entries.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.period} · {e.staff.name} · {e.actionType}
+                </option>
+              ))}
+            </Select>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+              <div>
+                <span className="text-slate-400">Petugas</span>
+                <p className="font-medium text-slate-800">{sigEntry.staff.name}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">NIP</span>
+                <p className="font-mono text-slate-800">{sigEntry.staff.nip ?? "—"}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Ruangan</span>
+                <p className="text-slate-800">{sigEntry.room?.name ?? "—"}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Total Pasien</span>
+                <p className="font-medium text-slate-800">{sigPatients.length}</p>
+              </div>
+            </div>
+            <SignatureBlock
+              perawatName={sigEntry.staff.name}
+              perawatNip={sigEntry.staff.nip}
+            />
+          </CardContent>
+        </Card>
       )}
 
       <Card>

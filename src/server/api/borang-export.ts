@@ -22,6 +22,12 @@ import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { formatDateShort } from "@/lib/utils";
+import {
+  expandPatientRows,
+  KASI_KEPERAWATAN,
+  KEPALA_RUANGAN,
+  PERAWAT_PEMOHON_POSITION,
+} from "@/lib/borang";
 
 const FONT = "Arial";
 const border = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
@@ -276,35 +282,49 @@ export async function GET(req: NextRequest) {
     rows: [rekapHeaderTop, rekapHeaderBottom, ...rekapBody],
   });
 
-  // ── Tanda tangan ────────────────────────────────────────
-  const blanks = ["", "", "", "", ""];
+  // ── Tanda tangan (3 kolom: Kasi → Kepala Ruangan → Perawat) ──
+  const sigGap = ["", "", "", "", ""];
   const sigTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: FLAT,
     rows: [
       new TableRow({
         children: [
+          cell([dateLine], { width: 100, align: AlignmentType.RIGHT }),
+        ],
+      }),
+      new TableRow({ children: [cell([""], { width: 100 })] }),
+      new TableRow({
+        children: [
+          // 1. Kepala Seksi Keperawatan dan Kebidanan
           cell(
             [
-              "Mengetahui",
-              "PIMPINAN / ATASAN",
-              "RSUD/PKM/KLINIK",
-              ...blanks,
-              "……………………………",
-              "NIP. ……………………",
+              KASI_KEPERAWATAN.position,
+              ...sigGap,
+              KASI_KEPERAWATAN.name,
+              `NIP. ${KASI_KEPERAWATAN.nip}`,
             ],
-            { width: 50, align: AlignmentType.CENTER }
+            { width: 33, align: AlignmentType.CENTER }
           ),
+          // 2. Kepala Ruangan (blank — diisi manual)
           cell(
             [
-              dateLine,
-              "Paraf Perawat",
-              "RSUD/PKM/KLINIK",
-              ...blanks,
-              staff.name,
-              `NIP. ${staff.nip ?? "…………………"}`,
+              KEPALA_RUANGAN.position,
+              ...sigGap,
+              KEPALA_RUANGAN.name || "………………………………",
+              KEPALA_RUANGAN.nip ? `NIP. ${KEPALA_RUANGAN.nip}` : "NIP. ………………………",
             ],
-            { width: 50, align: AlignmentType.CENTER }
+            { width: 34, align: AlignmentType.CENTER }
+          ),
+          // 3. Perawat yang meminta (dari data tenaga pembuat Borang)
+          cell(
+            [
+              PERAWAT_PEMOHON_POSITION,
+              ...sigGap,
+              staff.name,
+              `NIP. ${staff.nip ?? "………………………"}`,
+            ],
+            { width: 33, align: AlignmentType.CENTER }
           ),
         ],
       }),
@@ -312,18 +332,22 @@ export async function GET(req: NextRequest) {
   });
 
   // ── Tabel daftar pasien (halaman 2) ─────────────────────
+  // Setiap entri dengan `quantity = N` dipecah menjadi N baris pasien
+  // (inisial unik + No. RM unik) — dihitung, tidak disimpan.
+  const patientRows = expandPatientRows(entries);
+
   const pasienHeader = new TableRow({
     tableHeader: true,
     children: [
       cell(["NO"], { width: 5, bold: true, align: AlignmentType.CENTER }),
-      cell(["NAMA PASIEN"], { width: 20, bold: true, align: AlignmentType.CENTER }),
-      cell(["NO. RM"], { width: 20, bold: true, align: AlignmentType.CENTER }),
-      cell(["TINDAKAN"], { width: 45, bold: true, align: AlignmentType.CENTER }),
+      cell(["NAMA PASIEN"], { width: 18, bold: true, align: AlignmentType.CENTER }),
+      cell(["NO. RM"], { width: 15, bold: true, align: AlignmentType.CENTER }),
+      cell(["TINDAKAN"], { width: 52, bold: true, align: AlignmentType.CENTER }),
       cell(["JUMLAH"], { width: 10, bold: true, align: AlignmentType.CENTER }),
     ],
   });
   const pasienBody =
-    entries.length === 0
+    patientRows.length === 0
       ? [
           new TableRow({
             children: [
@@ -335,14 +359,14 @@ export async function GET(req: NextRequest) {
             ],
           }),
         ]
-      : entries.map((e, i) =>
+      : patientRows.map((p, i) =>
           new TableRow({
             children: [
               cell([String(i + 1)], { width: 5, align: AlignmentType.CENTER }),
-              cell([e.patientIdentifier], { width: 20, align: AlignmentType.CENTER }),
-              cell([e.rmNumber ?? "—"], { width: 20, align: AlignmentType.CENTER }),
-              cell([e.actionType], { width: 45 }),
-              cell([String(e.quantity)], { width: 10, align: AlignmentType.CENTER }),
+              cell([p.name], { width: 18, align: AlignmentType.CENTER }),
+              cell([p.rmNumber], { width: 15, align: AlignmentType.CENTER }),
+              cell([p.actionType], { width: 52 }),
+              cell([String(p.quantity)], { width: 10, align: AlignmentType.CENTER }),
             ],
           })
         );

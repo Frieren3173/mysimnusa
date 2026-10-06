@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     prisma.borangEntry.findMany({
       where,
       include: {
-        staff: { select: { id: true, name: true, profession: true } },
+        staff: { select: { id: true, name: true, profession: true, nip: true } },
         room: { select: { name: true } },
         verifications: { orderBy: { createdAt: "desc" }, take: 3 },
       },

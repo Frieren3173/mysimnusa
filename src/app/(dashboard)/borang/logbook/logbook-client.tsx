@@ -7,6 +7,7 @@ import { Input, Select, Textarea, FormField } from "@/components/ui/form";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
 import { Download, Pencil, Send } from "lucide-react";
+import { expandPatientRows } from "@/lib/borang";
 
 interface Entry {
   id: string;
@@ -74,6 +75,22 @@ export function LogbookClient({
   const [editId, setEditId] = React.useState<string | null>(null);
   const [roomActions, setRoomActions] = React.useState<MasterAction[]>([]);
   const [actionsLoading, setActionsLoading] = React.useState(false);
+
+  // Anonymised patient rows derived from the loaded entries (quantity → N rows,
+  // unique initials + unique No. RM). Nothing is persisted — display only.
+  const patientRows = React.useMemo(
+    () =>
+      expandPatientRows(
+        entries.map((e) => ({
+          period: e.period,
+          patientIdentifier: e.patientIdentifier,
+          rmNumber: e.rmNumber,
+          actionType: e.actionType,
+          quantity: e.quantity,
+        }))
+      ),
+    [entries]
+  );
 
   React.useEffect(() => {
     const roomId = form.roomId;
@@ -484,6 +501,48 @@ export function LogbookClient({
                         </Button>
                       )}
                     </Td>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Daftar pasien (anonymized) — dihasilkan otomatis dari jumlah tindakan */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Pasien ({patientRows.length})</CardTitle>
+          <span className="text-xs text-slate-500">
+            Dibuat otomatis dari jumlah tindakan — inisial &amp; No. RM unik per dokumen
+          </span>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table scroll>
+            <TableHeader>
+              <TableRow>
+                <Th className="w-12">No</Th>
+                <Th>Nama Pasien</Th>
+                <Th>No. RM</Th>
+                <Th>Tindakan</Th>
+                <Th className="text-center">Jumlah</Th>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patientRows.length === 0 ? (
+                <TableRow>
+                  <Td colSpan={5} className="text-center text-xs text-slate-400 py-8">
+                    Belum ada data pasien.
+                  </Td>
+                </TableRow>
+              ) : (
+                patientRows.map((p) => (
+                  <TableRow key={`${p.no}-${p.rmNumber}`}>
+                    <Td className="text-xs tabular-nums text-slate-500">{p.no}</Td>
+                    <Td className="text-xs font-mono font-medium text-slate-900">{p.name}</Td>
+                    <Td className="text-xs font-mono text-slate-600">{p.rmNumber}</Td>
+                    <Td className="text-xs">{p.actionType}</Td>
+                    <Td className="text-center text-xs tabular-nums">{p.quantity}</Td>
                   </TableRow>
                 ))
               )}
