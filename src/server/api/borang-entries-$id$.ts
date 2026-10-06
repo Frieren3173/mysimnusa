@@ -79,3 +79,79 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui", 500);
   }
 }
+
+/**
+ * Permanently delete a Borang entry.
+ *
+ * Rules:
+ *  - Only ARCHIVED entries may be deleted (guard rail: anything still in a live
+ *    workflow must be archived first). This also protects against accidental
+ *    loss of entries that are still being verified/approved.
+ *  - Requires the archive-level borang permission (ADMIN_BORANG / SUPER_ADMIN).
+ *
+ * Relations (audited against the Prisma schema):
+ *  - `BorangVerification` children have `onDelete: Cascade` → removed with the
+ *    entry (they are part of the Borang itself).
+ *  - `AuditLog.borangId` is a nullable FK with no cascade → its `borangId` is
+ *    set to NULL, so audit *history* is preserved (never deleted).
+ *  - Nothing references Staff / Room / NursingAction / Document from here, so no
+ *    master data is affected.
+ */
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { authorized, user } = await checkPermission(PERMISSIONS.BORANG_LOGBOOK_ARCHIVE);
+  if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);
+  if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses menghapus borang", 403);
+
+  const { id } = await params;
+  const entry = await prisma.borangEntry.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      staffId: true,
+      period: true,
+      actionType: true,
+      quantity: true,
+      status: true,
+    },
+  });
+  if (!entry) return err("NOT_FOUND", "Borang tidak ditemukan", 404);
+  if (entry.status !== "ARCHIVED") {
+    return err(
+      "NOT_ARCHIVED",
+      "Hanya borang berstatus Diarsipkan yang dapat dihapus.",
+      409,
+    );
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Detach audit history (keep the logs, drop the FK) before deleting.
+      await tx.auditLog.updateMany({
+        where: { borangId: id },
+        data: { borangId: null },
+      });
+      // BorangVerification rows cascade automatically.
+      await tx.borangEntry.delete({ where: { id } });
+    });
+
+    await logAudit({
+      userId: user.id,
+      staffId: entry.staffId,
+      module: "borang",
+      resource: "borang_entry",
+      resourceId: id,
+      action: "DELETED",
+      before: {
+        period: entry.period,
+        actionType: entry.actionType,
+        quantity: entry.quantity,
+        status: entry.status,
+      },
+      ipAddress: clientIp(req),
+    });
+
+    return ok({ id });
+  } catch (e) {
+    return err("DELETE_FAILED", e instanceof Error ? e.message : "Gagal menghapus borang", 500);
+  }
+}

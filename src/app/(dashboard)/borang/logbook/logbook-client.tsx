@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea, FormField } from "@/components/ui/form";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { BorangStatusBadge } from "@/components/ui/badge";
-import { Download, Pencil, Send, Users } from "lucide-react";
-import { PatientListModal } from "./patient-list-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Download, Pencil, Send, Users, Trash2 } from "lucide-react";
+import { StaffLogbookModal } from "./staff-logbook-modal";
 
 interface Entry {
   id: string;
@@ -21,7 +22,7 @@ interface Entry {
   status: string;
   rejectReason: string | null;
   createdAt: string;
-  staff: { id: string; name: string; profession: string };
+  staff: { id: string; name: string; profession: string; nip?: string | null };
   room: { name: string } | null;
 }
 
@@ -49,6 +50,7 @@ export function LogbookClient({
   canCreate,
   canUpdate,
   canSubmit,
+  canDelete,
 }: {
   rooms: { id: string; name: string }[];
   staffList: { id: string; name: string; profession: string }[];
@@ -57,12 +59,14 @@ export function LogbookClient({
   canCreate: boolean;
   canUpdate: boolean;
   canSubmit: boolean;
+  canDelete: boolean;
 }) {
   const [entries, setEntries] = React.useState<Entry[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [toast, setToast] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [filters, setFilters] = React.useState({ status: defaultStatus, period: "", search: "" });
   const [exportStaffId, setExportStaffId] = React.useState(myStaffId ?? "");
@@ -75,8 +79,18 @@ export function LogbookClient({
   const [editId, setEditId] = React.useState<string | null>(null);
   const [roomActions, setRoomActions] = React.useState<MasterAction[]>([]);
   const [actionsLoading, setActionsLoading] = React.useState(false);
-  // Entry whose patient list is open in the modal (null = closed).
-  const [patientEntry, setPatientEntry] = React.useState<Entry | null>(null);
+  // Staff whose logbook detail is open (null = closed).
+  const [staffLogbookId, setStaffLogbookId] = React.useState<string | null>(null);
+  // Entry pending delete confirmation + in-flight flag.
+  const [deleteTarget, setDeleteTarget] = React.useState<Entry | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+
+  // Auto-dismiss toasts.
+  React.useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   React.useEffect(() => {
     const roomId = form.roomId;
@@ -178,6 +192,27 @@ export function LogbookClient({
       setMsg({ type: "err", text: e instanceof Error ? e.message : "Gagal memproses" });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function confirmDelete() {
+    const target = deleteTarget;
+    if (!target) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/borang/entries/${target.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error?.message ?? "Gagal menghapus borang");
+      }
+      setDeleteTarget(null);
+      setToast({ type: "ok", text: `Borang ${target.period} "${target.actionType}" berhasil dihapus.` });
+      load();
+    } catch (e) {
+      setToast({ type: "err", text: e instanceof Error ? e.message : "Gagal menghapus borang" });
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -447,9 +482,9 @@ export function LogbookClient({
                     <Td className="text-xs">
                       <button
                         type="button"
-                        onClick={() => setPatientEntry(e)}
+                        onClick={() => setStaffLogbookId(e.staff.id)}
                         className="inline-flex items-center gap-1.5 rounded-md text-left font-medium text-[var(--color-foreground)] underline-offset-2 transition-colors hover:text-[var(--color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-1"
-                        title="Lihat daftar pasien"
+                        title="Lihat logbook petugas"
                       >
                         {e.staff.name}
                         <Users size={12} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
@@ -496,6 +531,17 @@ export function LogbookClient({
                           <Send size={12} /> Kirim
                         </Button>
                       )}
+                      {canDelete && e.status === "ARCHIVED" && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Hapus borang"
+                          onClick={() => setDeleteTarget(e)}
+                          disabled={busy}
+                        >
+                          <Trash2 size={13} className="text-[var(--color-danger)]" />
+                        </Button>
+                      )}
                     </Td>
                   </TableRow>
                 ))
@@ -505,10 +551,68 @@ export function LogbookClient({
         </CardContent>
       </Card>
 
-      {/* Patient list popup — opened by clicking a staff name in a row. */}
-      {patientEntry && (
-        <PatientListModal entry={patientEntry} onClose={() => setPatientEntry(null)} />
+      {/* Staff logbook detail — opened by clicking a staff name in a row. */}
+      {staffLogbookId && (
+        <StaffLogbookModal
+          entries={entries.filter((e) => e.staff.id === staffLogbookId)}
+          onClose={() => setStaffLogbookId(null)}
+        />
+      )}
+
+      {/* Delete confirmation for archived entries. */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Apakah Anda yakin ingin menghapus borang ini?"
+        description="Tindakan ini permanen. Data borang terpilih beserta riwayat verifikasinya akan dihapus; data master (Staff, Ruangan, Dokumen) tidak terpengaruh."
+        confirmLabel="Hapus"
+        cancelLabel="Batal"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      >
+        {deleteTarget && (
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)]/40 px-4 py-3 text-xs sm:grid-cols-2">
+            <div className="flex gap-2">
+              <dt className="w-24 shrink-0 text-[var(--color-muted-foreground)]">Periode</dt>
+              <dd className="font-medium text-[var(--color-foreground)]">{deleteTarget.period}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-24 shrink-0 text-[var(--color-muted-foreground)]">Petugas</dt>
+              <dd className="font-medium text-[var(--color-foreground)]">{deleteTarget.staff.name}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-24 shrink-0 text-[var(--color-muted-foreground)]">Ruangan</dt>
+              <dd className="text-[var(--color-foreground)]">{deleteTarget.room?.name ?? "—"}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-24 shrink-0 text-[var(--color-muted-foreground)]">Jumlah pasien</dt>
+              <dd className="text-[var(--color-foreground)]">
+                {expandEntryCount(deleteTarget)} pasien · {deleteTarget.actionType}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </ConfirmDialog>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-4 right-4 z-[80] max-w-xs animate-dialog-in rounded-lg border px-4 py-3 text-xs shadow-lg ${
+            toast.type === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {toast.text}
+        </div>
       )}
     </div>
   );
+}
+
+/** Patient count for a single entry (quantity → expanded rows, JUMLAH = 1). */
+function expandEntryCount(e: Entry): number {
+  return Math.max(1, Math.min(999, Math.floor(e.quantity) || 1));
 }

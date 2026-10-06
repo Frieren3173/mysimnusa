@@ -30,6 +30,7 @@ export default async function LogbookPage({
     canCreate: currentUser.hasPermission(PERMISSIONS.BORANG_LOGBOOK_CREATE),
     canUpdate: currentUser.hasPermission(PERMISSIONS.BORANG_LOGBOOK_UPDATE),
     canSubmit: currentUser.hasPermission(PERMISSIONS.BORANG_LOGBOOK_SUBMIT),
+    canDelete: currentUser.hasPermission(PERMISSIONS.BORANG_LOGBOOK_ARCHIVE),
   };
 
   return (
