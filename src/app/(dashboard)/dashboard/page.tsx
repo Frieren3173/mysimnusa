@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard, Section, AlertItem } from "@/components/ui/card";
@@ -86,10 +87,10 @@ export default async function DashboardPage() {
 
   return (
     <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl space-y-8 stagger-children">
         <StickyPageHeader
           title={`Selamat datang, ${userInfo.name}`}
-          description="Dashboard Terpadu MYSIMNUSA - Pantau seluruh operasional hari ini"
+          description="Dashboard Terpadu MYSIMNUSA — Pantau seluruh operasional hari ini"
           actions={
             <>
               <Link href="/borang/entry">
@@ -140,35 +141,36 @@ export default async function DashboardPage() {
           </Section>
         )}
 
-        {/* Primary KPIs */}
+        {/* Primary KPIs — first card is the focal point (staff total) */}
         <Section title="Ringkasan Operasional">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <KpiCard
               title="Total Tenaga Aktif"
               value={staffCount}
               subtitle="Perawat & Bidan terdaftar"
-              icon={<Users size={20} />}
+              icon={<Users size={18} />}
               size="large"
+              className="col-span-2 border-[var(--color-primary)]/25 bg-[var(--color-primary-subtle)]/60 lg:col-span-1"
             />
             <KpiCard
               title="Legalitas Expiring"
               value={expiringDocsCount}
               subtitle="STR/SIP dalam 90 hari"
               variant={expiringDocsCount > 0 ? "warning" : "default"}
-              icon={<ShieldCheck size={20} />}
+              icon={<ShieldCheck size={18} />}
             />
             <KpiCard
               title="Borang Pending"
               value={pendingBorangCount}
               subtitle="Menunggu approval"
               variant={pendingBorangCount > 0 ? "warning" : "default"}
-              icon={<FileText size={20} />}
+              icon={<FileText size={18} />}
             />
             <KpiCard
               title="Pelatihan Mendatang"
               value={upcomingTrainingsCount}
               subtitle="Bulan ini"
-              icon={<GraduationCap size={20} />}
+              icon={<GraduationCap size={18} />}
             />
           </div>
         </Section>
@@ -180,7 +182,7 @@ export default async function DashboardPage() {
             title="Legalitas Mendekati Kadaluarsa"
             description="STR & SIP yang perlu diperpanjang"
             action={
-              <Link href="/komite/legalitas" className="text-xs font-medium text-blue-600 hover:underline">
+              <Link href="/komite/legalitas" className="text-xs font-medium text-[var(--color-primary)] underline-offset-4 transition-colors hover:underline">
                 Semua legalitas →
               </Link>
             }
@@ -197,14 +199,14 @@ export default async function DashboardPage() {
               <TableBody>
                 {expiringDocs.length === 0 ? (
                   <TableRow>
-                    <Td colSpan={4} className="text-center text-xs text-slate-400 py-8">
+                    <Td colSpan={4} className="py-10 text-center text-xs text-[var(--color-muted-foreground)]">
                       Tidak ada dokumen yang mendekati kadaluarsa.
                     </Td>
                   </TableRow>
                 ) : (
                   expiringDocs.map((doc) => (
                     <TableRow key={doc.id}>
-                      <Td className="font-medium text-slate-900">{doc.staff.name}</Td>
+                      <Td className="font-medium text-[var(--color-foreground)]">{doc.staff.name}</Td>
                       <Td>{doc.documentType.name}</Td>
                       <Td>{formatDateShort(doc.expiryDate)}</Td>
                       <Td>
@@ -222,7 +224,7 @@ export default async function DashboardPage() {
             title="Borang Menunggu Verifikasi"
             description="Tindakan klinis yang diajukan staf"
             action={
-              <Link href="/borang/verification" className="text-xs font-medium text-blue-600 hover:underline">
+              <Link href="/borang/verification" className="text-xs font-medium text-[var(--color-primary)] underline-offset-4 transition-colors hover:underline">
                 Semua borang →
               </Link>
             }
@@ -239,14 +241,14 @@ export default async function DashboardPage() {
               <TableBody>
                 {pendingBorang.length === 0 ? (
                   <TableRow>
-                    <Td colSpan={4} className="text-center text-xs text-slate-400 py-8">
+                    <Td colSpan={4} className="py-10 text-center text-xs text-[var(--color-muted-foreground)]">
                       Tidak ada antrean verifikasi borang.
                     </Td>
                   </TableRow>
                 ) : (
                   pendingBorang.map((b) => (
                     <TableRow key={b.id}>
-                      <Td className="font-medium text-slate-900">{b.staff.name}</Td>
+                      <Td className="font-medium text-[var(--color-foreground)]">{b.staff.name}</Td>
                       <Td className="font-mono text-xs">{b.patientIdentifier}</Td>
                       <Td>{b.actionType}</Td>
                       <Td>
@@ -262,66 +264,66 @@ export default async function DashboardPage() {
 
         {/* Quick Module Navigation Cards */}
         <Section title="Akses Cepat Modul">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <ModuleCard
               href="/komite"
-              className="group rounded-lg border border-slate-200 bg-white p-5 hover:border-blue-500 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-blue-50 p-2.5 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <ShieldCheck size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                    Komite Keperawatan
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Data SDM, STR/SIP, kompetensi, dan arsip berkas perawat/bidan
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
+              title="Komite Keperawatan"
+              description="Data SDM, STR/SIP, kompetensi, dan arsip berkas perawat/bidan"
+              icon={<ShieldCheck size={20} />}
+            />
+            <ModuleCard
               href="/borang"
-              className="group rounded-lg border border-slate-200 bg-white p-5 hover:border-blue-500 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-green-50 p-2.5 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-green-600 transition-colors">
-                    Borang Tindakan
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Digitalisasi logbook tindakan klinis dan alur verifikasi berjenjang
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
+              title="Borang Tindakan"
+              description="Digitalisasi logbook tindakan klinis dan alur verifikasi berjenjang"
+              icon={<FileText size={20} />}
+            />
+            <ModuleCard
               href="/diklat"
-              className="group rounded-lg border border-slate-200 bg-white p-5 hover:border-blue-500 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-cyan-50 p-2.5 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white transition-colors">
-                  <GraduationCap size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-cyan-600 transition-colors">
-                    Diklat & Sertifikasi
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Manajemen pelatihan, presensi peserta, penilaian, dan e-sertifikat
-                  </p>
-                </div>
-              </div>
-            </Link>
+              title="Diklat & Sertifikasi"
+              description="Manajemen pelatihan, presensi peserta, penilaian, dan e-sertifikat"
+              icon={<GraduationCap size={20} />}
+            />
           </div>
         </Section>
       </div>
     </AppShell>
   );
 }
+
+/**
+ * Calm, on-brand module shortcut card.
+ *
+ * Motion is limited to a purposeful hover: a small lift + border darken, all on
+ * transform/colour (never layout), 200ms ease-out, and disabled under
+ * `prefers-reduced-motion`. No window-level scroll animation is involved.
+ */
+function ModuleCard({
+  href,
+  title,
+  description,
+  icon,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  icon: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_1px_2px_rgba(15,40,70,0.04)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:border-[var(--color-primary)]/40 hover:shadow-[0_10px_24px_-12px_rgba(15,40,70,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+    >
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[var(--color-primary-subtle)] text-[var(--color-primary)] transition-colors duration-200 group-hover:bg-[var(--color-primary)] group-hover:text-[var(--color-primary-foreground)] motion-reduce:transition-none">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+          {description}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+

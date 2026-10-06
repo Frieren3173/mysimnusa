@@ -68,6 +68,7 @@ interface KpiCardProps {
   variant?: "default" | "warning" | "danger" | "success";
   action?: React.ReactNode;
   size?: "default" | "large";
+  className?: string;
 }
 
 const KPI_VARIANTS = {
@@ -86,40 +87,48 @@ export function KpiCard({
   variant = "default",
   action,
   size = "default",
+  className,
 }: KpiCardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border bg-[var(--color-surface)] p-5 shadow-[0_1px_2px_rgba(15,40,70,0.04)] transition-shadow duration-200 hover:shadow-[0_2px_8px_rgba(15,40,70,0.07)]",
+        "group relative rounded-xl border bg-[var(--color-surface)] p-5",
+        "shadow-[0_1px_2px_rgba(15,40,70,0.04)]",
+        "transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-standard)]",
+        "hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-6px_rgba(15,40,70,0.18)]",
+        "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         KPI_VARIANTS[variant],
+        className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-[var(--color-muted-foreground)] uppercase tracking-wide truncate">
-            {title}
-          </p>
-          <p
-            className={cn(
-              "font-bold tabular-nums text-[var(--color-foreground)] mt-1",
-              size === "large" ? "text-4xl" : "text-3xl"
-            )}
-          >
-            {value}
-          </p>
-          {subtitle && (
-            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">{subtitle}</p>
-          )}
-          {trend && (
-            <p className={cn("text-xs mt-1 font-medium", trend.value >= 0 ? "text-green-600" : "text-red-600")}>
-              {trend.value >= 0 ? "↑" : "↓"} {Math.abs(trend.value)} {trend.label}
-            </p>
-          )}
-        </div>
+        <p className="text-xs font-medium leading-snug text-[var(--color-muted-foreground)]">
+          {title}
+        </p>
         {icon && (
-          <div className="shrink-0 text-[var(--color-muted-foreground)]/70">{icon}</div>
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+            {icon}
+          </div>
         )}
       </div>
+
+      <p
+        className={cn(
+          "mt-2.5 font-bold leading-none tabular-nums tracking-[-0.02em] text-[var(--color-foreground)]",
+          size === "large" ? "text-[2.5rem]" : "text-[2rem]",
+        )}
+      >
+        {value}
+      </p>
+
+      {subtitle && (
+        <p className="mt-1.5 text-xs leading-snug text-[var(--color-muted-foreground)]">{subtitle}</p>
+      )}
+      {trend && (
+        <p className={cn("mt-1.5 text-xs font-medium", trend.value >= 0 ? "text-green-600" : "text-red-600")}>
+          {trend.value >= 0 ? "↑" : "↓"} {Math.abs(trend.value)} {trend.label}
+        </p>
+      )}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -135,14 +144,22 @@ interface SectionProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Section({ title, description, action, className, children, ...props }: SectionProps) {
   return (
-    <section className={cn("space-y-4", className)} {...props}>
+    <section className={cn("space-y-3.5", className)} {...props}>
       {(title || action) && (
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            {title && <h2 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h2>}
-            {description && <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">{description}</p>}
+        <div className="flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            {title && (
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">
+                {title}
+              </h2>
+            )}
+            {description && (
+              <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                {description}
+              </p>
+            )}
           </div>
-          {action && <div className="shrink-0">{action}</div>}
+          {action && <div className="shrink-0 pb-0.5">{action}</div>}
         </div>
       )}
       {children}
@@ -234,15 +251,17 @@ const ALERT_STYLES = {
 
 export function AlertItem({ type, title, description, action, count }: AlertItemProps) {
   return (
-    <div className={cn("rounded-md border px-4 py-3 flex items-center justify-between gap-3", ALERT_STYLES[type])}>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          {count !== undefined && (
-            <span className="text-base font-bold tabular-nums">{count}</span>
-          )}
-          <p className="text-sm font-medium truncate">{title}</p>
+    <div className={cn("flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5", ALERT_STYLES[type])}>
+      <div className="flex min-w-0 items-center gap-3">
+        {count !== undefined && (
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 text-sm font-bold tabular-nums">
+            {count}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{title}</p>
+          {description && <p className="mt-0.5 text-xs opacity-80">{description}</p>}
         </div>
-        {description && <p className="text-xs opacity-80 mt-0.5">{description}</p>}
       </div>
       {action && <div className="shrink-0 text-xs">{action}</div>}
     </div>
