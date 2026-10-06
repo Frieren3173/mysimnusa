@@ -29,8 +29,9 @@ const capabilities = [
 
 /**
  * Scene content for the two cinematic text sections.
- * Each scene: a small uppercase label (only on the first scene) + a big line.
- * `accent` words inside a line are wrapped in <em> for a blue highlight.
+ * Each scene has a small uppercase label (only scene 1) + a big line.
+ * The LAST scene of section 3 (`kind: "cta"`) carries a title, description and
+ * the "Masuk ke MYSIMNUSA" button, plus the in-stage footer.
  */
 const SECTION_SCENES = [
   {
@@ -38,9 +39,9 @@ const SECTION_SCENES = [
     label: "Satu Sumber Data",
     video: 2,
     scenes: [
-      "Data tenaga keperawatan, tidak lagi tersebar.",
-      "Satu platform untuk Komite Keperawatan, Borang, dan Diklat.",
-      "Akurat. Tertelusur. Akuntabel.",
+      { kind: "text", line: "Data tenaga keperawatan, tidak lagi tersebar." },
+      { kind: "text", line: "Satu platform untuk Komite Keperawatan, Borang, dan Diklat." },
+      { kind: "text", line: "Akurat. Tertelusur. Akuntabel." },
     ],
   },
   {
@@ -48,12 +49,22 @@ const SECTION_SCENES = [
     label: "Mutu Pelayanan",
     video: 3,
     scenes: [
-      "Setiap pengajuan terverifikasi.",
-      "Pemantauan STR, SIP, dan kompetensi otomatis.",
-      "Untuk pelayanan yang lebih bermutu.",
+      { kind: "text", line: "Setiap pengajuan terverifikasi." },
+      { kind: "text", line: "Pemantauan STR, SIP, dan kompetensi otomatis." },
+      { kind: "text", line: "Untuk pelayanan yang lebih bermutu." },
+      {
+        kind: "cta",
+        title: "Siap digunakan oleh tenaga keperawatan & kebidanan",
+        description:
+          "Akses terbatas untuk pengguna terdaftar dengan peran dan hak akses yang ditetapkan.",
+      },
     ],
   },
 ];
+
+const FOOTER_LEFT = "Rumah Sakit Adhyaksa Jawa Timur · Sistem Internal";
+const FOOTER_RIGHT =
+  "© " + new Date().getFullYear() + " MYSIMNUSA — Sistem Informasi Manajemen Keperawatan & Kebidanan";
 
 export default function Home() {
   return (
@@ -188,14 +199,17 @@ export default function Home() {
         </section>
 
         {/* Sections 2 & 3 — cinematic text scenes over their own looping video.
-            No cards: just a small label + a big line per scene, revealed in
-            sequence with parallax (see /scroll-story.js). */}
+            No cards: label + big line per scene, revealed in sequence with
+            parallax (see /scroll-story.js). The last scene of section 3 is the
+            CTA (title + description + button) and the page ends here — the
+            footer sits inside this sticky stage. */}
         {SECTION_SCENES.map((section, si) => (
           <section
             key={section.id}
             id={section.id}
             data-story
             data-scene-section
+            data-scene-count={section.scenes.length}
             className="story-scene-section"
           >
             <div className="story__sticky">
@@ -219,64 +233,66 @@ export default function Home() {
               {/* Progress marker (right edge): counter + vertical ticks. */}
               <div className="story__progress" aria-hidden="true">
                 <span className="story__counter">
-                  <span data-scene-current>01</span> / {String(section.scenes.length).padStart(2, "0")}
+                  <span data-scene-current>01</span> /{" "}
+                  {String(section.scenes.length).padStart(2, "0")}
                 </span>
                 <span className="story__ticks">
-                  {section.scenes.map((line, i) => (
-                    <span key={line} className="story__tick" data-scene-tick={i} />
+                  {section.scenes.map((scene, i) => (
+                    <span key={i} className="story__tick" data-scene-tick={i} />
                   ))}
                 </span>
               </div>
 
               <div className="story__scenes">
-                {section.scenes.map((line, i) => (
-                  <div key={line} className="story__scene" data-scene={i}>
+                {section.scenes.map((scene, i) => (
+                  <div key={i} className="story__scene" data-scene={i}>
                     {i === 0 && <p className="story__scene-label">{section.label}</p>}
-                    <p className="story__scene-line" data-scene-line data-speed={String(1 + i * 0.04)}>
-                      {line}
-                    </p>
+
+                    {scene.kind === "cta" ? (
+                      <div className="story__scene-cta">
+                        <p
+                          className="story__scene-line"
+                          data-scene-line
+                          data-speed="1.02"
+                        >
+                          {scene.title}
+                        </p>
+                        <p className="story__scene-desc" data-scene-desc>
+                          {scene.description}
+                        </p>
+                        <Link
+                          href="/login"
+                          data-scene-btn
+                          className="story__scene-btn inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        >
+                          Masuk ke MYSIMNUSA
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      </div>
+                    ) : (
+                      <p
+                        className="story__scene-line"
+                        data-scene-line
+                        data-speed={String(1 + i * 0.04)}
+                      >
+                        {scene.line}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
+
+              {/* Footer — only on section 3, fades in with the CTA scene. */}
+              {si === SECTION_SCENES.length - 1 && (
+                <footer className="story__footer" data-scene-footer>
+                  <span>{FOOTER_LEFT}</span>
+                  <span>{FOOTER_RIGHT}</span>
+                </footer>
+              )}
             </div>
           </section>
         ))}
-
-        {/* CTA — light section. Its top edge blends from the dark video band. */}
-        <section className="story-cta relative bg-white">
-          <div className="story-cta__fade" aria-hidden="true" />
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-6 py-14 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Siap digunakan oleh tenaga keperawatan &amp; kebidanan
-              </h2>
-              <p className="mt-1.5 text-sm text-slate-600">
-                Akses terbatas untuk pengguna terdaftar dengan peran dan hak akses yang ditetapkan.
-              </p>
-            </div>
-            <Link
-              href="/login"
-              data-motion-magnetic
-              className="motion-underline inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              Masuk ke MYSIMNUSA
-              <ArrowRight className="motion-arrow h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>
-        </section>
       </main>
-
-      <footer className="bg-slate-50">
-        <div
-          className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-8 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"
-          data-motion-footer
-        >
-          <p>Rumah Sakit Adhyaksa Jawa Timur · Sistem Internal</p>
-          <p>
-            © {new Date().getFullYear()} MYSIMNUSA — Sistem Informasi Manajemen Keperawatan &amp; Kebidanan
-          </p>
-        </div>
-      </footer>
 
       {/* Vanilla scroll-story behaviour (progress, reveal, parallax, video pause). */}
       <Script src="/scroll-story.js" strategy="afterInteractive" />

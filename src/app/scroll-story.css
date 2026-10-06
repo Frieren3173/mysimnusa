@@ -4,7 +4,10 @@
  * Three sticky video sections (NO extra sections beyond the page structure):
  *   #hero            (.story-hero)          → video-1  · hero reveal
  *   #sumber-data     (.story-scene-section) → video-2  · 3 text scenes
- *   #mutu-pelayanan  (.story-scene-section) → video-3  · 3 text scenes
+ *   #mutu-pelayanan  (.story-scene-section) → video-3  · 4 scenes (3 text + CTA)
+ *
+ * The page ENDS inside section 3: its last scene is the CTA and the footer is
+ * pinned to the bottom of that sticky stage. There is no light section below.
  *
  * Self-contained (scoped under [data-story] / .story-*). Only transform /
  * opacity / filter are animated (see scroll-story.js). No borders between
@@ -12,7 +15,11 @@
  * fully respected.
  * ===================================================================== */
 
-/* ── Page wrapper: navy behind everything so sub-pixel seams read dark ── */
+/* ── Page + document background: navy so overscroll never flashes white ── */
+html,
+body {
+  background-color: #020617;
+}
 .story-page {
   background: #020617;
 }
@@ -35,11 +42,14 @@
 .story-scene-section {
   height: 300vh; /* 3 scenes × 100vh */
 }
+/* Section 3 has a 4th (CTA) scene → add ~100vh, plus a tail so the CTA rests. */
+#mutu-pelayanan {
+  height: 440vh; /* 4 scenes (400vh) + ~40vh tail before the page ends */
+}
 
 /* Overlap 1px to defeat sub-pixel light seams between adjacent sections. */
 .story-scene-section + .story-scene-section,
-.story-hero + .story-scene-section,
-.story-scene-section + .story-cta {
+.story-hero + .story-scene-section {
   margin-top: -1px;
 }
 
@@ -121,7 +131,7 @@ html.story-js [data-hero-item] {
   width: 100%;
   max-width: 72rem; /* same max-w-6xl content column */
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 1.5rem 3rem; /* bottom pad keeps the CTA clear of the footer */
   display: grid;
   place-items: center start;
   min-height: 100vh;
@@ -158,7 +168,56 @@ html.story-js .story__scene {
   color: #7dd3fc; /* sky-300 */
 }
 
-/* Word-level mask for the slide-up reveal (JS splits the line into words). */
+/* ── CTA scene (section 3, last scene): title → desc → button, left-aligned */
+.story__scene-cta {
+  max-width: 46rem;
+}
+.story__scene-cta .story__scene-line {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 650;
+}
+.story__scene-desc {
+  margin-top: 1.25rem;
+  max-width: 40rem;
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 12px rgba(2, 6, 23, 0.55);
+}
+.story__scene-btn {
+  margin-top: 2rem;
+}
+/* Staggered in/out for the CTA sub-elements (JS writes inline styles). */
+html.story-js [data-scene-desc],
+html.story-js [data-scene-btn] {
+  will-change: transform, opacity, filter;
+  opacity: 0;
+}
+
+/* ── In-stage footer (section 3 only) — pinned to the bottom of the stage */
+.story__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  z-index: 3;
+  width: 100%;
+  max-width: 72rem; /* same content column as the scenes */
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.6);
+}
+html.story-js .story__footer {
+  opacity: 0; /* fades in together with the CTA scene (JS) */
+}
+
+/* ── Word-level mask for the slide-up reveal (JS splits the line into words) ── */
 .story-word-mask {
   display: inline-block;
   overflow: hidden;
@@ -212,25 +271,11 @@ html.story-js .story__scene {
   transform: scaleY(1.25);
 }
 
-/* ── CTA top fade (dark band → light) ────────────────────────────────── */
-.story-cta {
-  position: relative;
-  margin: 0;
-}
-.story-cta__fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 140px;
-  pointer-events: none;
-  background: linear-gradient(to bottom, #020617, rgba(2, 6, 23, 0));
-}
-
 /* ── Reduced motion / no-JS fallback ─────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .story-hero,
-  .story-scene-section {
+  .story-scene-section,
+  #mutu-pelayanan {
     height: auto;
   }
   .story__sticky {
@@ -248,7 +293,7 @@ html.story-js .story__scene {
     display: block;
     min-height: 0;
     padding-top: 6rem;
-    padding-bottom: 6rem;
+    padding-bottom: 8rem;
   }
   .story__scene {
     grid-area: auto;
@@ -257,11 +302,23 @@ html.story-js .story__scene {
     filter: none !important;
     margin-bottom: 4rem;
   }
+  /* CTA sub-elements + footer visible immediately. */
+  [data-scene-desc],
+  [data-scene-btn],
+  .story__footer {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
   .story__video {
     transform: none !important;
   }
   .story__progress {
     display: none;
+  }
+  .story__footer {
+    position: static;
+    margin-top: 2rem;
   }
 }
 
@@ -273,8 +330,14 @@ html.story-js .story__scene {
   .story-scene-section {
     height: 210vh; /* ±70vh per scene */
   }
+  #mutu-pelayanan {
+    height: 350vh; /* 4 scenes × ~70vh + tail */
+  }
   .story__scene-line {
     font-size: clamp(1.6rem, 8.5vw, 2.6rem);
+  }
+  .story__scene-cta .story__scene-line {
+    font-size: clamp(1.5rem, 7.5vw, 2.4rem);
   }
   .story__scene-label {
     margin-bottom: 0.75rem;
@@ -283,7 +346,15 @@ html.story-js .story__scene {
   .story__progress {
     right: 0.75rem;
   }
-  .story-cta__fade {
-    height: 90px;
+  /* Footer stacks to two left-aligned lines on mobile. */
+  .story__footer {
+    flex-direction: column;
+    align-items: flex-start;
+    bottom: 16px;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+  }
+  .story__scene-btn {
+    margin-top: 1.5rem;
   }
 }

@@ -74,6 +74,15 @@
     var counterEl = sec.querySelector("[data-scene-current]");
     var ticks = Array.prototype.slice.call(sec.querySelectorAll("[data-scene-tick]"));
     var parallax = Array.prototype.slice.call(sec.querySelectorAll("[data-parallax]"));
+    var footer = sec.querySelector("[data-scene-footer]");
+    // The CTA scene = the scene that contains [data-scene-desc]/[data-scene-btn].
+    var ctaSceneIndex = -1;
+    var ctaDesc = null;
+    var ctaBtn = null;
+    for (var si2 = 0; si2 < sceneEls.length; si2++) {
+      var d = sceneEls[si2].querySelector("[data-scene-desc]");
+      if (d) { ctaSceneIndex = si2; ctaDesc = d; ctaBtn = sceneEls[si2].querySelector("[data-scene-btn]"); break; }
+    }
     return {
       index: index,
       el: sec,
@@ -88,6 +97,10 @@
       progress: progress,
       counterEl: counterEl,
       ticks: ticks,
+      footer: footer,
+      ctaSceneIndex: ctaSceneIndex,
+      ctaDesc: ctaDesc,
+      ctaBtn: ctaBtn,
       parallax: parallax.map(function (p) {
         return { el: p, speed: parseFloat(p.getAttribute("data-speed")) || 1 };
       }),
@@ -116,6 +129,9 @@
       });
       s.words.forEach(function (ws) {
         ws.forEach(function (w) { w.style.transform = "none"; w.style.opacity = "1"; });
+      });
+      [s.ctaDesc, s.ctaBtn, s.footer].forEach(function (el) {
+        if (el) { el.style.opacity = "1"; el.style.transform = "none"; el.style.filter = "none"; }
       });
     });
     observeVideos();
@@ -171,6 +187,32 @@
       if (opacity > 0.5 && s.activeScene !== i) s.activeScene = i;
     });
 
+    // CTA scene sub-elements (description → button) stagger after the title.
+    // They belong to the last scene → they stay visible once shown.
+    if (s.ctaSceneIndex >= 0) {
+      var csStart = s.ctaSceneIndex * slice;
+      var dEnter = range(progress, csStart + slice * 0.32, csStart + slice * 0.6);
+      var bEnter = range(progress, csStart + slice * 0.46, csStart + slice * 0.78);
+      if (s.ctaDesc) {
+        s.ctaDesc.style.opacity = dEnter.toFixed(3);
+        s.ctaDesc.style.transform = "translateY(" + lerp(30, 0, dEnter).toFixed(2) + "px)";
+        s.ctaDesc.style.filter = dEnter < 0.99 ? "blur(" + lerp(8, 0, dEnter).toFixed(2) + "px)" : "none";
+      }
+      if (s.ctaBtn) {
+        s.ctaBtn.style.opacity = bEnter.toFixed(3);
+        s.ctaBtn.style.transform = "translateY(" + lerp(24, 0, bEnter).toFixed(2) + "px)";
+        s.ctaBtn.style.filter = bEnter < 0.99 ? "blur(" + lerp(6, 0, bEnter).toFixed(2) + "px)" : "none";
+      }
+    }
+
+    // In-stage footer (section 3) — fades in with the CTA scene only.
+    if (s.footer) {
+      var fStart = (s.ctaSceneIndex >= 0 ? s.ctaSceneIndex * slice : 0.75) + slice * 0.5;
+      var fT = range(progress, fStart, Math.min(fStart + slice * 0.4, 1));
+      s.footer.style.opacity = fT.toFixed(3);
+      s.footer.style.transform = "translateY(" + lerp(12, 0, fT).toFixed(2) + "px)";
+    }
+
     // Global parallax on tagged elements (label/line move slightly).
     s.parallax.forEach(function (p) {
       var shift = (progress - 0.5) * 90 * (p.speed - 1) * MOBILE_PARALLAX;
@@ -211,6 +253,14 @@
       var extra = 0;
       if (progress > 0.85 && !isLast) extra = lerp(0, 0.35, range(progress, 0.85, 1));
       if (s.index > 0 && progress < 0.15) extra = lerp(0.35, 0, range(progress, 0, 0.15));
+
+      // Darken over the CTA (last) scene so the button + small footer read well.
+      if (s.ctaSceneIndex >= 0) {
+        var n2 = s.scenes.length || 1;
+        var ctaStart = s.ctaSceneIndex / n2;
+        extra += lerp(0, 0.45, range(progress, ctaStart, Math.min(ctaStart + 1 / n2, 1)));
+      }
+
       s.overlay.style.opacity = (1 + extra).toFixed(3);
 
       // Scene-driven tone (scene sections only).
