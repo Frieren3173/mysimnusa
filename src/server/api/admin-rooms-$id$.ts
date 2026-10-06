@@ -4,13 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
-import { ROOM_TYPES } from "@/lib/master-data";
+import { ROOM_TYPES } from "@/lib/rooms";
+import { ROOM_CATEGORIES } from "@/lib/rooms";
 import { logAudit, clientIp } from "@/lib/audit";
 
 const PatchSchema = z.object({
   name: z.string().trim().min(1, "Nama ruangan wajib diisi").max(100).optional(),
   code: z.string().trim().max(20).optional().nullable(),
   type: z.enum(ROOM_TYPES).optional(),
+  category: z.enum(ROOM_CATEGORIES).optional(),
+  subcategory: z.string().trim().max(100).optional().nullable(),
   description: z.string().trim().max(500).optional().nullable(),
   isActive: z.boolean().optional(),
 });
@@ -54,6 +57,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.code !== undefined ? { code: data.code || null } : {}),
         ...(data.type !== undefined ? { type: data.type } : {}),
+        ...(data.category !== undefined ? { category: data.category } : {}),
+        ...(data.subcategory !== undefined ? { subcategory: data.subcategory || null } : {}),
         ...(data.description !== undefined ? { description: data.description || null } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
       },

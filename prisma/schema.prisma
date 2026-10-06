@@ -121,6 +121,12 @@ model Room {
   name         String
   code         String?  @unique
   type         String?
+  /// Canonical grouping for Borang master: RAWAT INAP | IBS / BEDAH |
+  /// KEGAWATDARURATAN | RAWAT JALAN | MANAGEMENT
+  category     String?
+  /// Fine-grained subcategory under the category, e.g. VK/KEBIDANAN ->
+  /// KEBIDANAN, HD -> HEMODIALISA, CATHLAB -> KATETERISASI / CARDIAC PROCEDURE
+  subcategory  String?
   description  String?
   departmentId String?
   isActive     Boolean  @default(true)
@@ -132,6 +138,7 @@ model Room {
   borangEntries  BorangEntry[]
   nursingActions RoomNursingAction[]
 
+  @@index([category])
   @@map("rooms")
 }
 
@@ -142,7 +149,10 @@ model Room {
 model NursingAction {
   id          String   @id @default(cuid())
   code        String   @unique
-  name        String
+  /// Action identity for the master catalogue — must be unique to prevent
+  /// duplicate actions (room + action uniqueness is enforced by
+  /// RoomNursingAction's compound unique key).
+  name        String   @unique
   category    String
   description String?
   isActive    Boolean  @default(true)

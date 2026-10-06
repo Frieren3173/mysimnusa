@@ -4,13 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody, paginate } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
-import { ROOM_TYPES } from "@/lib/master-data";
+import { ROOM_TYPES } from "@/lib/rooms";
+import { ROOM_CATEGORIES } from "@/lib/rooms";
 import { logAudit, clientIp } from "@/lib/audit";
 
 const BodySchema = z.object({
   name: z.string().trim().min(1, "Nama ruangan wajib diisi").max(100),
   code: z.string().trim().max(20).optional().nullable().transform((v) => (v ? v : null)),
   type: z.enum(ROOM_TYPES).optional(),
+  category: z.enum(ROOM_CATEGORIES).optional(),
+  subcategory: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
   description: z
     .string()
     .trim()
@@ -32,6 +41,7 @@ export async function GET(req: NextRequest) {
   const q = url.searchParams.get("q")?.trim();
   const status = url.searchParams.get("status");
   const type = url.searchParams.get("type");
+  const category = url.searchParams.get("category");
 
   const where = {
     ...(q
@@ -46,6 +56,7 @@ export async function GET(req: NextRequest) {
     ...(status === "active" ? { isActive: true } : {}),
     ...(status === "inactive" ? { isActive: false } : {}),
     ...(type ? { type } : {}),
+    ...(category ? { category } : {}),
   };
 
   const [total, rooms] = await Promise.all([
@@ -99,6 +110,8 @@ export async function POST(req: NextRequest) {
         name: data.name,
         code: autoCode,
         type: data.type ?? null,
+        category: data.category ?? null,
+        subcategory: data.subcategory ?? null,
         description: data.description ?? null,
         isActive: data.isActive ?? true,
       },
@@ -109,7 +122,7 @@ export async function POST(req: NextRequest) {
       resource: "room",
       resourceId: room.id,
       action: "CREATED",
-      after: { name: room.name, code: room.code, type: room.type },
+      after: { name: room.name, code: room.code, type: room.type, category: room.category },
       ipAddress: clientIp(req),
     });
     return ok({ room });

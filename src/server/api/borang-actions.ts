@@ -55,13 +55,28 @@ export async function GET(req: NextRequest) {
     prisma.nursingAction.count({ where: actionWhere }),
     prisma.nursingAction.findMany({
       where: actionWhere,
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ category: "asc" }, { name: "asc" }],
       skip: (page - 1) * perPage,
       take: perPage,
+      include: {
+        rooms: {
+          include: {
+            room: { select: { id: true, name: true, category: true, subcategory: true } },
+          },
+        },
+      },
     }),
   ]);
 
-  return ok(paginate(actions, total, { page, perPage, sortOrder: "asc" }));
+  // Flatten the room relation for the client table (RUANGAN column).
+  const data = actions.map((a) => {
+    const rooms = a.rooms.map((r) => r.room);
+    const { rooms: _rooms, ...rest } = a;
+    void _rooms;
+    return { ...rest, rooms };
+  });
+
+  return ok(paginate(data, total, { page, perPage, sortOrder: "asc" }));
 }
 
 export async function POST(req: NextRequest) {

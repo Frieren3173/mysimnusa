@@ -1,137 +1,23 @@
-export const ROOM_TYPES = [
-  "IGD",
-  "Rawat Inap",
-  "ICU",
-  "Kamar Operasi",
-  "Kebidanan",
-  "Rawat Jalan",
-  "Khusus",
-  "Lainnya",
-] as const;
+/**
+ * MYSIMNUSA — Master Tindakan Keperawatan (Borang action catalog).
+ *
+ * This module is the curated, reviewed catalog of nursing actions and the
+ * canonical mapping of which actions are offered per room. Runtime data lives
+ * in the database (NursingAction + RoomNursingAction); this file is the seed
+ * / reconciliation source and the source of the action `category` value.
+ *
+ * CLINICAL SAFETY
+ * ---------------
+ * These actions are an administrative/operational catalogue — NOT a
+ * substitute for hospital SOPs, clinical authority, credentialing, staff
+ * competency, medical instruction, or Komite Keperawatan / Komite PPI policy.
+ * Actions are nursing/health-worker actions within a role's competence; purely
+ * interventional or operator-scope procedures are intentionally excluded.
+ */
 
-export const ROOM_TYPE_RULES: Array<{ pattern: RegExp; type: string }> = [
-  { pattern: /\bigd\b|gawat darurat/i, type: "IGD" },
-  {
-    pattern: /\biccu\b|\bnicu\b|\bpicu\b|\bicu\b|perina|neonatal|intensive care/i,
-    type: "ICU",
-  },
-  { pattern: /operasi|cathlab|recovery|bedah sentral/i, type: "Kamar Operasi" },
-  { pattern: /bersalin|\bvk\b|bidan|nifas|ponek|postpartum/i, type: "Kebidanan" },
-  { pattern: /hemodial|\bhd\b/i, type: "Khusus" },
-  { pattern: /poli|rawat jalan/i, type: "Rawat Jalan" },
-  { pattern: /rawat inap|kris|vip|isolasi/i, type: "Rawat Inap" },
-  { pattern: /forklin|\bppi\b/i, type: "Khusus" },
-];
-
-export function guessRoomType(name: string, code: string | null): string {
-  const haystack = `${name} ${code ?? ""}`;
-  for (const rule of ROOM_TYPE_RULES) {
-    if (rule.pattern.test(haystack)) return rule.type;
-  }
-  return "Lainnya";
-}
-
-export interface MasterRoomSeed {
-  code: string;
-  name: string;
-  type: string;
-  description: string;
-  aliases: string[];
-}
-
-export const MASTER_ROOMS: MasterRoomSeed[] = [
-  {
-    code: "IGD",
-    name: "Instalasi Gawat Darurat",
-    type: "IGD",
-    description: "Pelayanan gawat darurat 24 jam",
-    aliases: ["IGD"],
-  },
-  {
-    code: "RI-01",
-    name: "Rawat Inap 1",
-    type: "Rawat Inap",
-    description: "Ruang rawat inap lantai 1",
-    aliases: [],
-  },
-  {
-    code: "ICU",
-    name: "Intensive Care Unit",
-    type: "ICU",
-    description: "Ruang perawatan intensif dewasa",
-    aliases: ["ICU"],
-  },
-  {
-    code: "ICCU",
-    name: "Intensive Cardiac Care Unit",
-    type: "ICU",
-    description: "Ruang perawatan intensif kardiologi",
-    aliases: [],
-  },
-  {
-    code: "NICU",
-    name: "Neonatal Intensive Care Unit",
-    type: "ICU",
-    description: "Ruang perawatan intensif neonatus",
-    aliases: ["NICU/PERINA"],
-  },
-  {
-    code: "PICU",
-    name: "Pediatric Intensive Care Unit",
-    type: "ICU",
-    description: "Ruang perawatan intensif anak",
-    aliases: ["PICU"],
-  },
-  {
-    code: "IBS",
-    name: "Instalasi Bedah Sentral",
-    type: "Kamar Operasi",
-    description: "Kamar operasi terpusat",
-    aliases: ["IBS"],
-  },
-  {
-    code: "RR",
-    name: "Recovery Room",
-    type: "Kamar Operasi",
-    description: "Ruang pemulihan pasca anestesi",
-    aliases: [],
-  },
-  {
-    code: "VK",
-    name: "Ruang Bersalin",
-    type: "Kebidanan",
-    description: "Ruang persalinan",
-    aliases: ["VK / Bersalin", "VK/KEBIDANAN"],
-  },
-  {
-    code: "NIFAS",
-    name: "Ruang Nifas",
-    type: "Kebidanan",
-    description: "Ruang perawatan ibu postpartum",
-    aliases: [],
-  },
-  {
-    code: "HD",
-    name: "Hemodialisa",
-    type: "Khusus",
-    description: "Instalasi cuci darah",
-    aliases: ["Hemodialisa"],
-  },
-  {
-    code: "POLI",
-    name: "Rawat Jalan",
-    type: "Rawat Jalan",
-    description: "Pelayanan poliklinik",
-    aliases: ["Poli Rawat Jalan", "POLI"],
-  },
-  {
-    code: "PONEK",
-    name: "Pelayanan Obstetri Neonatal Emergensi",
-    type: "Kebidanan",
-    description: "Layanan emergensi obstetri dan neonatal",
-    aliases: ["PONEK"],
-  },
-];
+// ─────────────────────────────────────────────────────────────
+// ACTION CATEGORIES (the `NursingAction.category` values)
+// ─────────────────────────────────────────────────────────────
 
 export const NURSING_ACTION_CATEGORIES = [
   "Assessment",
@@ -150,25 +36,52 @@ export const NURSING_ACTION_CATEGORIES = [
   "Perioperatif",
   "Neonatus",
   "Kebidanan",
+  "Hemodialisa",
+  "Kardiovaskular",
+  "Manajemen Mutu",
   "Lainnya",
 ] as const;
 
+export type NursingActionCategory = (typeof NURSING_ACTION_CATEGORIES)[number];
+
 export interface MasterActionSeed {
   name: string;
-  category: string;
+  category: NursingActionCategory;
+  description?: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// GLOBAL NURSING ACTION CATALOG (deduplicated by name)
+// ─────────────────────────────────────────────────────────────
+
 export const NURSING_ACTIONS: MasterActionSeed[] = [
-  { name: "Pemeriksaan Tanda Vital", category: "Assessment" },
+  // Assessment
+  { name: "Pengkajian Awal Pasien", category: "Assessment" },
+  { name: "Pengkajian Ulang", category: "Assessment" },
+  { name: "Rapid Assessment", category: "Assessment" },
+  { name: "Penilaian Kesadaran", category: "Assessment" },
+  { name: "Pemeriksaan Tanda-Tanda Vital", category: "Assessment" },
+  { name: "Anamnesis/Pengkajian", category: "Assessment" },
+  { name: "Identifikasi Pasien", category: "Assessment" },
+
+  // Monitoring
+  { name: "Pemantauan Kondisi Pasien", category: "Monitoring" },
   { name: "Monitoring Kesadaran", category: "Monitoring" },
   { name: "Monitoring GCS", category: "Monitoring" },
   { name: "Monitoring Nyeri", category: "Monitoring" },
   { name: "Monitoring Saturasi Oksigen", category: "Monitoring" },
+  { name: "Monitoring Respirasi", category: "Monitoring" },
   { name: "Monitoring Balance Cairan", category: "Monitoring" },
   { name: "Monitoring Intake Output", category: "Monitoring" },
   { name: "Monitoring Hemodinamik", category: "Monitoring" },
   { name: "Monitoring EKG", category: "Monitoring" },
+  { name: "Monitoring Perdarahan", category: "Monitoring" },
+  { name: "Monitoring Terapi", category: "Monitoring" },
+  { name: "Monitoring Alat Medis Sesuai Kewenangan", category: "Monitoring" },
+  { name: "Evaluasi Respons Terapi", category: "Monitoring" },
 
+  // Pemberian Obat
+  { name: "Pemberian Terapi Sesuai Program", category: "Pemberian Obat" },
   { name: "Pemberian Obat Oral", category: "Pemberian Obat" },
   { name: "Pemberian Obat Intravena", category: "Pemberian Obat" },
   { name: "Pemberian Obat Intramuskular", category: "Pemberian Obat" },
@@ -177,27 +90,24 @@ export const NURSING_ACTIONS: MasterActionSeed[] = [
   { name: "Pemberian Obat melalui NGT", category: "Pemberian Obat" },
   { name: "Pemberian Obat melalui Nebulizer", category: "Pemberian Obat" },
   { name: "Pemberian Obat Topikal", category: "Pemberian Obat" },
+  { name: "Pemberian Injeksi Sesuai Kewenangan", category: "Pemberian Obat" },
 
+  // Tindakan Invasif
   { name: "Pemasangan Infus", category: "Tindakan Invasif" },
   { name: "Penggantian Infus", category: "Tindakan Invasif" },
   { name: "Pelepasan Infus", category: "Tindakan Invasif" },
+  { name: "Pemasangan/Monitoring Infus Sesuai Kewenangan", category: "Tindakan Invasif" },
   { name: "Pemasangan Kateter Urin", category: "Tindakan Invasif" },
   { name: "Pelepasan Kateter Urin", category: "Tindakan Invasif" },
+  { name: "Perawatan Kateter", category: "Tindakan Invasif" },
   { name: "Pemasangan NGT", category: "Tindakan Invasif" },
   { name: "Pelepasan NGT", category: "Tindakan Invasif" },
   { name: "Perawatan CVC", category: "Tindakan Invasif" },
   { name: "Pengambilan Sampel Darah", category: "Tindakan Invasif" },
   { name: "Pengambilan Spesimen", category: "Tindakan Invasif" },
+  { name: "Pemasangan/Monitoring Akses IV Sesuai Kewenangan", category: "Tindakan Invasif" },
 
-  { name: "Pemberian Oksigen", category: "Respirasi" },
-  { name: "Nasal Cannula", category: "Respirasi" },
-  { name: "Simple Mask", category: "Respirasi" },
-  { name: "Non Rebreathing Mask", category: "Respirasi" },
-  { name: "Suction", category: "Respirasi" },
-  { name: "Nebulizer", category: "Respirasi" },
-  { name: "Perawatan Trakeostomi", category: "Respirasi" },
-  { name: "Monitoring Ventilator", category: "Respirasi" },
-
+  // Perawatan Luka
   { name: "Assessment Luka", category: "Perawatan Luka" },
   { name: "Perawatan Luka", category: "Perawatan Luka" },
   { name: "Wound Dressing", category: "Perawatan Luka" },
@@ -207,20 +117,46 @@ export const NURSING_ACTIONS: MasterActionSeed[] = [
   { name: "Perawatan Drain", category: "Perawatan Luka" },
   { name: "Perawatan Luka Dekubitus", category: "Perawatan Luka" },
 
+  // Respirasi
+  { name: "Pemberian Oksigen Sesuai Indikasi/Kewenangan", category: "Respirasi" },
+  { name: "Nasal Cannula", category: "Respirasi" },
+  { name: "Simple Mask", category: "Respirasi" },
+  { name: "Non Rebreathing Mask", category: "Respirasi" },
+  { name: "Suction Sesuai Kompetensi dan Kewenangan", category: "Respirasi" },
+  { name: "Nebulisasi Sesuai Instruksi", category: "Respirasi" },
+  { name: "Perawatan Trakeostomi", category: "Respirasi" },
+  { name: "Monitoring Ventilator", category: "Respirasi" },
+  { name: "Perawatan Airway Sesuai Kompetensi", category: "Respirasi" },
+
+  // Nutrisi
+  { name: "Pemberian Nutrisi", category: "Nutrisi" },
+  { name: "Monitoring Nutrisi", category: "Nutrisi" },
+  { name: "Pemberian Nutrisi melalui OGT/NGT", category: "Nutrisi" },
+  { name: "Edukasi Menyusui", category: "Nutrisi" },
+
+  // Eliminasi
+  { name: "Monitoring Eliminasi", category: "Eliminasi" },
+  { name: "Perawatan Kateter Urin", category: "Eliminasi" },
+
+  // Mobilisasi
   { name: "Mobilisasi Pasien", category: "Mobilisasi" },
+  { name: "Mobilisasi Sesuai Kondisi", category: "Mobilisasi" },
   { name: "Ambulasi", category: "Mobilisasi" },
   { name: "Positioning", category: "Mobilisasi" },
   { name: "Repositioning", category: "Mobilisasi" },
   { name: "Latihan Rentang Gerak", category: "Mobilisasi" },
   { name: "Pencegahan Risiko Jatuh", category: "Mobilisasi" },
 
+  // Pemeriksaan
   { name: "Pemeriksaan Gula Darah", category: "Pemeriksaan" },
   { name: "EKG", category: "Pemeriksaan" },
+  { name: "EKG Sesuai Kompetensi/SOP", category: "Pemeriksaan" },
   { name: "Pengambilan Darah", category: "Pemeriksaan" },
   { name: "Pengambilan Urin", category: "Pemeriksaan" },
   { name: "Pengambilan Sputum", category: "Pemeriksaan" },
   { name: "Pemeriksaan Antropometri", category: "Pemeriksaan" },
 
+  // Edukasi
   { name: "Edukasi Pasien", category: "Edukasi" },
   { name: "Edukasi Keluarga", category: "Edukasi" },
   { name: "Edukasi Obat", category: "Edukasi" },
@@ -228,157 +164,427 @@ export const NURSING_ACTIONS: MasterActionSeed[] = [
   { name: "Edukasi Diet", category: "Edukasi" },
   { name: "Edukasi Pencegahan Infeksi", category: "Edukasi" },
   { name: "Edukasi Mobilisasi", category: "Edukasi" },
+  { name: "Edukasi Tindak Lanjut", category: "Edukasi" },
+  { name: "Edukasi Postpartum", category: "Edukasi" },
 
+  // Pencegahan Infeksi
+  { name: "Pencegahan Infeksi", category: "Pencegahan Infeksi" },
+  { name: "Audit Hand Hygiene", category: "Pencegahan Infeksi" },
+  { name: "Audit Penggunaan APD", category: "Pencegahan Infeksi" },
+  { name: "Surveillance HAIs", category: "Pencegahan Infeksi" },
+  { name: "Case Finding HAIs", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Isolation Precaution", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Transmission-Based Precaution", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Infection Prevention Bundle", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Dekontaminasi", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Sterilisasi", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Lingkungan", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Pengelolaan Limbah", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Linen", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Patient Placement", category: "Pencegahan Infeksi" },
+  { name: "Monitoring Safe Injection Practice", category: "Pencegahan Infeksi" },
+  { name: "ICRA", category: "Pencegahan Infeksi" },
+  { name: "Audit Kepatuhan SOP PPI", category: "Pencegahan Infeksi" },
+  { name: "Edukasi PPI", category: "Pencegahan Infeksi" },
+  { name: "Pelaporan Indikator PPI", category: "Pencegahan Infeksi" },
+  { name: "Evaluasi Hasil Audit", category: "Pencegahan Infeksi" },
+  { name: "Pencegahan Pressure Injury", category: "Pencegahan Infeksi" },
+
+  // Kegawatdaruratan
+  { name: "Triage", category: "Kegawatdaruratan" },
+  { name: "Bantuan Hidup Dasar", category: "Kegawatdaruratan" },
+  { name: "Bantuan Hidup Lanjut", category: "Kegawatdaruratan" },
+  { name: "Resusitasi Sesuai Kompetensi", category: "Kegawatdaruratan" },
+  { name: "Dukungan Resusitasi Neonatal Sesuai Kompetensi", category: "Kegawatdaruratan" },
+  { name: "Persiapan Defibrilasi", category: "Kegawatdaruratan" },
+  { name: "Monitoring Pasien Kritis", category: "Kegawatdaruratan" },
+  { name: "Stabilisasi Pasien", category: "Kegawatdaruratan" },
+  { name: "Persiapan Transfer/Rujukan", category: "Kegawatdaruratan" },
+  { name: "Pengkajian Intensif", category: "Kegawatdaruratan" },
+  { name: "Pengkajian Pasien Anak Kritis", category: "Kegawatdaruratan" },
+  { name: "Perawatan Pasien Kritis", category: "Kegawatdaruratan" },
+  { name: "Perawatan Pasien Anak Kritis", category: "Kegawatdaruratan" },
+
+  // Perioperatif
   { name: "Persiapan Pasien Operasi", category: "Perioperatif" },
   { name: "Surgical Site Preparation", category: "Perioperatif" },
   { name: "Surgical Count", category: "Perioperatif" },
   { name: "Positioning Intraoperatif", category: "Perioperatif" },
   { name: "Monitoring Intraoperatif", category: "Perioperatif" },
-  { name: "Persiapan Instrumen", category: "Perioperatif" },
+  { name: "Persiapan Instrumen Sesuai Kewenangan", category: "Perioperatif" },
   { name: "Persiapan Area Operasi", category: "Perioperatif" },
   { name: "Observasi Pasca Operasi", category: "Perioperatif" },
+  { name: "Monitoring Pasien Perioperatif", category: "Perioperatif" },
+  { name: "Monitoring Kondisi Post Operasi", category: "Perioperatif" },
+  { name: "Verifikasi Tindakan", category: "Perioperatif" },
+  { name: "Verifikasi Identitas", category: "Perioperatif" },
+  { name: "Surgical Safety Checklist", category: "Perioperatif" },
+  { name: "Verifikasi Informed Consent", category: "Perioperatif" },
+  { name: "Persiapan Area Akses", category: "Perioperatif" },
+  { name: "Monitoring Akses Vaskular", category: "Perioperatif" },
+  { name: "Monitoring Komplikasi Post-Procedure", category: "Perioperatif" },
 
-  { name: "Triage", category: "Kegawatdaruratan" },
-  { name: "Bantuan Hidup Dasar", category: "Kegawatdaruratan" },
-  { name: "Bantuan Hidup Lanjut", category: "Kegawatdaruratan" },
-  { name: "Resusitasi", category: "Kegawatdaruratan" },
-  { name: "Persiapan Defibrilasi", category: "Kegawatdaruratan" },
-  { name: "Monitoring Pasien Kritis", category: "Kegawatdaruratan" },
-
+  // Neonatus
   { name: "Perawatan Neonatus", category: "Neonatus" },
+  { name: "Pengkajian Bayi Baru Lahir", category: "Neonatus" },
+  { name: "Identifikasi Bayi", category: "Neonatus" },
+  { name: "Perawatan Bayi", category: "Neonatus" },
+  { name: "Perawatan Dasar Bayi Baru Lahir", category: "Neonatus" },
   { name: "Monitoring Suhu Neonatus", category: "Neonatus" },
+  { name: "Monitoring Suhu", category: "Neonatus" },
   { name: "Monitoring Saturasi Neonatus", category: "Neonatus" },
+  { name: "Monitoring Kondisi Bayi", category: "Neonatus" },
+  { name: "Monitoring Risiko Neonatal", category: "Neonatus" },
+  { name: "Monitoring Kondisi Bayi Baru Lahir", category: "Neonatus" },
   { name: "Perawatan Tali Pusat", category: "Neonatus" },
   { name: "Pemberian ASI", category: "Neonatus" },
-  { name: "Pemberian Nutrisi melalui OGT/NGT", category: "Neonatus" },
+  { name: "Dukungan Menyusui Sesuai Kondisi", category: "Neonatus" },
   { name: "Fototerapi", category: "Neonatus" },
+  { name: "Deteksi Tanda Bahaya Neonatal", category: "Neonatus" },
+  { name: "Persiapan Neonatal Emergency Care", category: "Neonatus" },
 
+  // Kebidanan
+  { name: "Pengkajian Ibu", category: "Kebidanan" },
+  { name: "Pemeriksaan Tanda Vital Ibu", category: "Kebidanan" },
+  { name: "Monitoring Kondisi Maternal", category: "Kebidanan" },
   { name: "Monitoring Ibu", category: "Kebidanan" },
   { name: "Monitoring Janin", category: "Kebidanan" },
   { name: "Monitoring Kontraksi", category: "Kebidanan" },
+  { name: "Monitoring Denyut Jantung Janin", category: "Kebidanan" },
+  { name: "Monitoring Kemajuan Persalinan", category: "Kebidanan" },
+  { name: "Partograf", category: "Kebidanan" },
   { name: "Persiapan Persalinan", category: "Kebidanan" },
+  { name: "Pemantauan Kala Persalinan", category: "Kebidanan" },
+  { name: "Monitoring Postpartum", category: "Kebidanan" },
+  { name: "Perawatan Ibu Postpartum", category: "Kebidanan" },
   { name: "Perawatan Postpartum", category: "Kebidanan" },
   { name: "Observasi Perdarahan Postpartum", category: "Kebidanan" },
   { name: "Perawatan Luka Perineum", category: "Kebidanan" },
   { name: "Perawatan Luka Sectio Caesarea", category: "Kebidanan" },
+  { name: "Deteksi Tanda Bahaya Maternal", category: "Kebidanan" },
+  { name: "Rapid Assessment Maternal", category: "Kebidanan" },
+  { name: "Penilaian Kondisi Obstetri", category: "Kebidanan" },
+  { name: "Deteksi Kegawatdaruratan Maternal", category: "Kebidanan" },
+  { name: "Deteksi Kegawatdaruratan Neonatal", category: "Kebidanan" },
+  { name: "Persiapan Emergency Obstetric Care", category: "Kebidanan" },
+  { name: "Dokumentasi Asuhan Kebidanan/Keperawatan", category: "Kebidanan" },
+
+  // Hemodialisa
+  { name: "Identifikasi Dialyzer", category: "Hemodialisa" },
+  { name: "Verifikasi Prosedur", category: "Hemodialisa" },
+  { name: "Pemeriksaan Tanda Vital Pre-HD", category: "Hemodialisa" },
+  { name: "Penimbangan Berat Badan Pre-HD", category: "Hemodialisa" },
+  { name: "Pengkajian Akses Vaskular", category: "Hemodialisa" },
+  { name: "Persiapan Pasien", category: "Hemodialisa" },
+  { name: "Persiapan Terapi HD", category: "Hemodialisa" },
+  { name: "Monitoring Tanda Vital Selama HD", category: "Hemodialisa" },
+  { name: "Monitoring Tekanan Darah", category: "Hemodialisa" },
+  { name: "Monitoring Kondisi Hemodinamik", category: "Hemodialisa" },
+  { name: "Monitoring Ultrafiltrasi", category: "Hemodialisa" },
+  { name: "Monitoring Komplikasi Selama HD", category: "Hemodialisa" },
+  { name: "Evaluasi Post-HD", category: "Hemodialisa" },
+  { name: "Pemeriksaan Tanda Vital Post-HD", category: "Hemodialisa" },
+  { name: "Penimbangan Berat Badan Post-HD", category: "Hemodialisa" },
+  { name: "Edukasi Pembatasan Cairan Sesuai Program", category: "Hemodialisa" },
+  { name: "Edukasi Terapi", category: "Hemodialisa" },
+  { name: "Dokumentasi Tindakan HD", category: "Hemodialisa" },
+
+  // Kardiovaskular
+  { name: "Pengkajian Kondisi Pasien", category: "Kardiovaskular" },
+  { name: "Pemeriksaan/Persiapan Pre-Procedure Sesuai SOP", category: "Kardiovaskular" },
+  { name: "Monitoring Selama Procedure", category: "Kardiovaskular" },
+  { name: "Observasi Pasien", category: "Kardiovaskular" },
+
+  // Manajemen Mutu
+  { name: "Kredensial", category: "Manajemen Mutu" },
+  { name: "Rekredensial", category: "Manajemen Mutu" },
+  { name: "Verifikasi Kompetensi", category: "Manajemen Mutu" },
+  { name: "Penilaian Kompetensi", category: "Manajemen Mutu" },
+  { name: "Review Portfolio", category: "Manajemen Mutu" },
+  { name: "Evaluasi Portfolio", category: "Manajemen Mutu" },
+  { name: "Rekomendasi Clinical Authority", category: "Manajemen Mutu" },
+  { name: "Evaluasi Clinical Authority", category: "Manajemen Mutu" },
+  { name: "Audit Mutu Keperawatan", category: "Manajemen Mutu" },
+  { name: "Monitoring Mutu Asuhan Keperawatan", category: "Manajemen Mutu" },
+  { name: "Evaluasi Profesionalisme", category: "Manajemen Mutu" },
+  { name: "Pengembangan Profesional", category: "Manajemen Mutu" },
+  { name: "CPD", category: "Manajemen Mutu" },
+  { name: "Review SOP", category: "Manajemen Mutu" },
+  { name: "Monitoring Kepatuhan Standar", category: "Manajemen Mutu" },
+  { name: "Pembinaan Tenaga", category: "Manajemen Mutu" },
+  { name: "Evaluasi Kompetensi", category: "Manajemen Mutu" },
+  { name: "Dokumentasi Hasil Komite", category: "Manajemen Mutu" },
+
+  // Dokumentasi
+  { name: "Dokumentasi Asuhan Keperawatan", category: "Lainnya" },
+  { name: "Dokumentasi Pelayanan", category: "Lainnya" },
+  { name: "Dokumentasi", category: "Lainnya" },
+  { name: "Dokumentasi Perioperatif", category: "Lainnya" },
+  { name: "Dokumentasi Intensive Care", category: "Lainnya" },
+  { name: "Dokumentasi Emergency Care", category: "Lainnya" },
 ];
 
-export interface RoomActionGroupSeed {
-  key: string;
-  type?: string;
-  namePattern?: RegExp;
-  excludeNamePattern?: RegExp;
-  actions: string[];
-}
+// ─────────────────────────────────────────────────────────────
+// ROOM → ACTION MAPPING (canonical room name -> action names)
+// ─────────────────────────────────────────────────────────────
 
-export const ROOM_ACTION_GROUPS: RoomActionGroupSeed[] = [
-  {
-    key: "igd",
-    type: "IGD",
-    actions: [
-      "Triage",
-      "Pemeriksaan Tanda Vital",
-      "Pemasangan Infus",
-      "Pemberian Oksigen",
-      "EKG",
-      "Pengambilan Darah",
-      "Pemberian Obat Oral",
-      "Perawatan Luka",
-      "Suction",
-      "Resusitasi",
-      "Monitoring Kesadaran",
-    ],
-  },
-  {
-    key: "rawat-inap",
-    type: "Rawat Inap",
-    actions: [
-      "Pemeriksaan Tanda Vital",
-      "Pemberian Obat Oral",
-      "Pemasangan Infus",
-      "Perawatan Luka",
-      "Pemasangan Kateter Urin",
-      "Pemasangan NGT",
-      "Pengambilan Darah",
-      "Mobilisasi Pasien",
-      "Edukasi Pasien",
-      "Monitoring Balance Cairan",
-    ],
-  },
-  {
-    key: "icu",
-    type: "ICU",
-    excludeNamePattern: /nicu|perina/i,
-    actions: [
-      "Pemeriksaan Tanda Vital",
-      "Monitoring GCS",
-      "Monitoring Hemodinamik",
-      "Monitoring Ventilator",
-      "Suction",
-      "Pemberian Oksigen",
-      "Pemasangan Infus",
-      "Perawatan CVC",
-      "Pemasangan Kateter Urin",
-      "Monitoring Balance Cairan",
-      "Positioning",
-      "Pemberian Obat Intravena",
-    ],
-  },
-  {
-    key: "nicu",
-    namePattern: /nicu|perina/i,
-    actions: [
-      "Perawatan Neonatus",
-      "Monitoring Suhu Neonatus",
-      "Monitoring Saturasi Neonatus",
-      "Perawatan Tali Pusat",
-      "Pemberian ASI",
-      "Pemberian Nutrisi melalui OGT/NGT",
-      "Fototerapi",
-      "Pemberian Oksigen",
-      "Pemeriksaan Tanda Vital",
-    ],
-  },
-  {
-    key: "ibs",
-    type: "Kamar Operasi",
-    actions: [
-      "Persiapan Pasien Operasi",
-      "Surgical Site Preparation",
-      "Pemasangan Kateter Urin",
-      "Positioning Intraoperatif",
-      "Surgical Count",
-      "Monitoring Intraoperatif",
-      "Persiapan Instrumen",
-      "Persiapan Area Operasi",
-      "Observasi Pasca Operasi",
-    ],
-  },
-  {
-    key: "vk",
-    type: "Kebidanan",
-    excludeNamePattern: /nifas/i,
-    actions: [
-      "Monitoring Ibu",
-      "Monitoring Janin",
-      "Monitoring Kontraksi",
-      "Persiapan Persalinan",
-      "Pemeriksaan Tanda Vital",
-      "Pemasangan Infus",
-      "Pemberian Obat Oral",
-      "Perawatan Postpartum",
-    ],
-  },
-  {
-    key: "nifas",
-    namePattern: /nifas/i,
-    actions: [
-      "Pemeriksaan Tanda Vital",
-      "Observasi Perdarahan Postpartum",
-      "Perawatan Luka Perineum",
-      "Perawatan Luka Sectio Caesarea",
-      "Mobilisasi Pasien",
-      "Edukasi Pasien",
-    ],
-  },
+/** Shared rawat-inap action set (KRIS 4/5, FORKLIN, ISOLASI, VIP). */
+const RAWAT_INAP_ACTIONS = [
+  "Pengkajian Awal Pasien",
+  "Pengkajian Ulang",
+  "Pemeriksaan Tanda-Tanda Vital",
+  "Pemantauan Kondisi Pasien",
+  "Pemberian Terapi Sesuai Program",
+  "Pemasangan/Monitoring Infus Sesuai Kewenangan",
+  "Perawatan Luka",
+  "Perawatan Kateter",
+  "Perawatan Drain",
+  "Pemberian Oksigen Sesuai Indikasi/Kewenangan",
+  "Nebulisasi Sesuai Instruksi",
+  "Suction Sesuai Kompetensi dan Kewenangan",
+  "Mobilisasi Pasien",
+  "Edukasi Pasien",
+  "Edukasi Keluarga",
+  "Pencegahan Risiko Jatuh",
+  "Monitoring Intake Output",
+  "Evaluasi Respons Terapi",
+  "Dokumentasi Asuhan Keperawatan",
 ];
+
+export const ROOM_ACTION_MAP: Record<string, string[]> = {
+  "KRIS LANTAI 4": RAWAT_INAP_ACTIONS,
+  "KRIS LANTAI 5": RAWAT_INAP_ACTIONS,
+  FORKLIN: RAWAT_INAP_ACTIONS,
+  ISOLASI: [...RAWAT_INAP_ACTIONS, "Pencegahan Infeksi", "Monitoring Isolation Precaution"],
+  VIP: RAWAT_INAP_ACTIONS,
+
+  "VK/KEBIDANAN": [
+    "Pengkajian Ibu",
+    "Pemeriksaan Tanda Vital Ibu",
+    "Monitoring Kondisi Maternal",
+    "Monitoring Kontraksi",
+    "Monitoring Denyut Jantung Janin",
+    "Monitoring Kemajuan Persalinan",
+    "Partograf",
+    "Persiapan Persalinan",
+    "Pemantauan Kala Persalinan",
+    "Monitoring Perdarahan",
+    "Monitoring Postpartum",
+    "Perawatan Ibu Postpartum",
+    "Monitoring Kondisi Bayi Baru Lahir",
+    "Perawatan Dasar Bayi Baru Lahir",
+    "Edukasi Menyusui",
+    "Edukasi Postpartum",
+    "Edukasi Keluarga",
+    "Deteksi Tanda Bahaya Maternal",
+    "Deteksi Tanda Bahaya Neonatal",
+    "Dokumentasi Asuhan Kebidanan/Keperawatan",
+  ],
+
+  HD: [
+    "Identifikasi Pasien",
+    "Identifikasi Dialyzer",
+    "Verifikasi Prosedur",
+    "Pengkajian Kondisi Pasien",
+    "Pemeriksaan Tanda Vital Pre-HD",
+    "Penimbangan Berat Badan Pre-HD",
+    "Pengkajian Akses Vaskular",
+    "Persiapan Pasien",
+    "Persiapan Terapi HD",
+    "Monitoring Tanda Vital Selama HD",
+    "Monitoring Tekanan Darah",
+    "Monitoring Kondisi Hemodinamik",
+    "Monitoring Ultrafiltrasi",
+    "Monitoring Komplikasi Selama HD",
+    "Evaluasi Post-HD",
+    "Pemeriksaan Tanda Vital Post-HD",
+    "Penimbangan Berat Badan Post-HD",
+    "Edukasi Pembatasan Cairan Sesuai Program",
+    "Edukasi Terapi",
+    "Dokumentasi Tindakan HD",
+  ],
+
+  IBS: [
+    "Identifikasi Pasien",
+    "Verifikasi Identitas",
+    "Verifikasi Tindakan",
+    "Persiapan Pasien Operasi",
+    "Persiapan Area Operasi",
+    "Surgical Safety Checklist",
+    "Persiapan Instrumen Sesuai Kewenangan",
+    "Pencegahan Infeksi",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Monitoring Pasien Perioperatif",
+    "Perawatan Luka",
+    "Monitoring Kondisi Post Operasi",
+    "Monitoring Perdarahan",
+    "Dokumentasi Perioperatif",
+  ],
+
+  CATHLAB: [
+    "Identifikasi Pasien",
+    "Verifikasi Tindakan",
+    "Persiapan Pasien",
+    "Verifikasi Informed Consent",
+    "Pemeriksaan/Persiapan Pre-Procedure Sesuai SOP",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Persiapan Area Akses",
+    "Pencegahan Infeksi",
+    "Monitoring Selama Procedure",
+    "Monitoring Kondisi Hemodinamik",
+    "Monitoring Akses Vaskular",
+    "Monitoring Perdarahan",
+    "Monitoring Komplikasi Post-Procedure",
+    "Observasi Pasien",
+    "Dokumentasi",
+  ],
+
+  IGD: [
+    "Triage",
+    "Identifikasi Pasien",
+    "Rapid Assessment",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Penilaian Kesadaran",
+    "Pemantauan Kondisi Pasien",
+    "Pemasangan/Monitoring Akses IV Sesuai Kewenangan",
+    "Pemberian Oksigen Sesuai Indikasi/Kewenangan",
+    "Monitoring Respirasi",
+    "EKG Sesuai Kompetensi/SOP",
+    "Perawatan Luka",
+    "Monitoring Perdarahan",
+    "Stabilisasi Pasien",
+    "Resusitasi Sesuai Kompetensi",
+    "Edukasi Pasien",
+    "Dokumentasi",
+    "Persiapan Transfer/Rujukan",
+  ],
+
+  ICU: [
+    "Pengkajian Intensif",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Monitoring Kesadaran",
+    "Monitoring Respirasi",
+    "Monitoring Hemodinamik",
+    "Monitoring Intake Output",
+    "Monitoring Terapi",
+    "Monitoring Alat Medis Sesuai Kewenangan",
+    "Pencegahan Infeksi",
+    "Pencegahan Pressure Injury",
+    "Perawatan Pasien Kritis",
+    "Perawatan Airway Sesuai Kompetensi",
+    "Suction Sesuai Kompetensi dan Kewenangan",
+    "Mobilisasi Sesuai Kondisi",
+    "Edukasi Keluarga",
+    "Dokumentasi Intensive Care",
+  ],
+
+  PICU: [
+    "Pengkajian Pasien Anak Kritis",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Monitoring Kesadaran",
+    "Monitoring Respirasi",
+    "Monitoring Hemodinamik",
+    "Monitoring Intake Output",
+    "Monitoring Terapi",
+    "Pencegahan Infeksi",
+    "Pencegahan Pressure Injury",
+    "Perawatan Pasien Anak Kritis",
+    "Evaluasi Respons Terapi",
+    "Edukasi Keluarga",
+    "Dokumentasi",
+  ],
+
+  "NICU/PERINA": [
+    "Identifikasi Bayi",
+    "Pengkajian Bayi Baru Lahir",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Monitoring Respirasi",
+    "Monitoring Suhu",
+    "Monitoring Kondisi Bayi",
+    "Monitoring Intake Output",
+    "Perawatan Bayi",
+    "Pencegahan Infeksi",
+    "Monitoring Nutrisi",
+    "Dukungan Menyusui Sesuai Kondisi",
+    "Monitoring Risiko Neonatal",
+    "Monitoring Terapi",
+    "Dokumentasi",
+  ],
+
+  PONEK: [
+    "Rapid Assessment Maternal",
+    "Pemeriksaan Tanda Vital Ibu",
+    "Monitoring Janin",
+    "Monitoring Denyut Jantung Janin",
+    "Monitoring Kontraksi",
+    "Penilaian Kondisi Obstetri",
+    "Monitoring Perdarahan",
+    "Deteksi Kegawatdaruratan Maternal",
+    "Deteksi Kegawatdaruratan Neonatal",
+    "Persiapan Emergency Obstetric Care",
+    "Persiapan Neonatal Emergency Care",
+    "Monitoring Kondisi Bayi Baru Lahir",
+    "Dukungan Resusitasi Neonatal Sesuai Kompetensi",
+    "Pencegahan Infeksi",
+    "Pemantauan Kondisi Pasien",
+    "Dokumentasi Emergency Care",
+  ],
+
+  POLI: [
+    "Identifikasi Pasien",
+    "Anamnesis/Pengkajian",
+    "Pemeriksaan Tanda-Tanda Vital",
+    "Pemantauan Kondisi Pasien",
+    "Edukasi Pasien",
+    "Pemberian Terapi Sesuai Program",
+    "Perawatan Luka",
+    "Pemberian Injeksi Sesuai Kewenangan",
+    "Nebulisasi Sesuai Instruksi",
+    "Monitoring Terapi",
+    "Edukasi Tindak Lanjut",
+    "Dokumentasi Pelayanan",
+  ],
+
+  PPI: [
+    "Audit Hand Hygiene",
+    "Audit Penggunaan APD",
+    "Surveillance HAIs",
+    "Case Finding HAIs",
+    "Monitoring Isolation Precaution",
+    "Monitoring Transmission-Based Precaution",
+    "Monitoring Infection Prevention Bundle",
+    "Monitoring Dekontaminasi",
+    "Monitoring Sterilisasi",
+    "Monitoring Lingkungan",
+    "Monitoring Pengelolaan Limbah",
+    "Monitoring Linen",
+    "Monitoring Patient Placement",
+    "Monitoring Safe Injection Practice",
+    "ICRA",
+    "Audit Kepatuhan SOP PPI",
+    "Edukasi PPI",
+    "Pelaporan Indikator PPI",
+    "Evaluasi Hasil Audit",
+  ],
+
+  "KOMITE KEPERAWATAN": [
+    "Kredensial",
+    "Rekredensial",
+    "Verifikasi Kompetensi",
+    "Penilaian Kompetensi",
+    "Review Portfolio",
+    "Evaluasi Portfolio",
+    "Rekomendasi Clinical Authority",
+    "Evaluasi Clinical Authority",
+    "Audit Mutu Keperawatan",
+    "Monitoring Mutu Asuhan Keperawatan",
+    "Evaluasi Profesionalisme",
+    "Pengembangan Profesional",
+    "CPD",
+    "Review SOP",
+    "Monitoring Kepatuhan Standar",
+    "Pembinaan Tenaga",
+    "Evaluasi Kompetensi",
+    "Dokumentasi Hasil Komite",
+  ],
+};

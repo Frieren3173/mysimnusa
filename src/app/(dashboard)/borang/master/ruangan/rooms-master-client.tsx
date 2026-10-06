@@ -16,19 +16,21 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, ListChecks } from "lucide-react";
-import { ROOM_TYPES } from "@/lib/master-data";
+import { ROOM_TYPES, ROOM_CATEGORIES } from "@/lib/rooms";
 
 interface RoomRow {
   id: string;
   name: string;
   code: string | null;
   type: string | null;
+  category: string | null;
+  subcategory: string | null;
   description: string | null;
   isActive: boolean;
   _count: { nursingActions: number; borangEntries: number };
 }
 
-const EMPTY_FORM = { name: "", code: "", type: "", description: "" };
+const EMPTY_FORM = { name: "", code: "", type: "", category: "", subcategory: "", description: "" };
 
 export function RoomsMasterClient() {
   const [rows, setRows] = React.useState<RoomRow[]>([]);
@@ -40,7 +42,7 @@ export function RoomsMasterClient() {
 
   const [page, setPage] = React.useState(1);
   const [perPage, setPerPage] = React.useState(20);
-  const [filters, setFilters] = React.useState({ q: "", status: "", type: "" });
+  const [filters, setFilters] = React.useState({ q: "", status: "", type: "", category: "" });
   const [form, setForm] = React.useState(EMPTY_FORM);
   const [editId, setEditId] = React.useState<string | null>(null);
 
@@ -51,6 +53,7 @@ export function RoomsMasterClient() {
       if (filters.q) q.set("q", filters.q);
       if (filters.status) q.set("status", filters.status);
       if (filters.type) q.set("type", filters.type);
+      if (filters.category) q.set("category", filters.category);
       const res = await fetch(`/api/admin/rooms?${q}`);
       const json = await res.json();
       if (json?.success) {
@@ -78,6 +81,8 @@ export function RoomsMasterClient() {
         name: form.name.trim(),
         code: form.code.trim() || null,
         type: form.type || undefined,
+        category: form.category || undefined,
+        subcategory: form.subcategory.trim() || null,
         description: form.description.trim() || null,
       };
       const res = await fetch(editId ? `/api/admin/rooms/${editId}` : "/api/admin/rooms", {
@@ -129,6 +134,8 @@ export function RoomsMasterClient() {
       name: r.name,
       code: r.code ?? "",
       type: r.type ?? "",
+      category: r.category ?? "",
+      subcategory: r.subcategory ?? "",
       description: r.description ?? "",
     });
     setMsg(null);
@@ -185,6 +192,28 @@ export function RoomsMasterClient() {
                   </option>
                 ))}
               </Select>
+            </FormField>
+            <FormField label="Kategori" hint="Kelompok Borang">
+              <Select
+                value={form.category}
+                onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                disabled={busy}
+              >
+                <option value="">— Pilih kategori —</option>
+                {ROOM_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Subkategori" hint="cth. KEBIDANAN, HEMODIALISA">
+              <Input
+                value={form.subcategory}
+                onChange={(e) => setForm((p) => ({ ...p, subcategory: e.target.value }))}
+                placeholder="Opsional"
+                disabled={busy}
+              />
             </FormField>
             <FormField label="Deskripsi">
               <Input
@@ -244,6 +273,24 @@ export function RoomsMasterClient() {
           </Select>
         </div>
         <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1">Kategori</label>
+          <Select
+            className="w-48"
+            value={filters.category}
+            onChange={(e) => {
+              setPage(1);
+              setFilters((p) => ({ ...p, category: e.target.value }));
+            }}
+          >
+            <option value="">Semua</option>
+            {ROOM_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">Jenis</label>
           <Select
             className="w-40"
@@ -271,9 +318,10 @@ export function RoomsMasterClient() {
           <Table scroll>
             <TableHeader>
               <TableRow>
-                <Th>Kode</Th>
-                <Th>Nama</Th>
-                <Th>Jenis</Th>
+                <Th>No</Th>
+                <Th>Nama Ruangan</Th>
+                <Th>Kategori</Th>
+                <Th>Subkategori</Th>
                 <Th>Tindakan</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Aksi</Th>
@@ -282,22 +330,26 @@ export function RoomsMasterClient() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <Td colSpan={6} className="text-center text-xs text-slate-400 py-8">
+                  <Td colSpan={7} className="text-center text-xs text-slate-400 py-8">
                     Memuat…
                   </Td>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <Td colSpan={6} className="text-center text-xs text-slate-400 py-8">
+                  <Td colSpan={7} className="text-center text-xs text-slate-400 py-8">
                     Tidak ada ruangan.
                   </Td>
                 </TableRow>
               ) : (
-                rows.map((r) => (
+                rows.map((r, idx) => (
                   <TableRow key={r.id}>
-                    <Td className="text-xs font-mono">{r.code ?? "—"}</Td>
-                    <Td className="text-xs font-medium text-slate-900">{r.name}</Td>
-                    <Td className="text-xs">{r.type ?? "—"}</Td>
+                    <Td className="text-xs text-slate-400">{(page - 1) * perPage + idx + 1}</Td>
+                    <Td className="text-xs font-medium text-slate-900">
+                      {r.name}
+                      {r.code ? <span className="ml-2 font-mono text-[10px] text-slate-400">{r.code}</span> : null}
+                    </Td>
+                    <Td className="text-xs">{r.category ?? "—"}</Td>
+                    <Td className="text-xs text-slate-500">{r.subcategory ?? "—"}</Td>
                     <Td className="text-xs">{r._count.nursingActions}</Td>
                     <Td>
                       <Badge variant={r.isActive ? "active" : "draft"}>

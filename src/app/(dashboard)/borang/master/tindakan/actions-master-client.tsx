@@ -17,6 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil } from "lucide-react";
 import { NURSING_ACTION_CATEGORIES } from "@/lib/master-data";
 
+interface ActionRoom {
+  id: string;
+  name: string;
+  category: string | null;
+  subcategory: string | null;
+}
+
 interface ActionRow {
   id: string;
   code: string;
@@ -24,6 +31,7 @@ interface ActionRow {
   category: string;
   description: string | null;
   isActive: boolean;
+  rooms: ActionRoom[];
 }
 
 const EMPTY_FORM = { code: "", name: "", category: "", description: "" };
@@ -272,9 +280,10 @@ export function ActionsMasterClient() {
           <Table scroll>
             <TableHeader>
               <TableRow>
-                <Th>Kode</Th>
-                <Th>Nama Tindakan</Th>
+                <Th>No</Th>
+                <Th>Ruangan</Th>
                 <Th>Kategori</Th>
+                <Th>Tindakan</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Aksi</Th>
               </TableRow>
@@ -282,22 +291,34 @@ export function ActionsMasterClient() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <Td colSpan={5} className="text-center text-xs text-slate-400 py-8">
+                  <Td colSpan={6} className="text-center text-xs text-slate-400 py-8">
                     Memuat…
                   </Td>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <Td colSpan={5} className="text-center text-xs text-slate-400 py-8">
+                  <Td colSpan={6} className="text-center text-xs text-slate-400 py-8">
                     Tidak ada tindakan.
                   </Td>
                 </TableRow>
               ) : (
-                rows.map((a) => (
+                rows.map((a, idx) => (
                   <TableRow key={a.id}>
-                    <Td className="text-xs font-mono">{a.code}</Td>
-                    <Td className="text-xs font-medium text-slate-900">{a.name}</Td>
+                    <Td className="text-xs text-slate-400">{(page - 1) * perPage + idx + 1}</Td>
+                    <Td className="text-xs">
+                      {a.rooms.length === 0 ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <span className="text-slate-700">
+                          {a.rooms.map((r) => r.name).join(", ")}
+                        </span>
+                      )}
+                    </Td>
                     <Td className="text-xs">{a.category}</Td>
+                    <Td className="text-xs font-medium text-slate-900">
+                      {a.name}
+                      <span className="ml-2 font-mono text-[10px] text-slate-400">{a.code}</span>
+                    </Td>
                     <Td>
                       <Badge variant={a.isActive ? "active" : "draft"}>
                         {a.isActive ? "Aktif" : "Nonaktif"}
