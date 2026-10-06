@@ -13,7 +13,18 @@ interface SyncStatus {
   ready: number;
   failed: number;
   percent: number;
-  duplicates: number;
+  /** Number of duplicate-content groups (staff + type + same checksum). */
+  duplicateGroups: number;
+  /** Redundant rows a cleanup would remove. */
+  duplicateDocuments: number;
+  documentsToKeep: number;
+  documentsToRemove: number;
+  /** Same staff+type but DIFFERENT content — distinct files, never removed. */
+  distinctExtraDocuments: number;
+  /** Groups skipped because the canonical storage object could not be verified. */
+  unverifiedGroups: number;
+  /** @deprecated — equals duplicateGroups. */
+  duplicates?: number;
 }
 
 interface SyncResult {
@@ -122,7 +133,13 @@ export function DriveSyncCard() {
   }
 
   async function dedup() {
-    if (!confirm("Hapus baris dokumen duplikat? Satu baris tetap dipertahankan per grup.")) return;
+    if (
+      !confirm(
+        `Hapus ${st?.duplicateDocuments ?? 0} baris dokumen duplikat (checksum identik)? ` +
+          `Satu baris canonical tetap dipertahankan per grup. Berkas dengan isi berbeda TIDAK dihapus.`,
+      )
+    )
+      return;
     setBusy("dedup");
     setMsg(null);
     try {
@@ -132,8 +149,8 @@ export function DriveSyncCard() {
       const d = json.data as { removed: number; groups: number };
       setMsg(
         d.removed > 0
-          ? { type: "ok", text: `${d.removed} baris dobel dihapus dari ${d.groups} grup duplikat.` }
-          : { type: "ok", text: "Tidak ada duplikat — data bersih." }
+          ? { type: "ok", text: `${d.removed} baris duplikat (checksum identik) dihapus dari ${d.groups} grup.` }
+          : { type: "ok", text: "Tidak ada duplikat konten — data bersih." }
       );
       await load();
     } catch (e) {
@@ -203,9 +220,28 @@ export function DriveSyncCard() {
                 Siap diunduh: {st.ready}
               </span>
               <span className="rounded bg-red-50 px-2 py-0.5 text-red-700">Gagal: {st.failed}</span>
-              <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-700">
-                Duplikat: {st.duplicates}
+              <span
+                className="rounded bg-amber-50 px-2 py-0.5 text-amber-700"
+                title="Dokumen dengan isi (checksum) identik pada staff & jenis yang sama — dinyatakan duplikat hanya jika checksum sama. Berkas berbeda isi tidak dihitung di sini."
+              >
+                Duplikat Konten: {st.duplicateGroups} grup · Redundan: {st.duplicateDocuments} berkas
               </span>
+              {st.distinctExtraDocuments > 0 && (
+                <span
+                  className="rounded bg-slate-100 px-2 py-0.5 text-slate-600"
+                  title="Staff & jenis sama tetapi isi BERBEDA — file berbeda, tidak pernah dihapus."
+                >
+                  Berkas Berbeda: {st.distinctExtraDocuments}
+                </span>
+              )}
+              {st.unverifiedGroups > 0 && (
+                <span
+                  className="rounded bg-amber-50 px-2 py-0.5 text-amber-700"
+                  title="Grup duplikat yang dilewati karena objek storage canonical tidak dapat diverifikasi."
+                >
+                  Belum terverifikasi: {st.unverifiedGroups}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -240,10 +276,11 @@ export function DriveSyncCard() {
             variant="secondary"
             size="sm"
             loading={busy === "dedup"}
-            disabled={running || !st || st.duplicates === 0}
+            disabled={running || !st || st.duplicateDocuments === 0}
             onClick={dedup}
+            title="Menghapus hanya baris duplikat yang checksum-nya identik. Canonical & berkas berbeda isi tidak dihapus."
           >
-            <Trash2 size={12} /> Hapus Duplikat {st ? `(${st.duplicates})` : ""}
+            <Trash2 size={12} /> Hapus Duplikat Konten {st ? `(${st.duplicateDocuments})` : ""}
           </Button>
           <Button
             variant="secondary"

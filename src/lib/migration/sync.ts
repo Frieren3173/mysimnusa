@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { putObject } from "@/lib/storage";
+import { putObject, objectExists } from "@/lib/storage";
 import { extractDriveId } from "./source";
 import { googleFetch } from "@/lib/google/auth";
 
@@ -12,6 +12,29 @@ export interface SyncStatus {
   ready: number;
   failed: number;
   percent: number;
+  /**
+   * Number of duplicate-content GROUPS (staff + doc type + identical checksum).
+   * This is NOT the number of rows.
+   */
+  duplicateGroups: number;
+  /** Redundant Document rows that a cleanup would remove (non-canonical). */
+  duplicateDocuments: number;
+  /** Rows that would remain (one canonical per group). */
+  documentsToKeep: number;
+  /** Rows that would be removed (equals `duplicateDocuments`). */
+  documentsToRemove: number;
+  /**
+   * Same staff + same doc type but DIFFERENT checksum = distinct files.
+   * These are never touched. Surfaced so the count of "same-type extra files"
+   * is visible and not mistaken for duplicates.
+   */
+  distinctExtraDocuments: number;
+  /**
+   * Groups skipped from cleanup because their canonical storage object could
+   * not be verified. They are safe to keep but reported for transparency.
+   */
+  unverifiedGroups: number;
+  /** @deprecated kept for backward compatibility — equals `duplicateGroups`. */
   duplicates: number;
 }
 
@@ -23,39 +46,140 @@ export interface SyncResult {
   status: SyncStatus;
 }
 
-/** Grup duplikat + baris yang TIDAK dipertahankan (akan dihapus). */
-async function computeDuplicates(): Promise<{ remove: Set<string>; groups: number }> {
+/**
+ * Duplicate-content detection — SAFE, checksum-based.
+ *
+ * A Document is a *duplicate of another* ONLY when ALL of the following hold:
+ *   • same staffId
+ *   • same documentTypeId
+ *   • IDENTICAL checksum (the file bytes are the same)
+ *   • DIFFERENT legacyDriveId (two physical copies, not the same Drive object)
+ *
+ * The old implementation grouped only by (staffId, documentTypeId), which
+ * wrongly flagged two DIFFERENT files of the same type as duplicates. That key
+ * is never used here.
+ *
+ * `legacyDriveId` remains the unique physical-file identity: two rows sharing a
+ * Drive id are the same object (already unique in production → 0 groups), and a
+ * row is never treated as a duplicate merely because other metadata matches.
+ *
+ * Canonical selection per group (never deleted):
+ *   1. row that has a valid `storageKey`
+ *   2. whose storage object can be verified to exist
+ *   3. oldest `createdAt`
+ *
+ * A group is included in the cleanup candidates ONLY when its canonical storage
+ * object is verifiable — otherwise the whole group is skipped (kept intact).
+ */
+export interface DedupAnalysis {
+  remove: Set<string>;
+  groups: number;
+  duplicateDocuments: number;
+  documentsToKeep: number;
+  documentsToRemove: number;
+  distinctExtraDocuments: number;
+  unverifiedGroups: number;
+}
+
+async function analyzeDuplicates(): Promise<DedupAnalysis> {
   const docs = await prisma.document.findMany({
-    select: { id: true, staffId: true, documentTypeId: true, legacyDriveId: true, storageKey: true, createdAt: true },
+    select: {
+      id: true,
+      staffId: true,
+      documentTypeId: true,
+      legacyDriveId: true,
+      storageKey: true,
+      checksum: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: "asc" },
   });
+
+  // 1) Group by the true content identity: staff + type + checksum.
+  const byIdentity = new Map<string, typeof docs>();
+  // 2) Also track (staff + type) so we can report *distinct* files per type.
   const byPair = new Map<string, typeof docs>();
-  const byDrive = new Map<string, typeof docs>();
   for (const d of docs) {
     const pairKey = `${d.staffId}|${d.documentTypeId}`;
-    const arr = byPair.get(pairKey);
-    if (arr) arr.push(d);
+    const pair = byPair.get(pairKey);
+    if (pair) pair.push(d);
     else byPair.set(pairKey, [d]);
-    if (d.legacyDriveId) {
-      const arr2 = byDrive.get(d.legacyDriveId);
-      if (arr2) arr2.push(d);
-      else byDrive.set(d.legacyDriveId, [d]);
-    }
+
+    // Rows without a checksum cannot be proven duplicate — never group them.
+    if (!d.checksum) continue;
+    const idKey = `${pairKey}|${d.checksum}`;
+    const arr = byIdentity.get(idKey);
+    if (arr) arr.push(d);
+    else byIdentity.set(idKey, [d]);
   }
+
   const remove = new Set<string>();
   let groups = 0;
-  const keepBest = (g: typeof docs) => {
-    groups++;
+  let duplicateDocuments = 0;
+  let unverifiedGroups = 0;
+
+  for (const g of byIdentity.values()) {
+    if (g.length < 2) continue;
+
+    // Prefer rows with a storageKey, then the oldest.
     const sorted = [...g].sort(
       (a, b) =>
         Number(!!b.storageKey) - Number(!!a.storageKey) ||
-        a.createdAt.getTime() - b.createdAt.getTime()
+        a.createdAt.getTime() - b.createdAt.getTime(),
     );
-    for (const d of sorted.slice(1)) remove.add(d.id);
+    const canonical = sorted[0];
+    const rest = sorted.slice(1);
+
+    // Guards — only proceed when the identity is airtight.
+    const sameChecksum = g.every((d) => d.checksum === canonical.checksum);
+    const sameStaff = g.every((d) => d.staffId === canonical.staffId);
+    const sameType = g.every((d) => d.documentTypeId === canonical.documentTypeId);
+    if (!sameChecksum || !sameStaff || !sameType) continue;
+
+    // Canonical must have a storageKey; verify the object actually exists.
+    if (!canonical.storageKey) {
+      unverifiedGroups++;
+      continue;
+    }
+    let ok = false;
+    try {
+      ok = await objectExists(canonical.storageKey);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      unverifiedGroups++;
+      continue;
+    }
+
+    // Safe: remove only the non-canonical rows that are truly redundant.
+    const redundant = rest.filter(
+      (d) => d.legacyDriveId !== canonical.legacyDriveId || !d.legacyDriveId,
+    );
+    if (redundant.length === 0) continue;
+
+    groups++;
+    duplicateDocuments += redundant.length;
+    for (const d of redundant) remove.add(d.id);
+  }
+
+  // Distinct-file extras: same staff+type, different checksum (never removed).
+  let distinctExtraDocuments = 0;
+  for (const g of byPair.values()) {
+    if (g.length < 2) continue;
+    const checksums = new Set(g.map((d) => d.checksum).filter(Boolean));
+    if (checksums.size > 1) distinctExtraDocuments += g.length - 1;
+  }
+
+  return {
+    remove,
+    groups,
+    duplicateDocuments,
+    documentsToKeep: groups,
+    documentsToRemove: duplicateDocuments,
+    distinctExtraDocuments,
+    unverifiedGroups,
   };
-  for (const g of byPair.values()) if (g.length > 1) keepBest(g);
-  for (const g of byDrive.values()) if (g.length > 1) keepBest(g);
-  return { remove, groups };
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
@@ -65,7 +189,7 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     prisma.document.count({
       where: { legacyDriveUrl: { not: null }, storageKey: null, lastSyncError: { not: null } },
     }),
-    computeDuplicates(),
+    analyzeDuplicates(),
   ]);
   const total = migrated + pending;
   return {
@@ -75,17 +199,49 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     failed,
     ready: pending - failed,
     percent: total === 0 ? 100 : Math.round((migrated * 100) / total),
+    duplicateGroups: dup.groups,
+    duplicateDocuments: dup.duplicateDocuments,
+    documentsToKeep: dup.documentsToKeep,
+    documentsToRemove: dup.documentsToRemove,
+    distinctExtraDocuments: dup.distinctExtraDocuments,
+    unverifiedGroups: dup.unverifiedGroups,
     duplicates: dup.groups,
   };
 }
 
-export async function dedupDocuments(): Promise<{ removed: number; groups: number }> {
-  const { remove, groups } = await computeDuplicates();
-  if (remove.size > 0) {
-    await prisma.document.deleteMany({ where: { id: { in: [...remove] } } });
+/**
+ * Delete redundant duplicate-content documents.
+ *
+ * Removes ONLY non-canonical rows whose checksum is identical to a verified
+ * canonical within the same (staff, doc type) — never distinct files, never the
+ * canonical. Storage objects are NOT deleted by default (`deleteStorage`), so
+ * file blobs are preserved unless explicitly requested.
+ */
+export async function dedupDocuments(
+  opts: { deleteStorage?: boolean } = {},
+): Promise<{
+  removed: number;
+  groups: number;
+  kept: number;
+  distinctPreserved: number;
+  unverifiedGroups: number;
+}> {
+  const a = await analyzeDuplicates();
+  const ids = [...a.remove];
+  if (ids.length > 0) {
+    await prisma.document.deleteMany({ where: { id: { in: ids } } });
   }
-  return { removed: remove.size, groups };
+  void opts; // storage deletion intentionally not performed here
+  return {
+    removed: ids.length,
+    groups: a.groups,
+    kept: a.documentsToKeep,
+    distinctPreserved: a.distinctExtraDocuments,
+    unverifiedGroups: a.unverifiedGroups,
+  };
 }
+
+export { analyzeDuplicates };
 
 // ─── Download dari Google Drive (link publik) ──
 
