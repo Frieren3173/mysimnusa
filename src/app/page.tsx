@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
+import "./scroll-story.css";
 import {
   Users,
   FileText,
@@ -10,6 +12,30 @@ import {
   ClipboardCheck,
   BadgeCheck,
 } from "lucide-react";
+
+/** Text lines for the two cinematic scroll-story sections. */
+const STORY_SECTIONS = [
+  {
+    key: "data",
+    kicker: "Satu Sumber Data",
+    video: 1,
+    items: [
+      "Data tenaga keperawatan, tidak lagi tersebar.",
+      "Satu platform untuk Komite Keperawatan, Borang, dan Diklat.",
+      "Akurat. Tertelusur. Akuntabel.",
+    ],
+  },
+  {
+    key: "mutu",
+    kicker: "Mutu Pelayanan",
+    video: 2,
+    items: [
+      "Setiap pengajuan terverifikasi.",
+      "Pemantauan STR, SIP, dan kompetensi otomatis.",
+      "Untuk pelayanan yang lebih bermutu.",
+    ],
+  },
+];
 
 const modules = [
   {
@@ -222,6 +248,60 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── Cinematic scroll-story sections ──────────────────────────────
+            Two sticky sections with looping background video, scroll-driven
+            text reveals and parallax. Behaviour lives in /scroll-story.js
+            (vanilla); styling in ./scroll-story.css. Reduced-motion shows all
+            text immediately with no parallax. */}
+        {STORY_SECTIONS.map((story, si) => (
+          <section
+            key={story.key}
+            className={si > 0 ? "story story--cont" : "story"}
+            data-story
+            aria-label={story.kicker}
+          >
+            <div className="story__sticky">
+              <div className="story__media" aria-hidden="true">
+                <video
+                  className="story__video"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster={`/assets/poster-${story.video}.webp`}
+                >
+                  <source src={`/assets/video-${story.video}.webm`} type="video/webm" />
+                  <source src={`/assets/video-${story.video}.mp4`} type="video/mp4" />
+                </video>
+                <div className="story__overlay" />
+              </div>
+
+              <div className="story__fade story__fade--top" aria-hidden="true" />
+              <div className="story__fade story__fade--bottom" aria-hidden="true" />
+
+              <div className="story__content">
+                <p className="story__kicker">{story.kicker}</p>
+                {story.items.map((line, i) => (
+                  <p
+                    key={line}
+                    className="story__item"
+                    data-speed={["1", "1.15", "0.9"][i]}
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+
+              <div className="story__dots" aria-hidden="true">
+                {story.items.map((line) => (
+                  <span key={line} className="story__dot" />
+                ))}
+              </div>
+            </div>
+          </section>
+        ))}
+
         {/* Closing band */}
         <section className="border-y border-slate-200 bg-white">
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-6 py-14 sm:flex-row sm:items-center">
@@ -256,6 +336,9 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Vanilla scroll-story behaviour (progress, reveal, parallax, video pause). */}
+      <Script src="/scroll-story.js" strategy="afterInteractive" />
     </div>
   );
 }

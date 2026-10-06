@@ -1,0 +1,212 @@
+/* =====================================================================
+ * scroll-story.css — MYSIMNUSA landing "scroll-story" sections
+ * ---------------------------------------------------------------------
+ * Two cinematic sections (`.story`) with a looping background video and
+ * scroll-driven text reveals + parallax. Self-contained: every rule is
+ * scoped under `.story`, so it never touches the existing landing page.
+ *
+ * Theme: white / clean, blue accent, Inter. Only transform/opacity/filter
+ * are animated (see scroll-story.js). Reduced-motion is fully respected.
+ * ===================================================================== */
+
+/* ── Story wrapper: tall scroll track, sticky viewport stage ─────────── */
+.story {
+  position: relative;
+  height: 300vh; /* scroll track: 3 text items get ~1 viewport each */
+  background: var(--story-bg, #020617); /* deep navy behind the video */
+}
+
+.story__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+/* ── Background video (always looping, never scroll-controlled) ──────── */
+.story__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.story__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Slight overscale so parallax never reveals an edge. */
+  transform: scale(1.1);
+  transform-origin: center center;
+  will-change: transform, opacity;
+  opacity: 0; /* JS fades this in when the section enters */
+}
+
+/* ── Dark overlay for text legibility ────────────────────────────────── */
+.story__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.55) 0%, rgba(2, 6, 23, 0.42) 45%, rgba(2, 6, 23, 0.6) 100%);
+  pointer-events: none;
+}
+
+/* Top/bottom gradient fades: blend into the page background so there is no
+   hard edge between light sections and the dark story band. */
+.story__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 2;
+  pointer-events: none;
+}
+.story__fade--top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--story-page-bg, #f8fafc), transparent);
+}
+.story__fade--bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--story-page-bg, #f8fafc), transparent);
+}
+/* Section 2 continues from the dark band: its top fade blends from navy. */
+.story--cont .story__fade--top {
+  background: linear-gradient(to bottom, #020617, transparent);
+}
+
+/* ── Text stack ──────────────────────────────────────────────────────── */
+.story__content {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Kicker / section label */
+.story__kicker {
+  position: absolute;
+  top: clamp(5rem, 12vh, 8rem);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(191, 219, 254, 0.9); /* blue-200 */
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* Each text item is stacked in the same grid cell and cross-faded. */
+.story__item {
+  grid-area: 1 / 1;
+  max-width: 52rem;
+  margin: 0 auto;
+  font-size: clamp(1.75rem, 4vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(2, 6, 23, 0.55), 0 1px 3px rgba(2, 6, 23, 0.5);
+  opacity: 0;
+  will-change: transform, opacity, filter;
+  /* Default hidden state (overridden by JS inline styles). */
+  transform: translateY(40px);
+  filter: blur(8px);
+}
+
+/* Accent word inside a line (kept subtle, matches blue accent). */
+.story__item em {
+  font-style: normal;
+  color: #93c5fd; /* blue-300 */
+}
+
+/* ── Progress dots (right edge) ──────────────────────────────────────── */
+.story__dots {
+  position: absolute;
+  top: 50%;
+  right: clamp(0.9rem, 3vw, 2.5rem);
+  transform: translateY(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.story__dots.is-visible {
+  opacity: 1;
+}
+.story__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+.story__dot.is-active {
+  background: #60a5fa; /* blue-400 */
+  transform: scale(1.5);
+}
+
+/* ── Reduced motion / no-JS fallback ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .story {
+    height: auto; /* collapse the scroll track */
+  }
+  .story__sticky {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+  }
+  .story__content {
+    min-height: 0;
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+    gap: 2.5rem;
+  }
+  .story__item {
+    position: static;
+    grid-area: auto;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .story__video {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .story__dots {
+    display: none;
+  }
+}
+
+/* ── Mobile tuning ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .story__item {
+    font-size: clamp(1.5rem, 7vw, 2.25rem);
+    line-height: 1.2;
+  }
+  .story__kicker {
+    top: 4.5rem;
+    font-size: 0.65rem;
+  }
+  .story__fade {
+    height: 80px;
+  }
+}

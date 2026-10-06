@@ -47,6 +47,9 @@ next-env.d.ts
 /dist/
 .neon
 
+# raw landing-page video sources (large; compress with compress.sh → public/assets)
+/source-videos/
+
 .vercel
 .env*
 
