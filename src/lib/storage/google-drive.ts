@@ -251,6 +251,43 @@ export class GoogleDriveStorage implements StorageProvider {
     };
   }
 
+  /**
+   * Small thumbnail for list/avatar rendering.
+   *
+   * Google Drive exposes a `thumbnailLink` (a small JPEG on Google's CDN, roughly
+   * 10–40 KB regardless of the original size). We resolve it server-side and
+   * stream those bytes, so the client downloads a lightweight image instead of
+   * the multi-megabyte original, and the Drive URL is never exposed.
+   */
+  async getThumbnail(key: string, size = 256): Promise<StoredObject | null> {
+    const fileId = await this.resolveFileId(key);
+    if (!fileId) return null;
+
+    const metaRes = await googleFetch(
+      STORAGE_ROLE,
+      `${DRIVE_FILES}/${fileId}?fields=thumbnailLink,thumbnailVersion,mimeType`,
+    );
+    if (!metaRes.ok) return null;
+    const metaJson = (await metaRes.json().catch(() => null)) as
+      | { thumbnailLink?: string; thumbnailVersion?: string; mimeType?: string }
+      | null;
+    const link = metaJson?.thumbnailLink;
+    if (!link) return null;
+
+    // The link carries a `=s<dim>` suffix that controls the rendered size.
+    const sized = link.replace(/=s\d+(-c)?$/, `=s${size}`);
+    const thumbRes = await googleFetch(STORAGE_ROLE, sized);
+    if (thumbRes.status === 404) return null;
+    if (!thumbRes.ok || !thumbRes.body) return null;
+
+    const lengthHeader = thumbRes.headers.get("content-length");
+    return {
+      body: thumbRes.body as ReadableStream<Uint8Array>,
+      contentType: thumbRes.headers.get("content-type") ?? metaJson?.mimeType ?? "image/jpeg",
+      contentLength: lengthHeader ? Number(lengthHeader) : undefined,
+    };
+  }
+
   private async getMetadataByFileId(fileId: string): Promise<ObjectMetadata | null> {
     const res = await googleFetch(STORAGE_ROLE, `${DRIVE_FILES}/${fileId}?fields=id,name,size,mimeType,modifiedTime`);
     if (!res.ok) return null;

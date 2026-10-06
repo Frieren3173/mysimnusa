@@ -200,6 +200,24 @@ export async function readObject(storageKey: string): Promise<StoredObject | nul
   return activeProvider().get(storageKey);
 }
 
+/**
+ * Lightweight thumbnail for lists/avatars.
+ *
+ * Prefers the provider's own small-image variant (e.g. Google Drive's
+ * `thumbnailLink`) so list rows never download multi-megabyte originals. When
+ * the active provider cannot produce a thumbnail (local disk, R2), this falls
+ * back to the full object so behaviour is always correct — just larger.
+ */
+export async function readThumbnail(storageKey: string, size = 256): Promise<StoredObject | null> {
+  const provider = activeProvider();
+  if (typeof provider.getThumbnail === "function") {
+    const thumb = await provider.getThumbnail(storageKey, size);
+    if (thumb) return thumb;
+    return null;
+  }
+  return provider.get(storageKey);
+}
+
 export async function removeObject(storageKey: string): Promise<void> {
   await activeProvider().remove(storageKey);
 }

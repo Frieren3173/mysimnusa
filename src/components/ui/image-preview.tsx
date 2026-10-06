@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  * staff-detail-modal.tsx / competency-cell.tsx) so it feels native.
  */
 export interface ImagePreviewProps {
-  /** Full-resolution image source (same URL as the thumbnail). */
+  /** Full-resolution image source, loaded only when the preview opens. */
   src: string;
   /** Accessible description of the image, e.g. `Foto <nama>`. */
   alt: string;
@@ -64,8 +64,8 @@ export function ImagePreview({
         aria-label={`Lihat ${alt.toLowerCase()}`}
         className={cn(
           "cursor-pointer rounded-full transition-transform duration-150",
-          "hover:scale-105 hover:ring-2 hover:ring-blue-500/60 hover:ring-offset-1",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+          "hover:scale-105 hover:ring-2 hover:ring-[var(--color-primary)]/60 hover:ring-offset-1",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2",
           triggerClassName,
         )}
       >
@@ -98,6 +98,9 @@ function ImagePreviewDialog({
   returnFocusTo: React.RefObject<HTMLButtonElement | null>;
 }) {
   const closeRef = React.useRef<HTMLButtonElement | null>(null);
+  // The full-size image is fetched only when the modal opens (this <img> is the
+  // sole consumer of `src`). Contents are hidden until it has decoded.
+  const [loaded, setLoaded] = React.useState(false);
 
   // Close on Escape.
   React.useEffect(() => {
@@ -160,15 +163,32 @@ function ImagePreviewDialog({
           type="button"
           aria-label="Tutup pratinjau foto"
           onClick={onClose}
-          className="flex min-h-0 flex-1 cursor-default items-center justify-center overflow-auto bg-[var(--color-surface-raised)] p-4"
+          className="relative flex min-h-0 flex-1 cursor-default items-center justify-center overflow-auto bg-[var(--color-surface-raised)] p-4"
         >
+          {!loaded && (
+            <span
+              className="absolute flex items-center gap-2 text-xs text-[var(--color-muted-foreground)]"
+              role="status"
+            >
+              <span
+                className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-primary)]"
+                aria-hidden="true"
+              />
+              Memuat foto…
+            </span>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
             decoding="async"
+            onLoad={() => setLoaded(true)}
+            onError={() => setLoaded(true)}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[75vh] max-w-full rounded-lg object-contain shadow-sm"
+            className={cn(
+              "max-h-[75vh] max-w-full rounded-lg object-contain shadow-sm transition-opacity duration-200",
+              loaded ? "opacity-100" : "opacity-0",
+            )}
           />
         </button>
       </div>

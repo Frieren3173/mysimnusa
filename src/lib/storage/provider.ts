@@ -56,6 +56,12 @@ export interface StorageProvider {
   remove(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   getMetadata(key: string): Promise<ObjectMetadata | null>;
+  /**
+   * Optional small-image variant for list/avatar use (e.g. Drive's own
+   * thumbnail). Providers that cannot produce one may omit this method; the
+   * caller then falls back to `get()`.
+   */
+  getThumbnail?(key: string, size?: number): Promise<StoredObject | null>;
 }
 
 /** Splits a storage key into path segments, ignoring empty parts. */

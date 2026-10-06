@@ -51,6 +51,7 @@ import * as h48 from "@/server/api/documents-$id$-download";
 import * as h49 from "@/server/api/komite-staff";
 import * as h50 from "@/server/api/komite-staff-$id$";
 import * as h51 from "@/server/api/komite-staff-$id$-documents";
+import * as h52 from "@/server/api/documents-$id$-thumbnail";
 
 // Consolidated API route table.
 // Every URL/method that previously lived in its own route.ts file is
@@ -104,6 +105,7 @@ const routes: RouteEntry[] = [
   { pattern: ["diklat", "trainings", ":id", "participants", ":participantId"], module: h46 },
   { pattern: ["documents", ":id"], module: h47 },
   { pattern: ["documents", ":id", "download"], module: h48 },
+  { pattern: ["documents", ":id", "thumbnail"], module: h52 },
   { pattern: ["komite", "staff"], module: h49 },
   { pattern: ["komite", "staff", ":id"], module: h50 },
   { pattern: ["komite", "staff", ":id", "documents"], module: h51 },

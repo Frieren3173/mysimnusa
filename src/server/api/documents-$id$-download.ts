@@ -37,7 +37,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         "Content-Type": stored.contentType ?? doc.mimeType ?? "application/octet-stream",
         ...(stored.contentLength ? { "Content-Length": String(stored.contentLength) } : {}),
         "Content-Disposition": `inline; filename="${downloadName}"`,
-        "Cache-Control": "private, max-age=0, must-revalidate",
+        // Same content for a given id — allow the browser to reuse it instead of
+        // re-downloading on every render. `private` keeps it out of shared caches.
+        "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",
       },
     });
   }
