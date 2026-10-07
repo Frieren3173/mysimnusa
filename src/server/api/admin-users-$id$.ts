@@ -6,11 +6,9 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { USER_API_SELECT } from "@/lib/user-select";
 
-const include = {
-  userRoles: { include: { role: { select: { name: true, description: true } } } },
-  staff: { select: { id: true, name: true } },
-};
+const select = USER_API_SELECT;
 
 const UpdateSchema = z.object({
   username: z.string().trim().min(3).max(50).optional(),
@@ -32,7 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (denied) return denied;
 
   const { id } = await params;
-  const user = await prisma.user.findUnique({ where: { id }, include });
+  const user = await prisma.user.findUnique({ where: { id }, select });
   if (!user) return err("NOT_FOUND", "Pengguna tidak ditemukan", 404);
   return ok({ user });
 }
@@ -114,7 +112,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ipAddress: clientIp(req),
     });
 
-    const full = await prisma.user.findUnique({ where: { id: updated.id }, include });
+    const full = await prisma.user.findUnique({ where: { id: updated.id }, select });
     return ok({ user: full });
   } catch (e) {
     return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui pengguna", 500);

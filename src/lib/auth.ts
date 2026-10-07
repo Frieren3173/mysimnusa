@@ -1,7 +1,9 @@
 import { SignJWT, jwtVerify } from "jose";
+import * as React from "react";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { authSecret } from "./secrets";
+import { CURRENT_USER_SELECT } from "./user-select";
 
 /** Signing key, resolved lazily on first use (never at import/build time). */
 function signingKey(): Uint8Array {
@@ -64,30 +66,26 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
 }
 
-export async function getCurrentUser() {
+/**
+ * Loads the authenticated user for the current request.
+ *
+ * Wrapped in `React.cache` so multiple calls within one request (layout, page,
+ * authorization checks) share a single DB round-trip. Uses a `select` that
+ * fetches only the fields actually used — notably never `passwordHash`.
+ *
+ * The returned object keeps its original shape: the user fields, plus `roles`,
+ * `permissions`, `hasRole`, `hasPermission`, `isSuperAdmin` and `staff`.
+ */
+export const getCurrentUser = React.cache(async () => {
   const session = await getSession();
   if (!session) return null;
 
   // Verify session exists in DB and not expired
   const dbSession = await prisma.session.findUnique({
     where: { id: session.sessionId },
-    include: {
-      user: {
-        include: {
-          userRoles: {
-            include: {
-              role: {
-                include: {
-                  rolePermissions: {
-                    include: { permission: true },
-                  },
-                },
-              },
-            },
-          },
-          staff: true,
-        },
-      },
+    select: {
+      expiresAt: true,
+      user: { select: CURRENT_USER_SELECT },
     },
   });
 
@@ -111,7 +109,7 @@ export async function getCurrentUser() {
     hasPermission: (perm: string) => permissions.has(perm),
     isSuperAdmin: () => roles.includes("SUPER_ADMIN"),
   };
-}
+});
 
 export async function deleteSession(): Promise<void> {
   const session = await getSession();

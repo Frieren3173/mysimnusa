@@ -6,11 +6,9 @@ import { ok, err, parseBody, PaginationSchema, paginate } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { USER_API_SELECT } from "@/lib/user-select";
 
-const include = {
-  userRoles: { include: { role: { select: { name: true, description: true } } } },
-  staff: { select: { id: true, name: true } },
-};
+const select = USER_API_SELECT;
 
 const CreateSchema = z.object({
   username: z.string().trim().min(3, "Username minimal 3 karakter").max(50),
@@ -50,7 +48,7 @@ export async function GET(req: NextRequest) {
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      include,
+      select,
       orderBy: { username: "asc" },
       skip: (params.page - 1) * params.perPage,
       take: params.perPage,
@@ -110,7 +108,7 @@ export async function POST(req: NextRequest) {
       ipAddress: clientIp(req),
     });
 
-    const full = await prisma.user.findUnique({ where: { id: created.id }, include });
+    const full = await prisma.user.findUnique({ where: { id: created.id }, select });
     return ok({ user: full });
   } catch (e) {
     return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal membuat pengguna", 500);
