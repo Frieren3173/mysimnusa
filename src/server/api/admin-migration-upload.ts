@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { scanXlsxFile, migrationFilePath, ensureStorage } from "@/lib/migration/source";
+import { validateUpload } from "@/lib/file-type";
 import type { Prisma } from "@prisma/client";
 
 const MAX_SIZE = 30 * 1024 * 1024; // 30 MB
@@ -30,6 +31,18 @@ export async function POST(req: NextRequest) {
     return err("FILE_TOO_LARGE", "Ukuran file maksimal 30 MB", 413);
   }
 
+  // .xlsx is a ZIP container — verify the magic bytes before writing to disk.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const verdict = validateUpload(
+    file.name,
+    file.type,
+    bytes,
+    [".xlsx"],
+  );
+  if (!verdict.ok) {
+    return err(verdict.code, "Berkas bukan file XLSX yang valid", 415);
+  }
+
   try {
     ensureStorage();
 
@@ -43,8 +56,7 @@ export async function POST(req: NextRequest) {
     });
 
     const filePath = migrationFilePath(batch.id);
-    const buf = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buf);
+    fs.writeFileSync(filePath, Buffer.from(bytes));
 
     const scan = scanXlsxFile(filePath, file.name);
 

@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readObject } from "@/lib/storage";
+import { contentTypeForName, isInlineSafe, contentDisposition } from "@/lib/file-type";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_READ);
@@ -30,13 +30,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);
     }
 
-    const ext = path.extname(doc.storageKey);
+    // Derive the served type from the stored key's extension — NOT from the
+    // provider or the persisted mimeType, so a legacy row saved with a wrong
+    // type (or a provider echoing the upload's claimed type) is served safely.
+    const mime = contentTypeForName(doc.storageKey);
+    const ext = doc.storageKey.slice(doc.storageKey.lastIndexOf("."));
     const downloadName = `${doc.staff.name.replace(/[^\w.-]+/g, "_")}_${doc.documentType.code}${ext}`;
+    const disposition = isInlineSafe(mime) ? "inline" : "attachment";
+
     return new Response(stored.body, {
       headers: {
-        "Content-Type": stored.contentType ?? doc.mimeType ?? "application/octet-stream",
+        "Content-Type": mime,
         ...(stored.contentLength ? { "Content-Length": String(stored.contentLength) } : {}),
-        "Content-Disposition": `inline; filename="${downloadName}"`,
+        "Content-Disposition": contentDisposition(disposition, downloadName),
+        // Defence-in-depth for any file the browser might try to interpret.
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'",
         // Same content for a given id — allow the browser to reuse it instead of
         // re-downloading on every render. `private` keeps it out of shared caches.
         "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",

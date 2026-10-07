@@ -6,6 +6,7 @@ import { err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { contentDisposition } from "@/lib/file-type";
 import {
   buildCertificateNumber,
   DEFAULT_NUMBER_PATTERN,
@@ -146,7 +147,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          "Content-Disposition": `attachment; filename="${fname}"`,
+          "Content-Disposition": contentDisposition("attachment", fname),
+          "X-Content-Type-Options": "nosniff",
           "Content-Length": String(pptx.byteLength),
         },
       });
@@ -178,7 +180,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: 200,
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="Sertifikat_IHT_${numberSafeName(training.title)}.zip"`,
+        "Content-Disposition": contentDisposition(
+          "attachment",
+          `Sertifikat_IHT_${numberSafeName(training.title)}.zip`,
+        ),
+        "X-Content-Type-Options": "nosniff",
         "Content-Length": String(zipBuf.byteLength),
       },
     });

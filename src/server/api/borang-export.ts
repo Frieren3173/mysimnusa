@@ -22,6 +22,7 @@ import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { formatDateShort } from "@/lib/utils";
+import { contentDisposition } from "@/lib/file-type";
 import {
   expandPatientRows,
   KASI_KEPERAWATAN,
@@ -445,7 +446,8 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": contentDisposition("attachment", filename),
+      "X-Content-Type-Options": "nosniff",
       "Content-Length": String(buffer.byteLength),
     },
   });

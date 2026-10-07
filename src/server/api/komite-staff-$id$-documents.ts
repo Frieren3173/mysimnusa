@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import * as path from "path";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
@@ -7,20 +6,10 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { deriveDocumentStatus } from "@/lib/utils";
 import { putObject } from "@/lib/storage";
+import { validateUpload, EXT_MIME } from "@/lib/file-type";
 
 const MAX_SIZE = 15 * 1024 * 1024; // 15 MB
-const ALLOWED_EXT = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".doc", ".docx", ".xls", ".xlsx"];
-
-const ALLOWED_MIME: Record<string, string> = {
-  "application/pdf": ".pdf",
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "application/msword": ".doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-  "application/vnd.ms-excel": ".xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-};
+const ALLOWED_EXT = Object.keys(EXT_MIME); // pdf, jpg/jpeg, png, webp, doc/docx, xls/xlsx
 
 /** Lists a staff member's documents, optionally filtered by document-type code. */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -87,12 +76,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const code = String(form.get("code") ?? "").trim();
   if (!code) return err("NO_TYPE", "Jenis dokumen wajib dipilih", 422);
 
-  const ext =
-    ALLOWED_MIME[file.type] ??
-    path.extname(file.name).toLowerCase();
-  if (!ALLOWED_EXT.includes(ext)) {
-    return err("INVALID_TYPE", `Format file tidak didukung (${ext || "tanpa ekstensi"})`, 415);
-  }
+  // Read the bytes once, then decide the type from the extension + magic bytes.
+  // The browser-supplied `file.type` is only a consistency hint — never trusted.
+  const bytes = await file.arrayBuffer();
+  const verdict = validateUpload(file.name, file.type, new Uint8Array(bytes), ALLOWED_EXT);
+  if (!verdict.ok) return err(verdict.code, verdict.message, 415);
 
   const expiryRaw = String(form.get("expiryDate") ?? "").trim();
   const isLifetime = String(form.get("isLifetime") ?? "") === "true";
@@ -105,16 +93,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   try {
-    const docType = await prisma.documentType.upsert({
-      where: { code },
-      update: {},
-      create: { code, name: code },
-    });
+    // Resolve the document type. New types are only created for a strictly
+    // formatted code AND by a user with admin-settings rights; everyone else may
+    // only pick an existing type (prevents free-form type injection).
+    const existingType = await prisma.documentType.findUnique({ where: { code } });
+    let docType = existingType;
+    if (!docType) {
+      const CODE_RE = /^[A-Z0-9_]{2,40}$/;
+      if (!CODE_RE.test(code)) {
+        return err("INVALID_TYPE_CODE", "Kode jenis dokumen tidak valid", 422);
+      }
+      const mayCreateType =
+        user.hasPermission(PERMISSIONS.ADMIN_SETTINGS) || user.isSuperAdmin();
+      if (!mayCreateType) {
+        return err("UNKNOWN_TYPE", "Jenis dokumen tidak dikenal", 422);
+      }
+      docType = await prisma.documentType.create({ data: { code, name: code } });
+    }
 
     // Files are stored by the active storage provider (Google Drive in
     // production); Neon only keeps the metadata below. Keys follow
     // staff/{staffId}/{category}/{generated-file-name}.
-    const bytes = await file.arrayBuffer();
     const checksum = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 
     const stored = await putObject({
@@ -122,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ownerId: staffId,
       category: code.toLowerCase(),
       fileName: file.name,
-      contentType: file.type || "application/octet-stream",
+      contentType: verdict.mime,
       body: bytes,
     });
 
@@ -136,7 +135,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         isLifetime,
         status: deriveDocumentStatus(expiryDate, isLifetime),
         filename: file.name,
-        mimeType: file.type || "application/octet-stream",
+        mimeType: verdict.mime,
         fileSize: stored.bytes,
         storageKey: stored.storageKey,
         storageProvider: stored.provider,

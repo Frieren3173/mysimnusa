@@ -4,6 +4,7 @@ import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readThumbnail } from "@/lib/storage";
+import { contentTypeForName } from "@/lib/file-type";
 
 /**
  * Lightweight thumbnail endpoint for list/avatar rendering.
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const doc = await prisma.document.findUnique({
     where: { id },
-    select: { storageKey: true, mimeType: true },
+    select: { storageKey: true, mimeType: true, filename: true },
   });
   if (!doc) return err("NOT_FOUND", "Dokumen tidak ditemukan", 404);
   if (!doc.storageKey) return err("NO_FILE", "Berkas belum tersedia", 404);
@@ -42,10 +43,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (!thumb) return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);
 
+  // Type derived from the stored key/name extension (never the provider value).
+  const mime = contentTypeForName(doc.storageKey || doc.filename || "");
   return new Response(thumb.body, {
     headers: {
-      "Content-Type": thumb.contentType ?? doc.mimeType ?? "image/jpeg",
+      "Content-Type": mime.startsWith("image/") ? mime : "image/jpeg",
       ...(thumb.contentLength ? { "Content-Length": String(thumb.contentLength) } : {}),
+      "X-Content-Type-Options": "nosniff",
       // Thumbnails are cheap and stable per file version — cache aggressively
       // for the session. `private` keeps them out of shared caches.
       "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",

@@ -3,6 +3,7 @@ import { err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readTemplate, templateExists } from "@/lib/diklat/certificate";
+import { contentDisposition } from "@/lib/file-type";
 
 /**
  * Download the blank certificate template (.pptx) so an administrator can see /
@@ -20,7 +21,11 @@ export async function GET() {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "Content-Disposition": 'attachment; filename="Contoh_Template_Sertifikat_IHT.pptx"',
+      "Content-Disposition": contentDisposition(
+        "attachment",
+        "Contoh_Template_Sertifikat_IHT.pptx",
+      ),
+      "X-Content-Type-Options": "nosniff",
       "Content-Length": String(buffer.byteLength),
     },
   });

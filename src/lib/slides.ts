@@ -3,12 +3,6 @@ import * as path from "path";
 
 export const SLIDES_DIR = path.join(process.cwd(), "public", "uploads", "slides");
 
-export const SLIDE_MIME: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-};
-
 const SLIDE_EXT = [".jpg", ".jpeg", ".png", ".webp"];
 
 /** Safe public path for a slide file. */
