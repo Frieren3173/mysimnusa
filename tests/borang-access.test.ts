@@ -5,6 +5,8 @@ import {
   separationOfDutiesViolation,
   isEditableStatus,
   MANAGE_ON_BEHALF_PERMISSIONS,
+  visibleStaffForActor,
+  canSelectOtherStaff,
 } from "@/lib/borang-access";
 import { PERMISSIONS } from "@/lib/constants";
 
@@ -143,5 +145,51 @@ describe("MANAGE_ON_BEHALF_PERMISSIONS", () => {
     expect(MANAGE_ON_BEHALF_PERMISSIONS).toContain(PERMISSIONS.BORANG_LOGBOOK_APPROVE);
     expect(MANAGE_ON_BEHALF_PERMISSIONS).toContain(PERMISSIONS.BORANG_LOGBOOK_ARCHIVE);
     expect(MANAGE_ON_BEHALF_PERMISSIONS).toContain(PERMISSIONS.ADMIN_SETTINGS);
+  });
+});
+
+const ALL_STAFF = [
+  { id: "s1", name: "Alice" },
+  { id: "s2", name: "Bob" },
+  { id: "s3", name: "Carol" },
+];
+
+describe("visibleStaffForActor (staff dropdown filtering)", () => {
+  it("returns the full list for privileged actors", () => {
+    const a = actor({ id: "u1", staffId: "s2", perms: [PERMISSIONS.BORANG_LOGBOOK_VERIFY] });
+    expect(visibleStaffForActor(a, ALL_STAFF)).toHaveLength(3);
+  });
+
+  it("returns the full list for admin-settings holders", () => {
+    const a = actor({ id: "u1", perms: [PERMISSIONS.ADMIN_SETTINGS] });
+    expect(visibleStaffForActor(a, ALL_STAFF)).toHaveLength(3);
+  });
+
+  it("returns only the actor's own staff row for a plain user", () => {
+    const a = actor({ id: "u1", staffId: "s2" });
+    const result = visibleStaffForActor(a, ALL_STAFF);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("s2");
+  });
+
+  it("returns an empty list for a plain user with no linked staff", () => {
+    const a = actor({ id: "u1", staffId: null });
+    expect(visibleStaffForActor(a, ALL_STAFF)).toHaveLength(0);
+  });
+
+  it("never leaks other staff to a plain user even if present in the source", () => {
+    const a = actor({ id: "u1", staffId: "s1" });
+    const ids = visibleStaffForActor(a, ALL_STAFF).map((s) => s.id);
+    expect(ids).toEqual(["s1"]);
+    expect(ids).not.toContain("s2");
+  });
+});
+
+describe("canSelectOtherStaff", () => {
+  it("is false for a plain user and true for privileged actors", () => {
+    expect(canSelectOtherStaff(actor({ id: "u1", staffId: "s1" }))).toBe(false);
+    expect(
+      canSelectOtherStaff(actor({ id: "u1", perms: [PERMISSIONS.BORANG_LOGBOOK_APPROVE] })),
+    ).toBe(true);
   });
 });

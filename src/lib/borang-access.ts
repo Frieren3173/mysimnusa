@@ -49,6 +49,32 @@ export function canActOnBehalf(actor: Actor): boolean {
   return MANAGE_ON_BEHALF_PERMISSIONS.some((perm) => actor.hasPermission(perm));
 }
 
+/**
+ * Narrows the staff list shown in the "Pilih petugas" dropdown for the entry
+ * form, using the **same rule** the create API enforces (`canActOnBehalf`).
+ *
+ *  • Privileged actors (verifier / admin / archive) → the full list, unchanged.
+ *  • Everyone else → only their own staff record (empty when the account is not
+ *    linked to a Staff row).
+ *
+ * Kept as a pure function so the server page and the unit tests share one
+ * definition and UI/API cannot drift apart.
+ */
+export function visibleStaffForActor<T extends { id: string }>(
+  actor: Actor,
+  allStaff: T[],
+): T[] {
+  if (canActOnBehalf(actor)) return allStaff;
+  const ownId = actorStaffId(actor);
+  if (!ownId) return [];
+  return allStaff.filter((s) => s.id === ownId);
+}
+
+/** True when the actor may pick any staff member (drives dropdown read-only state). */
+export function canSelectOtherStaff(actor: Actor): boolean {
+  return canActOnBehalf(actor);
+}
+
 /** True when the actor may edit/delete this entry. Legacy rows (no owner) are permissive. */
 export function isEntryOwnerOrPrivileged(
   actor: Actor,

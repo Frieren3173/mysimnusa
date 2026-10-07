@@ -21,19 +21,25 @@ export function EntryClient({
   rooms,
   defaultStaffId,
   defaultRoomId,
+  canSelectStaff,
   canSubmit,
 }: {
   staff: StaffOpt[];
   rooms: RoomOpt[];
   defaultStaffId: string;
   defaultRoomId: string | null;
+  canSelectStaff: boolean;
   canSubmit: boolean;
 }) {
   const router = useRouter();
+  // When the user may only file for themselves, the staff field is locked to
+  // their own record (auto-selected) — a read-only view of the same dropdown.
+  const lockedStaff = !canSelectStaff && staff.length === 1 ? staff[0] : null;
+  const hasNoStaff = !canSelectStaff && staff.length === 0;
   const [busy, setBusy] = React.useState<null | "draft" | "submit">(null);
   const [msg, setMsg] = React.useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [form, setForm] = React.useState({
-    staffId: defaultStaffId,
+    staffId: lockedStaff?.id ?? defaultStaffId,
     roomId: defaultRoomId ?? "",
     period: new Date().toISOString().slice(0, 7),
     actionType: "",
@@ -99,6 +105,12 @@ export function EntryClient({
         <CardTitle>Formulir Tindakan</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasNoStaff && (
+          <div role="status" className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-700">
+            Akun ini tidak terhubung ke data SDM — pilih petugas
+          </div>
+        )}
+
         {msg && (
           <div
             role="status"
@@ -115,14 +127,26 @@ export function EntryClient({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1">
             <span className="text-xs text-slate-500">Petugas *</span>
-            <select value={form.staffId} onChange={set("staffId")} className={inputCls}>
-              <option value="">— Pilih petugas —</option>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} — {s.profession}
-                </option>
-              ))}
-            </select>
+            {lockedStaff ? (
+              // Non-privileged users file only for themselves: a read-only field
+              // styled exactly like the dropdown it replaces.
+              <input
+                value={`${lockedStaff.name} — ${lockedStaff.profession}`}
+                readOnly
+                aria-readonly="true"
+                tabIndex={-1}
+                className={`${inputCls} cursor-default bg-slate-50 text-slate-600`}
+              />
+            ) : (
+              <select value={form.staffId} onChange={set("staffId")} className={inputCls}>
+                <option value="">— Pilih petugas —</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — {s.profession}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
 
           <label className="space-y-1">
@@ -183,11 +207,11 @@ export function EntryClient({
         </p>
 
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" size="sm" disabled={busy !== null} loading={busy === "draft"} onClick={() => save(false)}>
+          <Button variant="secondary" size="sm" disabled={busy !== null || hasNoStaff} loading={busy === "draft"} onClick={() => save(false)}>
             Simpan Draf
           </Button>
           {canSubmit && (
-            <Button variant="primary" size="sm" disabled={busy !== null} loading={busy === "submit"} onClick={() => save(true)}>
+            <Button variant="primary" size="sm" disabled={busy !== null || hasNoStaff} loading={busy === "submit"} onClick={() => save(true)}>
               Simpan & Kirim
             </Button>
           )}
