@@ -18,6 +18,19 @@ export const metadata: Metadata = {
   description: "Sistem Informasi Manajemen Keperawatan & Kebidanan",
   applicationName: "MYSIMNUSA",
   robots: { index: false, follow: false }, // Internal app — no indexing
+  openGraph: {
+    title: "MYSIMNUSA — Sistem Informasi Manajemen Keperawatan & Kebidanan",
+    description: "Sistem Informasi Manajemen Keperawatan & Kebidanan",
+    siteName: "MYSIMNUSA",
+    type: "website",
+    images: [{ url: "/assets/logo/og-image.png", width: 1200, height: 630, alt: "MYSIMNUSA" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MYSIMNUSA — Sistem Informasi Manajemen Keperawatan & Kebidanan",
+    description: "Sistem Informasi Manajemen Keperawatan & Kebidanan",
+    images: ["/assets/logo/og-image.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

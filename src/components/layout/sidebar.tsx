@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -118,17 +117,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className={cn("border-b border-[var(--color-border)] py-3", collapsed ? "px-2" : "px-4")}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
-            {/* Collapsed: give the logo breathing room and keep its natural
-                aspect ratio (never squash it to fit a narrow slot). */}
+            {/* Collapsed: the 5:1 strip can't fit a 64px rail, so show only the
+                first emblem (Lambang Kejaksaan) as a tidy square-ish crop. */}
             <div className="flex h-9 w-full items-center justify-center overflow-hidden rounded-md bg-white">
-              <Image
-                src="/logo-rsajt.png"
-                alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
-                width={1430}
-                height={721}
-                priority
-                className="h-auto w-full max-w-[44px] object-contain"
-              />
+              <span className="block h-full overflow-hidden" style={{ width: "30px" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/logo/logo-2000.webp"
+                  srcSet="/assets/logo/logo-1000.webp 1000w, /assets/logo/logo-2000.webp 2000w"
+                  sizes="80px"
+                  alt="Logo Kejaksaan RI, RS Adhyaksa Jawa Timur, BerAKHLAK, Bangga Melayani Bangsa"
+                  width={2000}
+                  height={288}
+                  decoding="async"
+                  // Natural height 36px → width ~250px; clip to the first emblem
+                  // (source x<300 of 1999 ≈ 30px at this size).
+                  className="h-full w-auto max-w-none object-contain object-left"
+                />
+              </span>
             </div>
             <button
               onClick={onToggle}
@@ -140,16 +146,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
         ) : (
           <>
-            {/* Row 1: logo + MYSIMNUSA on the same horizontal line */}
+            {/* Row 1: the full 4-logo strip is too wide for a 240px rail, so
+                show a left crop of the first two emblems (Kejaksaan + RS
+                Adhyaksa) to keep it on one line with the app name. */}
             <div className="flex items-center gap-2.5">
-              <Image
-                src="/logo-rsajt.png"
-                alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
-                width={1430}
-                height={721}
-                priority
-                className="h-8 w-auto shrink-0 object-contain"
-              />
+              <span
+                className="block h-7 shrink-0 overflow-hidden"
+                style={{ width: "58px" }}
+                aria-hidden="false"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/logo/logo-2000.webp"
+                  srcSet="/assets/logo/logo-1000.webp 1000w, /assets/logo/logo-2000.webp 2000w"
+                  sizes="220px"
+                  alt="Logo Kejaksaan RI, RS Adhyaksa Jawa Timur, BerAKHLAK, Bangga Melayani Bangsa"
+                  width={2000}
+                  height={288}
+                  decoding="async"
+                  // Natural height 28px → width ~194px; the wrapper clips to the
+                  // first two emblems (source x<596 of 1999 ≈ 58px at this size).
+                  className="h-7 w-auto max-w-none object-contain object-left"
+                />
+              </span>
               <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--color-foreground)]">
                 MYSIMNUSA
               </p>

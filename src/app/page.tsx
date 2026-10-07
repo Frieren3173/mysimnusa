@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import Script from "next/script";
 import "./scroll-story.css";
+import { LogoLockup } from "@/components/brand/logo-lockup";
 import {
   ArrowRight,
   Activity,
@@ -69,21 +69,23 @@ const FOOTER_RIGHT =
 export default function Home() {
   return (
     <div className="story-page flex min-h-screen flex-col bg-slate-950 text-slate-900">
+      {/* Preload the header logo so it paints immediately over the hero video. */}
+      <link rel="preload" as="image" href="/assets/logo/logo-1000.webp" />
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3" data-motion-intro-child>
-            <Image
-              src="/logo-rsajt.png"
-              alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
-              width={1430}
-              height={721}
-              priority
-              className="h-8 w-auto"
-            />
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3" data-motion-intro-child>
+            {/* Mobile: only the first two emblems to keep the header compact. */}
+            <span className="hidden max-[560px]:block">
+              <LogoLockup height={26} cropWidth={54} priority />
+            </span>
+            {/* Desktop/tablet: the full 4-logo strip. */}
+            <span className="max-[560px]:hidden">
+              <LogoLockup height={30} priority />
+            </span>
             <div className="min-w-0 border-l border-slate-200 pl-3">
               <p className="text-sm font-semibold leading-tight text-slate-900">MYSIMNUSA</p>
-              <p className="text-[10px] leading-tight text-slate-500">
+              <p className="hidden text-[10px] leading-tight text-slate-500 sm:block">
                 Manajemen Keperawatan &amp; Kebidanan
               </p>
             </div>

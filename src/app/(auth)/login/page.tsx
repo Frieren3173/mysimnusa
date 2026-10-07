@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Script from "next/script";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ShieldCheck, Lock, Users, FileText, GraduationCap } from "lucide-react";
+import { LogoLockup } from "@/components/brand/logo-lockup";
 import "./login-slideshow.css";
 
 export const metadata: Metadata = { title: "Masuk" };
@@ -44,16 +44,7 @@ export default async function LoginPage() {
         {/* Minimal brand chrome over the photo */}
         <div className="hero-chrome">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white">
-              <Image
-                src="/logo-rsajt.png"
-                alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
-                width={1430}
-                height={721}
-                priority
-                className="h-7 w-auto"
-              />
-            </span>
+            <LogoLockup height={26} capsule capsuleClassName="rounded-xl" />
             <div>
               <p className="text-sm font-semibold leading-tight text-white">MYSIMNUSA</p>
               <p className="text-[11px] leading-tight text-slate-200">
@@ -77,14 +68,7 @@ export default async function LoginPage() {
         <div className="login-panel__inner w-full max-w-sm">
           {/* Mobile brand */}
           <div className="mb-6 flex items-center gap-3 min-[900px]:hidden">
-            <Image
-              src="/logo-rsajt.png"
-              alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
-              width={1430}
-              height={721}
-              priority
-              className="h-9 w-auto"
-            />
+            <LogoLockup height={26} priority />
             <div className="border-l border-slate-200 pl-3">
               <p className="text-sm font-semibold leading-tight text-slate-900">MYSIMNUSA</p>
               <p className="text-[10px] leading-tight text-slate-500">
