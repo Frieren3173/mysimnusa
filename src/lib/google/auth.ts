@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { tokenEncryptionSecret } from "@/lib/secrets";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -87,11 +88,18 @@ export function isGoogleConfigured(): boolean {
 
 // ─── AES-256-GCM token encryption at rest ────────────────────
 
+/**
+ * 32-byte AES key.
+ *
+ * Uses a dedicated `TOKEN_ENCRYPTION_KEY` when present; otherwise derives the
+ * key from `AUTH_SECRET` with SHA-256 — the exact legacy derivation, so tokens
+ * encrypted before this change still decrypt. The wire format stays `v1.…`.
+ *
+ * Rotating either key makes existing encrypted Google tokens undecryptable,
+ * which forces the Google connection to be re-authorised.
+ */
 function encKey(): Buffer {
-  return crypto
-    .createHash("sha256")
-    .update(process.env.AUTH_SECRET || "dev-secret-change-in-production-32chars")
-    .digest();
+  return crypto.createHash("sha256").update(tokenEncryptionSecret()).digest();
 }
 
 export function encryptJson(value: unknown): string {

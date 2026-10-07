@@ -1,10 +1,12 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+import { authSecret } from "./secrets";
 
-const SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "dev-secret-change-in-production-32chars"
-);
+/** Signing key, resolved lazily on first use (never at import/build time). */
+function signingKey(): Uint8Array {
+  return new TextEncoder().encode(authSecret());
+}
 
 const SESSION_COOKIE = "rsajt_session";
 const SESSION_EXPIRY_HOURS = 8;
@@ -33,7 +35,7 @@ export async function createSession(userId: string): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime(`${SESSION_EXPIRY_HOURS}h`)
     .setIssuedAt()
-    .sign(SECRET);
+    .sign(signingKey());
 
   return token;
 }
@@ -55,7 +57,7 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, signingKey());
     return payload as unknown as SessionPayload;
   } catch {
     return null;
