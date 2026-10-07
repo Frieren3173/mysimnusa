@@ -1,0 +1,200 @@
+/* =====================================================================
+ * login-slideshow.css — MYSIMNUSA login page
+ * ---------------------------------------------------------------------
+ * Two-column layout: left ≈75% photo slideshow (cinematic crossfade + Ken
+ * Burns), right ≈25% login form (light, unchanged). On small screens the left
+ * panel collapses to a short header (~30vh) above the form.
+ *
+ * Photos are decorative (aria-hidden). Only transform / opacity are animated.
+ * Reduced-motion turns the slideshow into a simple fade (no zoom).
+ * ===================================================================== */
+
+/* ── Shell: 2 columns ─────────────────────────────────────────────────── */
+.login-shell {
+  display: grid;
+  grid-template-columns: 1fr; /* mobile default: single column (form) */
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+@media (min-width: 900px) {
+  .login-shell {
+    /* ~75% slideshow / ~25% form, but never let the form go below 420px. */
+    grid-template-columns: 3fr minmax(420px, 1fr);
+  }
+}
+
+/* ── Left panel (slideshow) ───────────────────────────────────────────── */
+.login-hero {
+  position: relative;
+  overflow: hidden;
+  background: #0f172a; /* navy fallback before the first photo paints */
+  display: none; /* hidden on mobile unless it becomes a short header */
+}
+
+@media (min-width: 900px) {
+  .login-hero {
+    display: block;
+  }
+}
+
+/* Slideshow stack: slides are absolutely stacked and cross-faded. */
+.hero-slides {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero-slides .slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* Keep faces/heads in frame (portrait photos especially). */
+  background-position: center 30%;
+  opacity: 0;
+  transform: scale(1);
+  will-change: transform, opacity;
+  /* Crossfade + Ken Burns — overridden per-slide via CSS vars. */
+  transition: opacity var(--slide-fade, 1400ms) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The active slide is fully opaque and runs its Ken Burns zoom. */
+.hero-slides .slide.is-active {
+  opacity: 1;
+  animation: hero-kenburns var(--slide-hold, 6000ms) linear forwards;
+}
+
+/* Ken Burns: zoom 1 → 1.08 with a per-slide drift direction (CSS vars). */
+@keyframes hero-kenburns {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.08) translate3d(var(--kb-x, 0%), var(--kb-y, 0%), 0);
+  }
+}
+
+/* ── Overlay gradient (navy, dense left/bottom → lighter right) ───────── */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      rgba(2, 6, 23, 0.85) 0%,
+      rgba(2, 6, 23, 0.7) 38%,
+      rgba(2, 6, 23, 0.45) 70%,
+      rgba(2, 6, 23, 0.35) 100%
+    ),
+    linear-gradient(
+      to top,
+      rgba(2, 6, 23, 0.85) 0%,
+      rgba(2, 6, 23, 0.25) 45%,
+      rgba(2, 6, 23, 0) 70%
+    );
+}
+
+/* Soft vignette on the edges. */
+.hero-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 30% 40%, transparent 55%, rgba(2, 6, 23, 0.55) 100%);
+}
+
+/* ── Brand content above the slideshow ────────────────────────────────── */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3rem;
+}
+
+/* ── Progress dots ────────────────────────────────────────────────────── */
+.hero-dots {
+  position: absolute;
+  z-index: 3;
+  left: 3rem;
+  bottom: 1.5rem;
+  display: flex;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+@media (min-width: 900px) {
+  .hero-dots {
+    /* Lift the dots above the footer line. */
+    bottom: 1.25rem;
+    left: 3rem;
+  }
+}
+.hero-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.4);
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.hero-dots .dot.is-active {
+  width: 18px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* ── Right panel (form) — always light & usable ───────────────────────── */
+.login-panel {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  background: #f8fafc;
+}
+@media (min-width: 900px) {
+  .login-panel {
+    min-height: 0; /* fills the grid row */
+  }
+}
+
+/* ── Small screens (< 900px): short slideshow header above the form ───── */
+@media (max-width: 899px) {
+  .login-hero {
+    display: block;
+    height: 30vh;
+    min-height: 190px;
+  }
+  .hero-content {
+    padding: 1.25rem 1.5rem;
+  }
+  /* On mobile only show the compact brand row (hide the long copy). */
+  .hero-content > .max-w-md,
+  .hero-content > p.flex {
+    display: none;
+  }
+  .hero-dots {
+    left: 1.5rem;
+    bottom: 0.75rem;
+  }
+  .login-panel {
+    min-height: auto;
+    flex: 1;
+    padding: 2rem 1.25rem;
+  }
+}
+
+/* ── Reduced motion: simple fade, no zoom, longer hold ────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-slides .slide {
+    transition-duration: 400ms;
+  }
+  .hero-slides .slide.is-active {
+    animation: none; /* no Ken Burns */
+    transform: none;
+  }
+}

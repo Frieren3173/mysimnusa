@@ -49,6 +49,8 @@ next-env.d.ts
 
 # raw landing-page video sources (large; compress with compress.sh → public/assets)
 /source-videos/
+# raw login slideshow photo sources (large; prepare with prepare-photos.sh → public/assets/login)
+/source-photos/
 
 .vercel
 .env*
