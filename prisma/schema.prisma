@@ -48,7 +48,27 @@ model Session {
 
   @@index([userId])
   @@index([token])
+  @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Durable login rate-limiting counters. One row per key, where a key is either
+/// `ip:<ip>` or `user:<lowercased-username>`. `count` is incremented atomically
+/// on each failed attempt within `windowStart`; `lockedUntil` blocks further
+/// attempts once the limit is hit. Serverless-safe (no in-memory state).
+model LoginAttempt {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  count        Int       @default(0)
+  windowStart  DateTime  @default(now())
+  resetAt      DateTime
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([resetAt])
+  @@index([lockedUntil])
+  @@map("login_attempts")
 }
 
 model Role {
