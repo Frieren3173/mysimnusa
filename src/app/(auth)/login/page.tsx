@@ -26,10 +26,23 @@ export default async function LoginPage() {
     <div className="login-shell">
       {/* Preload only the first slide so the hero paints immediately. */}
       <link rel="preload" as="image" href={FIRST_SLIDE} />
-      {/* ── Left panel — text column (navy) + photo slideshow zone ───────── */}
+      {/* ── Left panel — full-bleed photo slideshow (logo + small footer only) ── */}
       <aside className="login-hero" data-login-hero aria-label="Panel brand">
-        {/* Text zone (solid navy) — keeps text OFF the photos */}
-        <div className="hero-text">
+        {/* Slideshow layer (photos decorative → aria-hidden) */}
+        <div className="hero-slides" aria-hidden="true">
+          <div
+            className="slide"
+            data-slide="static"
+            style={{ backgroundImage: `url(${FIRST_SLIDE})` }}
+          />
+        </div>
+
+        {/* Light top/bottom navy gradient (logo + footer legibility) + vignette */}
+        <div className="hero-overlay" aria-hidden="true" />
+        <div className="hero-vignette" aria-hidden="true" />
+
+        {/* Minimal brand chrome over the photo */}
+        <div className="hero-chrome">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white">
               <Image
@@ -43,63 +56,27 @@ export default async function LoginPage() {
             </span>
             <div>
               <p className="text-sm font-semibold leading-tight text-white">MYSIMNUSA</p>
-              <p className="text-[11px] leading-tight text-slate-300">
+              <p className="text-[11px] leading-tight text-slate-200">
                 Manajemen Keperawatan &amp; Kebidanan
               </p>
             </div>
           </div>
 
-          <div className="hero-text__body">
-            <h1 className="hero-title font-semibold leading-tight tracking-tight text-white">
-              Sistem Informasi Manajemen
-              <span className="block text-slate-300">Keperawatan &amp; Kebidanan</span>
-            </h1>
-            <p className="hero-desc mt-5 text-sm leading-relaxed text-slate-300">
-              Platform internal untuk pengelolaan data tenaga keperawatan, legalitas,
-              borang, dan diklat secara terpadu dan tertelusur.
-            </p>
-
-            <ul className="hero-features mt-8 space-y-3">
-              {highlights.map((item) => (
-                <li key={item.label} className="flex items-center gap-3 text-sm text-slate-200">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-white/10 text-blue-200">
-                    <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  </span>
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <p className="flex items-center gap-2 text-xs text-slate-400">
+          <p className="flex items-center gap-2 text-xs text-slate-300">
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
             Rumah Sakit Adhyaksa Jawa Timur · Sistem Internal
           </p>
         </div>
 
-        {/* Photo zone (slideshow) — faces stay clear on the right */}
-        <div className="hero-photo">
-          <div className="hero-slides" aria-hidden="true">
-            <div
-              className="slide"
-              data-slide="static"
-              style={{ backgroundImage: `url(${FIRST_SLIDE})` }}
-            />
-          </div>
-          {/* Soft navy tint top/bottom + very light overall veil */}
-          <div className="hero-overlay" aria-hidden="true" />
-          <div className="hero-vignette" aria-hidden="true" />
-
-          {/* Slideshow progress dots (thin, bottom of the photo zone) */}
-          <div className="hero-dots" data-hero-dots aria-hidden="true" />
-        </div>
+        {/* Slideshow progress dots (thin, bottom-left) */}
+        <div className="hero-dots" data-hero-dots aria-hidden="true" />
       </aside>
 
-      {/* ── Right panel — login form ─────────────────────────────────────── */}
+      {/* ── Right panel — identity block + login form ─────────────────────── */}
       <main className="login-panel">
-        <div className="w-full max-w-sm">
+        <div className="login-panel__inner w-full max-w-sm">
           {/* Mobile brand */}
-          <div className="mb-8 flex items-center gap-3 min-[900px]:hidden">
+          <div className="mb-6 flex items-center gap-3 min-[900px]:hidden">
             <Image
               src="/logo-rsajt.png"
               alt="Logo Rumah Sakit Adhyaksa Jawa Timur"
@@ -115,6 +92,27 @@ export default async function LoginPage() {
               </p>
             </div>
           </div>
+
+          {/* Identity block (moved from the left panel) */}
+          <header className="login-intro">
+            <h1 className="login-intro__title">
+              Sistem Informasi Manajemen{" "}
+              <span className="block text-slate-500">Keperawatan &amp; Kebidanan</span>
+            </h1>
+            <p className="login-intro__desc">
+              Platform internal untuk pengelolaan data tenaga keperawatan, legalitas,
+              borang, dan diklat secara terpadu dan tertelusur.
+            </p>
+
+            <ul className="login-chips" aria-label="Cakupan sistem">
+              {highlights.map((item) => (
+                <li key={item.label} className="login-chip">
+                  <item.icon className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </li>
+              ))}
+            </ul>
+          </header>
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="mb-6">
