@@ -13,7 +13,8 @@ const WorkflowSchema = z.object({
   reason: z.string().trim().max(1000).optional(),
 });
 
-const TRANSITIONS: Record<
+/** State machine for the Borang logbook workflow (exported for unit tests). */
+export const TRANSITIONS: Record<
   string,
   { from: string[]; to: string; permission: string; audit: string }
 > = {
