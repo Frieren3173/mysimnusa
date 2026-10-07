@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { deriveDocumentStatus } from "@/lib/utils";
 import { putObject } from "@/lib/storage";
 import { validateUpload, EXT_MIME } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const MAX_SIZE = 15 * 1024 * 1024; // 15 MB
 const ALLOWED_EXT = Object.keys(EXT_MIME); // pdf, jpg/jpeg, png, webp, doc/docx, xls/xlsx
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })),
     });
   } catch (e) {
-    return err("LIST_FAILED", e instanceof Error ? e.message : "Gagal memuat dokumen", 500);
+    logServerError("komite-staff-$id$-documents", e);
+    return err("LIST_FAILED", safeErrorMessage("LIST_FAILED"), 500);
   }
 }
 
@@ -147,6 +149,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return ok({ document });
   } catch (e) {
-    return err("UPLOAD_FAILED", e instanceof Error ? e.message : "Gagal mengunggah file", 500);
+    logServerError("komite-staff-$id$-documents", e);
+    return err("UPLOAD_FAILED", safeErrorMessage("UPLOAD_FAILED"), 500);
   }
 }

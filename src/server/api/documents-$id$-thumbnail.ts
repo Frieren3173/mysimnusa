@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readThumbnail } from "@/lib/storage";
 import { contentTypeForName } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 /**
  * Lightweight thumbnail endpoint for list/avatar rendering.
@@ -39,7 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     thumb = await readThumbnail(doc.storageKey, size);
   } catch (e) {
-    return err("STORAGE_ERROR", e instanceof Error ? e.message : "Gagal membaca penyimpanan", 502);
+    logServerError("documents-$id$-thumbnail", e);
+    return err("STORAGE_ERROR", safeErrorMessage("STORAGE_ERROR"), 502);
   }
   if (!thumb) return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);
 

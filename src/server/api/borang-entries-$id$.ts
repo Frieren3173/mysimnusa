@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE } from "@/lib/borang";
 import { isEntryOwnerOrPrivileged } from "@/lib/borang-access";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const EditSchema = z.object({
   roomId: z.string().optional().nullable(),
@@ -92,7 +93,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return ok({ entry: updated });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui", 500);
+    logServerError("borang-entries-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }
 
@@ -184,6 +186,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return ok({ id });
   } catch (e) {
-    return err("DELETE_FAILED", e instanceof Error ? e.message : "Gagal menghapus borang", 500);
+    logServerError("borang-entries-$id$", e);
+    return err("DELETE_FAILED", safeErrorMessage("DELETE_FAILED"), 500);
   }
 }

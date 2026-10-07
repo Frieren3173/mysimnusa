@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { StaffSchema } from "@/lib/schemas/staff";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 async function guard(permission: string) {
   const { authorized, user } = await checkPermission(permission);
@@ -122,7 +123,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
     return ok({ staff });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui data", 500);
+    logServerError("komite-staff-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }
 

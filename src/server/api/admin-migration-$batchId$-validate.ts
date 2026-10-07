@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { validateBatch } from "@/lib/migration/engine";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ batchId: string }> }) {
   const user = await requireMigrationUser();
@@ -18,6 +19,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ batchI
     const result = await validateBatch(batchId);
     return ok(result);
   } catch (e) {
-    return err("VALIDATION_FAILED", e instanceof Error ? e.message : "Validasi gagal", 500);
+    logServerError("admin-migration-$batchId$-validate", e);
+    return err("VALIDATION_FAILED", safeErrorMessage("VALIDATION_FAILED"), 500);
   }
 }

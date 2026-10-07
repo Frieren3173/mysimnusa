@@ -4,6 +4,7 @@ import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { importBatch } from "@/lib/migration/engine";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ batchId: string }> }) {
   const user = await requireMigrationUser();
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ bat
     await prisma.migrationBatch
       .update({ where: { id: batchId }, data: { status: "FAILED" } })
       .catch(() => undefined);
-    return err("IMPORT_FAILED", e instanceof Error ? e.message : "Import gagal", 500);
+    logServerError("admin-migration-$batchId$-import", e);
+    return err("IMPORT_FAILED", safeErrorMessage("IMPORT_FAILED"), 500);
   }
 }

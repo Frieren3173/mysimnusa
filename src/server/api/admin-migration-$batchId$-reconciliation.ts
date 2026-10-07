@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { reconcileBatch } from "@/lib/migration/engine";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ batchId: string }> }) {
   const user = await requireMigrationUser();
@@ -58,6 +59,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ batchI
     const result = await reconcileBatch(batchId);
     return ok(result);
   } catch (e) {
-    return err("RECONCILE_FAILED", e instanceof Error ? e.message : "Rekonsiliasi gagal", 500);
+    logServerError("admin-migration-$batchId$-reconciliation", e);
+    return err("RECONCILE_FAILED", safeErrorMessage("RECONCILE_FAILED"), 500);
   }
 }

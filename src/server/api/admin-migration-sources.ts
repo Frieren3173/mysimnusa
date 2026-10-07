@@ -1,6 +1,7 @@
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { ok, err } from "@/lib/api";
 import { getConnectionPublic, fetchGoogle, isGoogleConfigured } from "@/lib/google/auth";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 interface DriveFile {
   id: string;
@@ -31,6 +32,7 @@ export async function GET() {
     const json = (await res.json()) as { files?: DriveFile[] };
     return ok({ configured, connection, sources: json.files ?? [] });
   } catch (e) {
-    return err("DRIVE_LIST_FAILED", e instanceof Error ? e.message : "Gagal membaca Google Drive", 502);
+    logServerError("admin-migration-sources", e);
+    return err("DRIVE_LIST_FAILED", safeErrorMessage("DRIVE_LIST_FAILED"), 502);
   }
 }

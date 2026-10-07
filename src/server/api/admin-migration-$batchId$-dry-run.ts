@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { dryRunBatch } from "@/lib/migration/engine";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ batchId: string }> }) {
   const user = await requireMigrationUser();
@@ -18,6 +19,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ batchI
     const result = await dryRunBatch(batchId);
     return ok(result);
   } catch (e) {
-    return err("DRY_RUN_FAILED", e instanceof Error ? e.message : "Dry run gagal", 500);
+    logServerError("admin-migration-$batchId$-dry-run", e);
+    return err("DRY_RUN_FAILED", safeErrorMessage("DRY_RUN_FAILED"), 500);
   }
 }

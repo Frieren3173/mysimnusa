@@ -3,6 +3,7 @@ import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { dedupDocuments } from "@/lib/migration/sync";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const user = await requireMigrationUser();
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     });
     return ok(result);
   } catch (e) {
-    return err("DEDUP_FAILED", e instanceof Error ? e.message : "Hapus duplikat gagal", 500);
+    logServerError("admin-migration-dedup", e);
+    return err("DEDUP_FAILED", safeErrorMessage("DEDUP_FAILED"), 500);
   }
 }

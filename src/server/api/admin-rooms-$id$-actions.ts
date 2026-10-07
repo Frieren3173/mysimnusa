@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const PutSchema = z.object({
   actionIds: z.array(z.string().min(1)).max(500),
@@ -75,6 +76,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return ok({ count });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan relasi", 500);
+    logServerError("admin-rooms-$id$-actions", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }

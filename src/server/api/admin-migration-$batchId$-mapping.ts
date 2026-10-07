@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const STAFF_TARGETS = [
   "staff.name",
@@ -71,6 +72,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ batc
     });
     return ok({ mappings });
   } catch (e) {
-    return err("SAVE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan pemetaan", 500);
+    logServerError("admin-migration-$batchId$-mapping", e);
+    return err("SAVE_FAILED", safeErrorMessage("SAVE_FAILED"), 500);
   }
 }

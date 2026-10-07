@@ -5,6 +5,7 @@ import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { scanXlsxFile, migrationFilePath, ensureStorage } from "@/lib/migration/source";
 import { validateUpload } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 
 const MAX_SIZE = 30 * 1024 * 1024; // 30 MB
@@ -90,13 +91,13 @@ export async function POST(req: NextRequest) {
 
     return ok({ batch: updated, scan });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Gagal memindai file";
+    logServerError("migration.upload", e);
     await prisma.migrationBatch
       .updateMany({
         where: { sourceReference: file.name, status: "SCANNING" },
         data: { status: "FAILED" },
       })
       .catch(() => undefined);
-    return err("SCAN_FAILED", message, 500);
+    return err("SCAN_FAILED", safeErrorMessage("SCAN_FAILED"), 500);
   }
 }

@@ -5,6 +5,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readObject } from "@/lib/storage";
 import { contentTypeForName, isInlineSafe, contentDisposition } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_DOCUMENT_READ);
@@ -24,7 +25,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     try {
       stored = await readObject(doc.storageKey);
     } catch (e) {
-      return err("STORAGE_ERROR", e instanceof Error ? e.message : "Gagal membaca penyimpanan", 502);
+      logServerError("documents-$id$-download", e);
+    return err("STORAGE_ERROR", safeErrorMessage("STORAGE_ERROR"), 502);
     }
     if (!stored) {
       return err("FILE_MISSING", "Berkas tidak ditemukan di penyimpanan", 410);

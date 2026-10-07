@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { StaffSchema } from "@/lib/schemas/staff";
 import { logAudit, clientIp } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const { authorized, user } = await checkPermission(PERMISSIONS.KOMITE_STAFF_READ);
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest) {
     });
     return ok({ staff });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan data", 500);
+    logServerError("komite-staff", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

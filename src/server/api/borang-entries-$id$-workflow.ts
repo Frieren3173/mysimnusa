@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { separationOfDutiesViolation } from "@/lib/borang-access";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const WorkflowSchema = z.object({
   action: z.enum(["SUBMIT", "VERIFY", "APPROVE", "REJECT", "ARCHIVE"]),
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return ok({ entry: updated });
   } catch (e) {
-    return err("WORKFLOW_FAILED", e instanceof Error ? e.message : "Gagal memproses", 500);
+    logServerError("borang-entries-$id$-workflow", e);
+    return err("WORKFLOW_FAILED", safeErrorMessage("WORKFLOW_FAILED"), 500);
   }
 }

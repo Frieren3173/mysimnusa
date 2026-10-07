@@ -4,16 +4,15 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
-import { scanXlsxFile, migrationFilePath, ensureStorage } from "@/lib/migration/source";
+import { scanXlsxFile, migrationFilePath, ensureStorage, extractSheetIdFromUrl } from "@/lib/migration/source";
 import { getConnectionPublic, fetchGoogle } from "@/lib/google/auth";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 
 const ScanSchema = z.object({
   sheetUrl: z.string().trim().min(1, "URL spreadsheet wajib diisi").max(500),
   sheetName: z.string().trim().max(200).optional(),
 });
-
-const SHEET_ID_RE = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
 
 export async function POST(req: NextRequest) {
   const user = await requireMigrationUser();
@@ -28,13 +27,14 @@ export async function POST(req: NextRequest) {
   const { data, error } = parseBody(ScanSchema, body);
   if (error) return error;
 
-  const idMatch = data.sheetUrl.match(SHEET_ID_RE) ?? data.sheetUrl.match(/^([a-zA-Z0-9-_]{10,})$/);
-  if (!idMatch) {
+  // Only accept a spreadsheet ID from an allow-listed Google host (or a bare ID)
+  // so an arbitrary URL can never be treated as the scan source.
+  const sheetId = extractSheetIdFromUrl(data.sheetUrl);
+  if (!sheetId) {
     return err("INVALID_URL", "URL tidak mengandung ID spreadsheet Google", 422, {
       sheetUrl: ["Format: https://docs.google.com/spreadsheets/d/<ID>/edit"],
     });
   }
-  const sheetId = idMatch[1]!;
 
   let batch: { id: string } | null = null;
   try {
@@ -100,12 +100,12 @@ export async function POST(req: NextRequest) {
 
     return ok({ batch: updated, scan });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Gagal memindai spreadsheet";
+    logServerError("migration.scan", e);
     if (batch?.id) {
       await prisma.migrationBatch
         .update({ where: { id: batch.id }, data: { status: "FAILED" } })
         .catch(() => undefined);
     }
-    return err("SCAN_FAILED", message, 502);
+    return err("SCAN_FAILED", safeErrorMessage("SCAN_FAILED"), 502);
   }
 }

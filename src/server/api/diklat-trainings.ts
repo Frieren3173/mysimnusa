@@ -5,6 +5,7 @@ import { ok, err, parseBody, paginate } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const CreateSchema = z.object({
   title: z.string().trim().min(1, "Judul wajib diisi").max(200),
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     });
     return ok({ training });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal membuat pelatihan", 500);
+    logServerError("diklat-trainings", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

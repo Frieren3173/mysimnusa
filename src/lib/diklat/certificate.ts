@@ -143,9 +143,22 @@ function escapeXml(s: string): string {
 
 /** Read the template bytes once (cached in-process on a warm instance). */
 let cachedTemplate: Buffer | null = null;
+
+/** PPTX is a ZIP container — must start with "PK" and stay under this size. */
+const MAX_TEMPLATE_BYTES = 20 * 1024 * 1024; // 20 MB
+
 export function readTemplate(): Buffer {
   if (cachedTemplate) return cachedTemplate;
-  cachedTemplate = fs.readFileSync(TEMPLATE_PATH);
+  const buf = fs.readFileSync(TEMPLATE_PATH);
+  // Defence-in-depth: the template is a fixed file, but verify it really is a
+  // (ZIP-based) PPTX and not oversized before handing it to JSZip.
+  if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
+    throw new Error("Template sertifikat tidak valid (bukan berkas PPTX)");
+  }
+  if (buf.length > MAX_TEMPLATE_BYTES) {
+    throw new Error("Template sertifikat melebihi batas ukuran");
+  }
+  cachedTemplate = buf;
   return cachedTemplate;
 }
 

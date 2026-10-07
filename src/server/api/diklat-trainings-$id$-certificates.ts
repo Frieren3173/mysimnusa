@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError } from "@/lib/logger";
 
 const IssueSchema = z.object({
   staffId: z.string().min(1),
@@ -81,10 +82,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return ok({ certificate });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "";
-    if (msg.includes("Unique constraint") || msg.includes("Duplicate")) {
+    // Prisma unique-constraint violation (P2002) → friendly duplicate message.
+    if (typeof e === "object" && e !== null && (e as { code?: unknown }).code === "P2002") {
       return err("DUPLICATE_NUMBER", "Nomor sertifikat sudah dipakai", 409);
     }
+    logServerError("diklat.certificates.issue", e);
     return err("ISSUE_FAILED", "Gagal menerbitkan sertifikat", 500);
   }
 }

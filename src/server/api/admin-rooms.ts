@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { ROOM_TYPES } from "@/lib/rooms";
 import { ROOM_CATEGORIES } from "@/lib/rooms";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const BodySchema = z.object({
   name: z.string().trim().min(1, "Nama ruangan wajib diisi").max(100),
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
     });
     return ok({ room });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan ruangan", 500);
+    logServerError("admin-rooms", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

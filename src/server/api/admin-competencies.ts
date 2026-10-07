@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const BodySchema = z.object({
   name: z.string().trim().min(1, "Nama kompetensi wajib diisi").max(100),
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     });
     return ok({ competency });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan kompetensi", 500);
+    logServerError("admin-competencies", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

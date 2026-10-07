@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE, generatePatientCode, generateRmNumber } from "@/lib/borang";
 import { canActOnBehalf } from "@/lib/borang-access";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const CreateSchema = z.object({
   staffId: z.string().optional(),
@@ -186,7 +187,8 @@ export async function POST(req: NextRequest) {
 
     throw lastError instanceof Error ? lastError : new Error("Gagal mengalokasikan nomor unik");
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan logbook", 500);
+    logServerError("borang-entries", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }
 

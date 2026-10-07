@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { NURSING_ACTION_CATEGORIES } from "@/lib/master-data";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const BodySchema = z.object({
   code: z.string().trim().min(1, "Kode tindakan wajib diisi").max(30),
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
     });
     return ok({ action });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan tindakan", 500);
+    logServerError("borang-actions", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { contentDisposition } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 import {
   buildCertificateNumber,
   DEFAULT_NUMBER_PATTERN,
@@ -19,7 +20,9 @@ import {
 } from "@/lib/diklat/certificate";
 
 const GenerateSchema = z.object({
-  staffIds: z.array(z.string().min(1)).min(1, "Pilih minimal satu peserta"),
+  // Hard cap on participants per batch: bounds CPU (PPTX render per person) and
+  // the size of the generated ZIP.
+  staffIds: z.array(z.string().min(1)).min(1, "Pilih minimal satu peserta").max(200, "Maksimal 200 peserta per batch"),
   mode: z.enum(["single", "zip"]).default("zip"),
   // Activity data
   tema: z.string().trim().min(1, "Tema wajib diisi").max(300),
@@ -189,7 +192,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
   } catch (e) {
-    return err("GENERATE_FAILED", e instanceof Error ? e.message : "Gagal membuat sertifikat", 500);
+    logServerError("diklat.certificates.generate", e);
+    return err("GENERATE_FAILED", safeErrorMessage("GENERATE_FAILED"), 500);
   }
 }
 

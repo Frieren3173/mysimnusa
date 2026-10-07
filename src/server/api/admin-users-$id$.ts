@@ -7,8 +7,36 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { USER_API_SELECT } from "@/lib/user-select";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
+import {
+  roleChangeViolation,
+  deactivationViolation,
+  deletionViolation,
+  type UserAdminTarget,
+} from "@/lib/user-admin-guards";
 
 const select = USER_API_SELECT;
+
+/** Reads the target's id/isActive/roles plus the active SUPER_ADMIN count. */
+async function loadTargetAndSuperAdminCount(id: string): Promise<{ target: UserAdminTarget; superAdminCount: number }> {
+  const [user, superAdminCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id },
+      select: { id: true, isActive: true, userRoles: { select: { role: { select: { name: true } } } } },
+    }),
+    prisma.userRole.count({
+      where: { role: { name: "SUPER_ADMIN" }, user: { isActive: true } },
+    }),
+  ]);
+  return {
+    target: {
+      id: user!.id,
+      isActive: user!.isActive,
+      roles: user!.userRoles.map((ur) => ur.role.name),
+    },
+    superAdminCount,
+  };
+}
 
 const UpdateSchema = z.object({
   username: z.string().trim().min(3).max(50).optional(),
@@ -62,8 +90,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
     }
   }
-  if (id === actor.id && data.isActive === false) {
-    return err("SELF_ACTION", "Tidak dapat menonaktifkan akun sendiri", 409);
+  const { target, superAdminCount } = await loadTargetAndSuperAdminCount(id);
+
+  // Guardrails: no self role-change (self-escalation), and never strip/deactivate
+  // the last active SUPER_ADMIN.
+  if (data.roles) {
+    const v = roleChangeViolation(actor, target, data.roles, superAdminCount);
+    if (v) return err(v.code, v.message, 409);
+  }
+  if (data.isActive === false) {
+    const v = deactivationViolation(actor, target, superAdminCount);
+    if (v) return err(v.code, v.message, 409);
   }
 
   try {
@@ -115,7 +152,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const full = await prisma.user.findUnique({ where: { id: updated.id }, select });
     return ok({ user: full });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui pengguna", 500);
+    logServerError("admin-users-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }
 
@@ -127,7 +165,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return err("NOT_FOUND", "Pengguna tidak ditemukan", 404);
-  if (id === actor.id) return err("SELF_ACTION", "Tidak dapat menghapus akun sendiri", 409);
+
+  const { target, superAdminCount } = await loadTargetAndSuperAdminCount(id);
+  const v = deletionViolation(actor, target, superAdminCount);
+  if (v) return err(v.code, v.message, 409);
 
   try {
     await prisma.$transaction([

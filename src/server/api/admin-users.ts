@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { USER_API_SELECT } from "@/lib/user-select";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const select = USER_API_SELECT;
 
@@ -111,6 +112,7 @@ export async function POST(req: NextRequest) {
     const full = await prisma.user.findUnique({ where: { id: created.id }, select });
     return ok({ user: full });
   } catch (e) {
-    return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal membuat pengguna", 500);
+    logServerError("admin-users", e);
+    return err("CREATE_FAILED", safeErrorMessage("CREATE_FAILED"), 500);
   }
 }

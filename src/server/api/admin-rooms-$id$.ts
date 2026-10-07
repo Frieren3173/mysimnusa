@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { ROOM_TYPES } from "@/lib/rooms";
 import { ROOM_CATEGORIES } from "@/lib/rooms";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const PatchSchema = z.object({
   name: z.string().trim().min(1, "Nama ruangan wajib diisi").max(100).optional(),
@@ -77,6 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return ok({ room: updated });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui ruangan", 500);
+    logServerError("admin-rooms-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }

@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { NURSING_ACTION_CATEGORIES } from "@/lib/master-data";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const PatchSchema = z.object({
   code: z.string().trim().min(1, "Kode tindakan wajib diisi").max(30).optional(),
@@ -72,6 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return ok({ action: updated });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui tindakan", 500);
+    logServerError("borang-actions-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }

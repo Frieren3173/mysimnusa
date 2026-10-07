@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import * as fs from "fs";
-import * as path from "path";
 import { ok, err } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
-import { SLIDES_DIR, isSafeSlideName, listSlides, slideSrc } from "@/lib/slides";
+import { resolveSlidePath, listSlides, slideSrc } from "@/lib/slides";
+import { logServerError } from "@/lib/logger";
 
 export async function DELETE(
   req: NextRequest,
@@ -16,11 +16,12 @@ export async function DELETE(
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
 
   const { name } = await params;
-  const decoded = decodeURIComponent(name);
-  if (!isSafeSlideName(decoded)) return err("NOT_FOUND", "Slide tidak ditemukan", 404);
-
-  const filePath = path.join(SLIDES_DIR, decoded);
-  if (!fs.existsSync(filePath)) return err("NOT_FOUND", "Slide tidak ditemukan", 404);
+  // Resolve through the strict allow-list + containment check; a traversal
+  // attempt resolves to null and is reported as "not found".
+  const filePath = resolveSlidePath(name);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return err("NOT_FOUND", "Slide tidak ditemukan", 404);
+  }
 
   try {
     fs.unlinkSync(filePath);
@@ -28,12 +29,13 @@ export async function DELETE(
       userId: user.id,
       module: "admin",
       resource: "slide",
-      resourceId: slideSrc(decoded),
+      resourceId: slideSrc(name),
       action: "DELETED",
       ipAddress: clientIp(req),
     });
     return ok({ slides: listSlides() });
   } catch (e) {
-    return err("DELETE_FAILED", e instanceof Error ? e.message : "Gagal menghapus slide", 500);
+    logServerError("slides.delete", e);
+    return err("DELETE_FAILED", "Gagal menghapus slide", 500);
   }
 }

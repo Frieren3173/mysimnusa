@@ -1,6 +1,7 @@
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { getSyncStatus } from "@/lib/migration/sync";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function GET() {
   const user = await requireMigrationUser();
@@ -9,6 +10,7 @@ export async function GET() {
   try {
     return ok(await getSyncStatus());
   } catch (e) {
-    return err("STATUS_FAILED", e instanceof Error ? e.message : "Gagal membaca status sinkronisasi", 500);
+    logServerError("admin-migration-sync-status", e);
+    return err("STATUS_FAILED", safeErrorMessage("STATUS_FAILED"), 500);
   }
 }

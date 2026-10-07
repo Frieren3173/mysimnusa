@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { SLIDES_DIR, listSlides } from "@/lib/slides";
 import { validateUpload } from "@/lib/file-type";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB per file
 const SLIDE_EXT = [".jpg", ".jpeg", ".png", ".webp"];
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     return ok({ slides: listSlides(), saved });
   } catch (e) {
-    return err("UPLOAD_FAILED", e instanceof Error ? e.message : "Gagal mengunggah file", 500);
+    logServerError("slides.upload", e);
+    return err("UPLOAD_FAILED", safeErrorMessage("UPLOAD_FAILED"), 500);
   }
 }

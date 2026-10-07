@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/api";
 import { requireMigrationUser } from "@/lib/migration/auth";
 import { runSyncChunk } from "@/lib/migration/sync";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const user = await requireMigrationUser();
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     return ok(await runSyncChunk(limit, resetFailed));
   } catch (e) {
-    return err("SYNC_FAILED", e instanceof Error ? e.message : "Sinkronisasi gagal", 500);
+    logServerError("admin-migration-sync-drive", e);
+    return err("SYNC_FAILED", safeErrorMessage("SYNC_FAILED"), 500);
   }
 }

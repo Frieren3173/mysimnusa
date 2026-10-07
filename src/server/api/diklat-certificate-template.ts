@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { readTemplate, templateExists } from "@/lib/diklat/certificate";
 import { contentDisposition } from "@/lib/file-type";
+import { logServerError } from "@/lib/logger";
 
 /**
  * Download the blank certificate template (.pptx) so an administrator can see /
@@ -15,7 +16,14 @@ export async function GET() {
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
   if (!templateExists()) return err("TEMPLATE_MISSING", "Template sertifikat belum tersedia", 404);
 
-  const buffer = readTemplate();
+  let buffer: Buffer;
+  try {
+    buffer = readTemplate();
+  } catch (e) {
+    logServerError("diklat.certificate-template", e);
+    return err("TEMPLATE_INVALID", "Template sertifikat tidak dapat dibaca", 500);
+  }
+
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {

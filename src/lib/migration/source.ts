@@ -119,6 +119,14 @@ function isNonEmpty(v: unknown): boolean {
   return v !== null && v !== undefined && v !== "";
 }
 
+/**
+ * Parse guards — bound how much of an uploaded/exported workbook is read in one
+ * scan so a malicious or accidental huge file cannot exhaust memory/CPU.
+ */
+export const MAX_SHEETS = 50;
+export const MAX_ROWS_PER_SHEET = 20_000;
+export const MAX_COLUMNS = 200;
+
 function headerKey(h: string): string {
   return h.toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -131,7 +139,8 @@ export function readSheetObjects(
   const wb = readWorkbook(filePath);
   const ws = wb.Sheets[sheetName];
   if (!ws) return [];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+  return rows.slice(0, MAX_ROWS_PER_SHEET);
 }
 
 function readWorkbook(filePath: string, attempts = 4): XLSX.WorkBook {
@@ -157,12 +166,23 @@ export function scanXlsxFile(filePath: string, fileName: string): ScanResult {
   const warnings: string[] = [];
   const sheets: SheetScan[] = [];
 
-  for (const name of wb.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[name], {
+  const sheetNames = wb.SheetNames.slice(0, MAX_SHEETS);
+  if (wb.SheetNames.length > MAX_SHEETS) {
+    warnings.push(`Hanya ${MAX_SHEETS} sheet pertama yang dipindai (total ${wb.SheetNames.length}).`);
+  }
+
+  for (const name of sheetNames) {
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[name], {
       defval: null,
     });
+    if (rawRows.length > MAX_ROWS_PER_SHEET) {
+      warnings.push(
+        `Sheet "${name}" dibatasi ${MAX_ROWS_PER_SHEET} baris (total ${rawRows.length}).`,
+      );
+    }
+    const rows = rawRows.slice(0, MAX_ROWS_PER_SHEET);
     const filled = rows.filter((r) => Object.values(r).some(isNonEmpty));
-    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const headers = rows.length > 0 ? Object.keys(rows[0]).slice(0, MAX_COLUMNS) : [];
     sheets.push({ name, rowCount: filled.length, headers });
   }
 
@@ -250,6 +270,38 @@ export function parseDateValue(v: unknown): Date | null {
 export function isDriveUrl(v: unknown): boolean {
   if (typeof v !== "string") return false;
   return /drive\.google\.com|docs\.google\.com/i.test(v);
+}
+
+/**
+ * Extracts a Google spreadsheet ID from a URL, but ONLY when the URL is hosted
+ * on an allow-listed Google domain. This prevents an attacker-supplied URL to an
+ * arbitrary host from being accepted as a "Google Sheet" source (SSRF/drive-by).
+ * Returns null when the host is not allowed or no ID is present.
+ */
+const GOOGLE_SHEET_HOSTS = new Set([
+  "docs.google.com",
+  "drive.google.com",
+  "sheets.google.com",
+  "spreadsheets.google.com",
+]);
+
+export function extractSheetIdFromUrl(raw: string): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+
+  // Bare spreadsheet ID (no scheme/host).
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(value)) return value;
+
+  let host: string;
+  try {
+    host = new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!GOOGLE_SHEET_HOSTS.has(host)) return null;
+
+  const m = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : null;
 }
 
 export function extractDriveId(url: string): string | null {

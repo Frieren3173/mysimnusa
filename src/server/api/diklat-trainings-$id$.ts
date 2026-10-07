@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const UpdateSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
@@ -74,7 +75,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
     return ok({ training });
   } catch (e) {
-    return err("UPDATE_FAILED", e instanceof Error ? e.message : "Gagal memperbarui", 500);
+    logServerError("diklat-trainings-$id$", e);
+    return err("UPDATE_FAILED", safeErrorMessage("UPDATE_FAILED"), 500);
   }
 }
 
