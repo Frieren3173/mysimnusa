@@ -113,58 +113,89 @@ export async function POST(req: NextRequest) {
 
   try {
     const year = data.period.slice(0, 4);
-    const [room, sameYear] = await Promise.all([
-      data.roomId
-        ? prisma.room.findUnique({ where: { id: data.roomId }, select: { name: true } })
-        : null,
-      prisma.borangEntry.findMany({
-        where: { period: { startsWith: year } },
-        select: { patientIdentifier: true, rmNumber: true },
-      }),
-    ]);
-    const patientIdentifier =
-      data.patientIdentifier ??
-      generatePatientCode(
-        room?.name ?? null,
-        sameYear.map((r) => r.patientIdentifier)
+
+    // Allocate codes and insert, retrying on the per-year unique index so two
+    // concurrent requests can never persist the same RM / patient code. The
+    // random (non-sequential) format is preserved: each retry draws new values.
+    const MAX_ATTEMPTS = 8;
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const [room, sameYear] = await Promise.all([
+        data.roomId
+          ? prisma.room.findUnique({ where: { id: data.roomId }, select: { name: true } })
+          : null,
+        // Only the currently-used codes for this year are read (indexed),
+        // never the whole table.
+        prisma.borangEntry.findMany({
+          where: { period: { startsWith: year } },
+          select: { patientIdentifier: true, rmNumber: true },
+        }),
+      ]);
+
+      const patientIdentifier =
+        data.patientIdentifier ??
+        generatePatientCode(
+          room?.name ?? null,
+          sameYear.map((r) => r.patientIdentifier)
+        );
+      const rmNumber = generateRmNumber(
+        sameYear.map((r) => r.rmNumber).filter((v): v is string => !!v)
       );
-    const rmNumber = generateRmNumber(
-      sameYear.map((r) => r.rmNumber).filter((v): v is string => !!v)
-    );
 
-    const entry = await prisma.borangEntry.create({
-      data: {
-        staffId,
-        createdById: user.id,
-        roomId: data.roomId || null,
-        period: data.period,
-        patientIdentifier,
-        rmNumber,
-        actionType: data.actionType,
-        nursingActionId,
-        quantity: data.quantity,
-        notes: data.notes,
-        status: "DRAFT",
-      },
-      include: {
-        staff: { select: { id: true, name: true, profession: true } },
-        room: { select: { name: true } },
-      },
-    });
+      try {
+        const entry = await prisma.borangEntry.create({
+          data: {
+            staffId,
+            createdById: user.id,
+            roomId: data.roomId || null,
+            period: data.period,
+            patientIdentifier,
+            rmNumber,
+            actionType: data.actionType,
+            nursingActionId,
+            quantity: data.quantity,
+            notes: data.notes,
+            status: "DRAFT",
+          },
+          include: {
+            staff: { select: { id: true, name: true, profession: true } },
+            room: { select: { name: true } },
+          },
+        });
 
-    await logAudit({
-      userId: user.id,
-      staffId,
-      module: "borang",
-      resource: "borang_entry",
-      resourceId: entry.id,
-      action: "CREATED",
-      after: { period: entry.period, actionType: entry.actionType, quantity: entry.quantity },
-      ipAddress: clientIp(req),
-    });
+        await logAudit({
+          userId: user.id,
+          staffId,
+          module: "borang",
+          resource: "borang_entry",
+          resourceId: entry.id,
+          action: "CREATED",
+          after: { period: entry.period, actionType: entry.actionType, quantity: entry.quantity },
+          ipAddress: clientIp(req),
+        });
 
-    return ok({ entry });
+        return ok({ entry });
+      } catch (e) {
+        // P2002 = unique constraint violation → a concurrent insert won the
+        // race for this code; redraw and try again.
+        lastError = e;
+        if (!isUniqueConstraintError(e)) throw e;
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error("Gagal mengalokasikan nomor unik");
   } catch (e) {
     return err("CREATE_FAILED", e instanceof Error ? e.message : "Gagal menyimpan logbook", 500);
   }
+}
+
+/** True when a Prisma error is a unique-constraint (P2002) violation. */
+function isUniqueConstraintError(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    (e as { code?: unknown }).code === "P2002"
+  );
 }
