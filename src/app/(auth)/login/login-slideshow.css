@@ -153,44 +153,158 @@
   align-items: center;
 }
 
-/* Identity block (moved from the left panel) */
+/* ── Identity CARD (moved from the left panel) — same width as the form ── */
 .login-intro {
-  width: 100%;
-  margin-bottom: 1.75rem; /* ~28px gap before the form card */
-  text-align: center;
+  position: relative;
+  overflow: hidden;
+  width: 100%; /* equals the form card width (both fill .login-panel__inner) */
+  margin-bottom: 1rem; /* ~16px gap before the form card */
+  padding: 24px;
+  text-align: left;
+  border-radius: 0.75rem; /* = rounded-xl, same as the form card */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, #0b1a3a 0%, #12295c 60%, #0f3a78 100%);
+  box-shadow: 0 10px 30px rgba(11, 26, 58, 0.18);
+  /* Entrance animation (JS-independent — pure CSS, staggered) */
+  animation: login-card-in 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
+@keyframes login-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Decorative accents (kept subtle) */
+.login-intro__glow {
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 70%;
+  height: 120%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(59, 130, 246, 0.25), transparent 100%);
+}
+.login-intro__pattern {
+  position: absolute;
+  inset: 0;
+  right: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.7) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 60%);
+  mask-image: linear-gradient(to left, #000 0%, transparent 60%);
+}
+
+.login-intro__body {
+  position: relative;
+  z-index: 1;
+}
+/* Thin blue accent line above the title */
+.login-intro__body::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6, #22d3ee);
+  margin-bottom: 0.875rem;
+}
+
+/* Label chip ("Sistem Internal") */
+.login-intro__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(147, 197, 253, 0.9); /* blue-300 dimmed */
+}
+.login-intro__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #34d399; /* emerald-400 */
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
+}
+
 .login-intro__title {
-  font-size: clamp(1.15rem, 1.4vw, 1.5rem);
+  margin-top: 0.5rem;
+  font-size: clamp(1.1rem, 1.3vw, 1.4rem);
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.01em;
-  color: #0f172a; /* navy */
+  color: #ffffff;
+  animation: login-card-in 500ms cubic-bezier(0.4, 0, 0.2, 1) 80ms both;
 }
+.login-intro__title-2 {
+  display: block;
+  color: rgba(191, 219, 254, 0.85); /* light blue-gray */
+}
+
 .login-intro__desc {
   margin-top: 0.5rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: #64748b; /* muted slate */
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.7);
+  animation: login-card-in 500ms cubic-bezier(0.4, 0, 0.2, 1) 160ms both;
 }
-/* Feature chips — small horizontal row (wraps to 2 lines if needed) */
+
+/* Glass feature chips (wrap neatly) */
 .login-chips {
-  margin-top: 0.875rem;
+  margin-top: 0.9rem;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 0.4rem;
+  animation: login-card-in 500ms cubic-bezier(0.4, 0, 0.2, 1) 240ms both;
 }
 .login-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid #e2e8f0;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   font-size: 0.75rem;
-  color: #475569;
+  color: #ffffff;
   white-space: nowrap;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+.login-chip svg {
+  color: #93c5fd; /* blue-300 */
+}
+.login-chip:hover {
+  transform: translateY(-1.5px);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Reduced motion: disable the card entrance + chip hover ───────────── */
+@media (prefers-reduced-motion: reduce) {
+  .login-intro,
+  .login-intro__title,
+  .login-intro__desc,
+  .login-chips {
+    animation: none !important;
+  }
+  .login-chip {
+    transition: none !important;
+  }
+  .login-chip:hover {
+    transform: none;
+  }
 }
 
 /* ── Mobile/tablet (<900px): photo header → compact intro → form ──────── */
@@ -216,22 +330,26 @@
     flex: 1;
     padding: 2rem 1.25rem;
   }
-  /* Keep the intro compact on mobile: description hidden, chips hidden. */
-  .login-intro__desc {
-    display: none;
+  /* Mobile: keep the card compact — label + title + short description,
+     hide the feature chips. */
+  .login-intro {
+    padding: 20px;
+    margin-bottom: 1rem;
   }
   .login-chips {
     display: none;
   }
 }
 
-/* ── Short laptop screens (<760px tall): hide chips to avoid any scroll ── */
+/* ── Short laptop screens (<760px tall): trim the card to fit no-scroll ── */
 @media (min-width: 900px) and (max-height: 760px) {
-  .login-chips {
-    display: none;
-  }
   .login-intro {
-    margin-bottom: 1.25rem;
+    padding: 18px;
+    margin-bottom: 0.75rem;
+  }
+  /* Keep label + title + chips; hide the description. */
+  .login-intro__desc {
+    display: none;
   }
   .login-panel {
     padding: 1.5rem;

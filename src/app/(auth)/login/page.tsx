@@ -93,25 +93,37 @@ export default async function LoginPage() {
             </div>
           </div>
 
-          {/* Identity block (moved from the left panel) */}
+          {/* Identity card (moved from the left panel) — same width as the form */}
           <header className="login-intro">
-            <h1 className="login-intro__title">
-              Sistem Informasi Manajemen{" "}
-              <span className="block text-slate-500">Keperawatan &amp; Kebidanan</span>
-            </h1>
-            <p className="login-intro__desc">
-              Platform internal untuk pengelolaan data tenaga keperawatan, legalitas,
-              borang, dan diklat secara terpadu dan tertelusur.
-            </p>
+            {/* Decorative accents (aria-hidden) */}
+            <span className="login-intro__glow" aria-hidden="true" />
+            <span className="login-intro__pattern" aria-hidden="true" />
 
-            <ul className="login-chips" aria-label="Cakupan sistem">
-              {highlights.map((item) => (
-                <li key={item.label} className="login-chip">
-                  <item.icon className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />
-                  <span>{item.label}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="login-intro__body">
+              <p className="login-intro__label">
+                <span className="login-intro__dot" aria-hidden="true" />
+                Sistem Internal
+              </p>
+
+              <h1 className="login-intro__title">
+                Sistem Informasi Manajemen{" "}
+                <span className="login-intro__title-2">Keperawatan &amp; Kebidanan</span>
+              </h1>
+
+              <p className="login-intro__desc">
+                Platform internal untuk pengelolaan data tenaga keperawatan, legalitas,
+                borang, dan diklat secara terpadu dan tertelusur.
+              </p>
+
+              <ul className="login-chips" aria-label="Cakupan sistem">
+                {highlights.map((item) => (
+                  <li key={item.label} className="login-chip">
+                    <item.icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </header>
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
