@@ -1,15 +1,16 @@
 /* =====================================================================
  * login-slideshow.css — MYSIMNUSA login page
  * ---------------------------------------------------------------------
- * Two-column layout: left ≈75% photo slideshow (cinematic crossfade + Ken
- * Burns), right ≈25% login form (light, unchanged). On small screens the left
- * panel collapses to a short header (~30vh) above the form.
+ * Two-column page: left ≈75% brand panel, right ≈25% login form.
+ * The LEFT panel is itself split into two zones so text never covers faces:
+ *   • .hero-text  — solid navy column (~34–38%), logo + title + copy
+ *   • .hero-photo — the rest, holds the cinematic slideshow (crossfade + Ken
+ *                   Burns). Its left edge fades into the navy via mask-image.
  *
- * Photos are decorative (aria-hidden). Only transform / opacity are animated.
- * Reduced-motion turns the slideshow into a simple fade (no zoom).
+ * Only transform / opacity are animated. Reduced-motion = simple fade.
  * ===================================================================== */
 
-/* ── Shell: 2 columns ─────────────────────────────────────────────────── */
+/* ── Page shell: 2 columns ────────────────────────────────────────────── */
 .login-shell {
   display: grid;
   grid-template-columns: 1fr; /* mobile default: single column (form) */
@@ -19,23 +20,56 @@
 
 @media (min-width: 900px) {
   .login-shell {
-    /* ~75% slideshow / ~25% form, but never let the form go below 420px. */
     grid-template-columns: 3fr minmax(420px, 1fr);
   }
 }
 
-/* ── Left panel (slideshow) ───────────────────────────────────────────── */
+/* ── Left panel = text column + photo zone ────────────────────────────── */
 .login-hero {
   position: relative;
   overflow: hidden;
   background: #0f172a; /* navy fallback before the first photo paints */
-  display: none; /* hidden on mobile unless it becomes a short header */
+  display: none;
 }
 
 @media (min-width: 900px) {
   .login-hero {
-    display: block;
+    display: grid;
+    /* text column ≈34–38% (min 360 / max 520), photo takes the rest */
+    grid-template-columns: clamp(360px, 36%, 520px) 1fr;
+    min-height: 100vh;
   }
+}
+
+/* ── Text zone (solid navy) ───────────────────────────────────────────── */
+.hero-text {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3rem 48px;
+  background: linear-gradient(160deg, #0b1220 0%, #0f172a 45%, #111c33 100%);
+  /* A soft navy bleed to the right so the seam with the photo is truly invisible. */
+  box-shadow: 24px 0 60px -20px rgba(2, 6, 23, 0.9);
+}
+
+.hero-text__body {
+  max-width: 100%; /* never wider than the text column */
+}
+.hero-title {
+  font-size: clamp(1.5rem, 2.2vw, 2.25rem);
+}
+
+/* ── Photo zone (slideshow) ───────────────────────────────────────────── */
+.hero-photo {
+  position: relative;
+  overflow: hidden;
+  /* Soft fade on the LEFT edge → no hard line between text and photo. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 28%);
 }
 
 /* Slideshow stack: slides are absolutely stacked and cross-faded. */
@@ -50,89 +84,60 @@
   inset: 0;
   background-size: cover;
   background-repeat: no-repeat;
-  /* Keep faces/heads in frame (portrait photos especially). */
-  background-position: center 30%;
+  /* Default focus; overridden per slide via --focus-x/--focus-y. */
+  background-position: var(--focus-x, 50%) var(--focus-y, 30%);
   opacity: 0;
   transform: scale(1);
   will-change: transform, opacity;
-  /* Crossfade + Ken Burns — overridden per-slide via CSS vars. */
   transition: opacity var(--slide-fade, 1400ms) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* The active slide is fully opaque and runs its Ken Burns zoom. */
 .hero-slides .slide.is-active {
   opacity: 1;
   animation: hero-kenburns var(--slide-hold, 6000ms) linear forwards;
 }
 
-/* Ken Burns: zoom 1 → 1.08 with a per-slide drift direction (CSS vars). */
+/* Ken Burns: gentle zoom 1.00 → 1.06, drift ≤ 2% (keeps heads in frame). */
 @keyframes hero-kenburns {
   from {
     transform: scale(1) translate3d(0, 0, 0);
   }
   to {
-    transform: scale(1.08) translate3d(var(--kb-x, 0%), var(--kb-y, 0%), 0);
+    transform: scale(1.06) translate3d(var(--kb-x, 0%), var(--kb-y, 0%), 0);
   }
 }
 
-/* ── Overlay gradient (navy, dense left/bottom → lighter right) ───────── */
+/* ── Photo-zone overlay (light: keep faces bright) ────────────────────── */
 .hero-overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(
-      100deg,
-      rgba(2, 6, 23, 0.85) 0%,
-      rgba(2, 6, 23, 0.7) 38%,
-      rgba(2, 6, 23, 0.45) 70%,
-      rgba(2, 6, 23, 0.35) 100%
-    ),
-    linear-gradient(
-      to top,
-      rgba(2, 6, 23, 0.85) 0%,
-      rgba(2, 6, 23, 0.25) 45%,
-      rgba(2, 6, 23, 0) 70%
-    );
+    /* top + bottom navy bars so the logo/dots stay readable */
+    linear-gradient(to bottom, rgba(2, 6, 23, 0.35) 0%, rgba(2, 6, 23, 0) 22%, rgba(2, 6, 23, 0) 78%, rgba(2, 6, 23, 0.4) 100%),
+    /* very light overall veil */
+    linear-gradient(to bottom, rgba(2, 6, 23, 0.28), rgba(2, 6, 23, 0.28));
 }
 
-/* Soft vignette on the edges. */
+/* Soft vignette on the panel edges only. */
 .hero-vignette {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(120% 100% at 30% 40%, transparent 55%, rgba(2, 6, 23, 0.55) 100%);
+  background: radial-gradient(130% 110% at 60% 45%, transparent 60%, rgba(2, 6, 23, 0.4) 100%);
 }
 
-/* ── Brand content above the slideshow ────────────────────────────────── */
-.hero-content {
-  position: relative;
-  z-index: 2;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 3rem;
-}
-
-/* ── Progress dots ────────────────────────────────────────────────────── */
+/* ── Progress dots (bottom of the photo zone) ─────────────────────────── */
 .hero-dots {
   position: absolute;
   z-index: 3;
-  left: 3rem;
-  bottom: 1.5rem;
+  left: 1.25rem;
+  bottom: 1.25rem;
   display: flex;
   gap: 0.4rem;
   pointer-events: none;
-}
-@media (min-width: 900px) {
-  .hero-dots {
-    /* Lift the dots above the footer line. */
-    bottom: 1.25rem;
-    left: 3rem;
-  }
 }
 .hero-dots .dot {
   width: 6px;
@@ -146,7 +151,7 @@
   background: rgba(255, 255, 255, 0.95);
 }
 
-/* ── Right panel (form) — always light & usable ───────────────────────── */
+/* ── Right panel (form) — unchanged, always light & usable ────────────── */
 .login-panel {
   display: flex;
   min-height: 100vh;
@@ -158,24 +163,52 @@
 }
 @media (min-width: 900px) {
   .login-panel {
-    min-height: 0; /* fills the grid row */
+    min-height: 0;
   }
 }
 
-/* ── Small screens (< 900px): short slideshow header above the form ───── */
+/* ── Narrow desktop (<1200px): widen the text column a touch ──────────── */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .login-hero {
+    grid-template-columns: clamp(360px, 42%, 520px) 1fr;
+  }
+}
+
+/* ── Mobile/tablet (<900px): stack photo header → compact text → form ─── */
 @media (max-width: 899px) {
   .login-hero {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+  /* Photo first (~30vh), no text over it. */
+  .hero-photo {
+    order: 1;
     height: 30vh;
     min-height: 190px;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
-  .hero-content {
-    padding: 1.25rem 1.5rem;
+  /* Compact text below the photo (title only). */
+  .hero-text {
+    order: 2;
+    background: #0f172a;
+    padding: 1.5rem 1.5rem 1.75rem;
+    gap: 1rem;
+    box-shadow: none;
   }
-  /* On mobile only show the compact brand row (hide the long copy). */
-  .hero-content > .max-w-md,
-  .hero-content > p.flex {
-    display: none;
+  .hero-text > .flex:first-child,
+  .hero-title span,
+  .hero-desc,
+  .hero-features,
+  .hero-text > p.flex {
+    display: none; /* keep the title only */
+  }
+  .hero-text__body {
+    width: 100%;
+  }
+  .hero-title {
+    font-size: clamp(1.4rem, 6vw, 1.9rem);
   }
   .hero-dots {
     left: 1.5rem;
@@ -188,13 +221,13 @@
   }
 }
 
-/* ── Reduced motion: simple fade, no zoom, longer hold ────────────────── */
+/* ── Reduced motion: simple fade, no zoom ─────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .hero-slides .slide {
     transition-duration: 400ms;
   }
   .hero-slides .slide.is-active {
-    animation: none; /* no Ken Burns */
+    animation: none;
     transform: none;
   }
 }

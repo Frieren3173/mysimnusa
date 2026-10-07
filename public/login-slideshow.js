@@ -3,8 +3,9 @@
  * ---------------------------------------------------------------------
  * Cinematic photo background for the LEFT login panel:
  *   • crossfade between slides (1.4s, cubic-bezier(.4,0,.2,1))
- *   • Ken Burns slow zoom 1.00 → 1.08 per slide, with a different drift
- *     direction per slide (via --kb-x/--kb-y CSS vars)
+ *   • Ken Burns slow zoom 1.00 → 1.06 per slide, with a small drift (≤ ±2%)
+ *     direction per slide (via --kb-x/--kb-y CSS vars) and a per-photo focus
+ *     point (--focus-x/--focus-y) so faces never clip
  *   • holds each slide ~6s
  *   • first photo (best) stays first; the rest are shuffled once
  *   • first photo is preloaded (HTML <link rel=preload>); the rest load on
@@ -17,33 +18,35 @@
 (function () {
   "use strict";
 
-  /* ── Photo list (edit here to add/remove slides) ───────────────────── */
+  /* ── Photo list (edit here to add/remove slides) ─────────────────────
+   * Each entry: src + optional focus point `focus: "x% y%"` (default 50% 30%).
+   * Tune focus for photos whose faces aren't centred (portrait → higher/top). */
   var PHOTOS = [
-    "/assets/login/01.webp",
-    "/assets/login/02.webp",
-    "/assets/login/03.webp",
-    "/assets/login/04.webp",
-    "/assets/login/05.webp",
-    "/assets/login/06.webp",
-    "/assets/login/07.webp",
-    "/assets/login/08.webp",
-    "/assets/login/09.webp",
-    "/assets/login/10.webp",
-    "/assets/login/11.webp",
-    "/assets/login/12.webp",
-    "/assets/login/13.webp",
-    "/assets/login/14.webp",
+    { src: "/assets/login/01.webp" }, // large uniformed group
+    { src: "/assets/login/02.webp" },
+    { src: "/assets/login/03.webp" },
+    { src: "/assets/login/04.webp" },
+    { src: "/assets/login/05.webp", focus: "50% 35%" },
+    { src: "/assets/login/06.webp", focus: "50% 40%" },
+    { src: "/assets/login/07.webp" },
+    { src: "/assets/login/08.webp" },
+    { src: "/assets/login/09.webp" },
+    { src: "/assets/login/10.webp" },
+    { src: "/assets/login/11.webp", focus: "50% 20%" }, // portrait → focus up
+    { src: "/assets/login/12.webp" },
+    { src: "/assets/login/13.webp" },
+    { src: "/assets/login/14.webp" },
   ];
 
   var HOLD_MS = 6000; // time each slide is shown
   var FADE_MS = 1400; // crossfade duration
 
-  // Ken Burns drift directions, cycled per slide.
+  // Ken Burns drift directions, cycled per slide — kept ≤ ±2% so heads never clip.
   var DRIFTS = [
-    { x: "-2%", y: "-1.5%" },
-    { x: "2%", y: "1.5%" },
-    { x: "-1.5%", y: "1.5%" },
-    { x: "1.5%", y: "-1.5%" },
+    { x: "-2%", y: "-1.2%" },
+    { x: "2%", y: "1.2%" },
+    { x: "-1.5%", y: "1.2%" },
+    { x: "1.5%", y: "-1.2%" },
   ];
 
   var hero = document.querySelector("[data-login-hero]");
@@ -69,15 +72,21 @@
     s.remove();
   });
 
-  var slides = order.map(function (src, idx) {
+  var slides = order.map(function (photo, idx) {
     var el = document.createElement("div");
     el.className = "slide";
-    el.setAttribute("data-src", src);
+    el.setAttribute("data-src", photo.src);
     var drift = DRIFTS[idx % DRIFTS.length];
     el.style.setProperty("--kb-x", drift.x);
     el.style.setProperty("--kb-y", drift.y);
     el.style.setProperty("--slide-hold", HOLD_MS + "ms");
     el.style.setProperty("--slide-fade", FADE_MS + "ms");
+    // Per-photo focus point (default 50% 30%).
+    if (photo.focus) {
+      var parts = photo.focus.split(/\s+/);
+      el.style.setProperty("--focus-x", parts[0] || "50%");
+      el.style.setProperty("--focus-y", parts[1] || "30%");
+    }
     stack.appendChild(el);
     return el;
   });

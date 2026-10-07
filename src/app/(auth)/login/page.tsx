@@ -26,20 +26,11 @@ export default async function LoginPage() {
     <div className="login-shell">
       {/* Preload only the first slide so the hero paints immediately. */}
       <link rel="preload" as="image" href={FIRST_SLIDE} />
-      {/* ── Left panel — photo slideshow + brand overlay ─────────────────── */}
+      {/* ── Left panel — text column (navy) + photo slideshow zone ───────── */}
       <aside className="login-hero" data-login-hero aria-label="Panel brand">
-        {/* Slideshow layer (photos are decorative → aria-hidden) */}
-        <div className="hero-slides" aria-hidden="true">
-          <div className="slide" data-slide="static" style={{ backgroundImage: `url(${FIRST_SLIDE})` }} />
-        </div>
-
-        {/* Gradient + vignette overlay for text legibility */}
-        <div className="hero-overlay" aria-hidden="true" />
-        <div className="hero-vignette" aria-hidden="true" />
-
-        {/* Brand content (kept above the slideshow) */}
-        <div className="hero-content">
-          <div className="relative flex items-center gap-3">
+        {/* Text zone (solid navy) — keeps text OFF the photos */}
+        <div className="hero-text">
+          <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white">
               <Image
                 src="/logo-rsajt.png"
@@ -58,17 +49,17 @@ export default async function LoginPage() {
             </div>
           </div>
 
-          <div className="max-w-md">
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-white">
+          <div className="hero-text__body">
+            <h1 className="hero-title font-semibold leading-tight tracking-tight text-white">
               Sistem Informasi Manajemen
               <span className="block text-slate-300">Keperawatan &amp; Kebidanan</span>
             </h1>
-            <p className="mt-5 text-sm leading-relaxed text-slate-300">
+            <p className="hero-desc mt-5 text-sm leading-relaxed text-slate-300">
               Platform internal untuk pengelolaan data tenaga keperawatan, legalitas,
               borang, dan diklat secara terpadu dan tertelusur.
             </p>
 
-            <ul className="mt-8 space-y-3">
+            <ul className="hero-features mt-8 space-y-3">
               {highlights.map((item) => (
                 <li key={item.label} className="flex items-center gap-3 text-sm text-slate-200">
                   <span className="flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-white/10 text-blue-200">
@@ -86,8 +77,22 @@ export default async function LoginPage() {
           </p>
         </div>
 
-        {/* Slideshow progress dots (thin, bottom-left) */}
-        <div className="hero-dots" data-hero-dots aria-hidden="true" />
+        {/* Photo zone (slideshow) — faces stay clear on the right */}
+        <div className="hero-photo">
+          <div className="hero-slides" aria-hidden="true">
+            <div
+              className="slide"
+              data-slide="static"
+              style={{ backgroundImage: `url(${FIRST_SLIDE})` }}
+            />
+          </div>
+          {/* Soft navy tint top/bottom + very light overall veil */}
+          <div className="hero-overlay" aria-hidden="true" />
+          <div className="hero-vignette" aria-hidden="true" />
+
+          {/* Slideshow progress dots (thin, bottom of the photo zone) */}
+          <div className="hero-dots" data-hero-dots aria-hidden="true" />
+        </div>
       </aside>
 
       {/* ── Right panel — login form ─────────────────────────────────────── */}
