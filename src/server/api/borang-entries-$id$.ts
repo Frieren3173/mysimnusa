@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE } from "@/lib/borang";
+import { isEntryOwnerOrPrivileged } from "@/lib/borang-access";
 
 const EditSchema = z.object({
   roomId: z.string().optional().nullable(),
@@ -33,6 +34,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!entry) return err("NOT_FOUND", "Entri tidak ditemukan", 404);
   if (!["DRAFT", "REJECTED"].includes(entry.status)) {
     return err("INVALID_STATUS", "Hanya entri DRAFT/REJECTED yang dapat diubah", 409);
+  }
+
+  // Ownership: only the creator/owner (or a privileged user) may edit.
+  if (!isEntryOwnerOrPrivileged(user, entry)) {
+    await logAudit({
+      userId: user.id,
+      staffId: entry.staffId,
+      borangId: id,
+      module: "borang",
+      resource: "borang_entry",
+      resourceId: id,
+      action: "EDIT_FORBIDDEN",
+      ipAddress: clientIp(req),
+    });
+    return err("FORBIDDEN", "Anda bukan pemilik entri ini.", 403);
   }
 
   const body = await req.json().catch(() => null);
@@ -108,6 +124,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     select: {
       id: true,
       staffId: true,
+      createdById: true,
       period: true,
       actionType: true,
       quantity: true,
@@ -121,6 +138,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       "Hanya borang berstatus Diarsipkan yang dapat dihapus.",
       409,
     );
+  }
+
+  // Ownership: deletion (in addition to the archive permission above) requires
+  // being the owner — legacy entries with no owner stay deletable by admins.
+  if (!isEntryOwnerOrPrivileged(user, entry)) {
+    await logAudit({
+      userId: user.id,
+      staffId: entry.staffId,
+      module: "borang",
+      resource: "borang_entry",
+      resourceId: id,
+      action: "DELETE_FORBIDDEN",
+      ipAddress: clientIp(req),
+    });
+    return err("FORBIDDEN", "Anda bukan pemilik borang ini.", 403);
   }
 
   try {

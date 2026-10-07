@@ -31,6 +31,7 @@ model User {
   userRoles        UserRole[]
   auditLogs        AuditLog[]
   migrationBatches MigrationBatch[]
+  borangCreated    BorangEntry[]     @relation("BorangCreatedBy")
 
   @@map("users")
 }
@@ -381,6 +382,7 @@ model StaffCompetency {
 model BorangEntry {
   id                String       @id @default(cuid())
   staffId           String
+  createdById       String? // User who created the entry (ownership / SoD)
   roomId            String?
   period            String // e.g. "2024-01"
   patientIdentifier String // TN.X, NY.Y — NEVER full name
@@ -401,12 +403,14 @@ model BorangEntry {
   updatedAt         DateTime     @updatedAt
 
   staff         Staff                @relation(fields: [staffId], references: [id])
+  createdBy     User?                @relation("BorangCreatedBy", fields: [createdById], references: [id])
   room          Room?                @relation(fields: [roomId], references: [id])
   nursingAction NursingAction?       @relation(fields: [nursingActionId], references: [id])
   verifications BorangVerification[]
   auditLogs     AuditLog[]           @relation("BorangAuditLogs")
 
   @@index([staffId])
+  @@index([createdById])
   @@index([status])
   @@index([createdAt])
   @@map("borang_entries")

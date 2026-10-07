@@ -5,6 +5,7 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
+import { separationOfDutiesViolation } from "@/lib/borang-access";
 
 const WorkflowSchema = z.object({
   action: z.enum(["SUBMIT", "VERIFY", "APPROVE", "REJECT", "ARCHIVE"]),
@@ -50,6 +51,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       `Status "${entry.status}" tidak dapat diubah menjadi ${transition.to}`,
       409
     );
+  }
+
+  // Separation of duties: the verifier/approver must not be the entry's
+  // creator/owner, and the approver must differ from the verifier.
+  if (data.action === "VERIFY" || data.action === "APPROVE") {
+    const violation = separationOfDutiesViolation(user, entry, data.action);
+    if (violation) {
+      await logAudit({
+        userId: user.id,
+        staffId: entry.staffId,
+        borangId: id,
+        module: "borang",
+        resource: "borang_entry",
+        resourceId: id,
+        action: "SEPARATION_OF_DUTIES_DENIED",
+        after: { attempted: data.action, status: entry.status },
+        ipAddress: clientIp(req),
+      });
+      return err("SEPARATION_OF_DUTIES", violation, 403);
+    }
   }
 
   const now = new Date();

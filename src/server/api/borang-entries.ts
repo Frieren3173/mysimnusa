@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE, generatePatientCode, generateRmNumber } from "@/lib/borang";
+import { canActOnBehalf } from "@/lib/borang-access";
 
 const CreateSchema = z.object({
   staffId: z.string().optional(),
@@ -86,6 +87,18 @@ export async function POST(req: NextRequest) {
   if (!staffId) {
     return err("NO_STAFF", "Akun ini tidak terhubung ke data SDM — pilih petugas", 422);
   }
+
+  // A user may only create entries for their own staff record unless they hold a
+  // privilege that justifies acting on someone else's behalf.
+  const ownsStaff = Boolean(user.staff?.id) && user.staff!.id === staffId;
+  if (!ownsStaff && !canActOnBehalf(user)) {
+    return err(
+      "FORBIDDEN",
+      "Anda hanya dapat membuat logbook untuk data petugas milik akun Anda.",
+      403,
+    );
+  }
+
   const staff = await prisma.staff.findUnique({ where: { id: staffId } });
   if (!staff) return err("STAFF_NOT_FOUND", "Petugas tidak ditemukan", 404);
 
@@ -122,6 +135,7 @@ export async function POST(req: NextRequest) {
     const entry = await prisma.borangEntry.create({
       data: {
         staffId,
+        createdById: user.id,
         roomId: data.roomId || null,
         period: data.period,
         patientIdentifier,
