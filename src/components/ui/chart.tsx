@@ -37,9 +37,9 @@ export function formatPct(value: number, total: number): string {
 
 // ─── Chart Shell ────────────────────────────────────────────
 
-export function ChartCard({ title, children }: { title: string; children: ReactNode }) {
+export function ChartCard({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <Card className="group transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:border-[var(--color-primary)]/30 hover:shadow-[0_8px_20px_-10px_rgba(15,40,70,0.22)] motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+    <Card className={cn("group transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:border-[var(--color-primary)]/30 hover:shadow-[0_8px_20px_-10px_rgba(15,40,70,0.22)] motion-reduce:transition-none motion-reduce:hover:translate-y-0", className)}>
       <CardContent className="px-5 py-4">
         <h3 className="mb-4 text-sm font-semibold tracking-[-0.01em] text-[var(--color-foreground)]">
           {title}
@@ -251,10 +251,13 @@ export function HorizontalBarChart({
   data,
   total,
   maxRows,
+  variant = "default",
 }: {
   data: BarDatum[];
   total?: number;
   maxRows?: number;
+  /** "wide" = roomier rows for double-width cards (label 140px, 20px bars). */
+  variant?: "default" | "wide";
 }) {
   const [active, setActive] = React.useState<number | null>(null);
   const [entered, setEntered] = React.useState(false);
@@ -275,10 +278,11 @@ export function HorizontalBarChart({
   const rows = typeof maxRows === "number" ? data.slice(0, maxRows) : data;
   const sum = total ?? data.reduce((acc, d) => acc + d.value, 0);
   const max = Math.max(...rows.map((d) => d.value), 1);
+  const wide = variant === "wide";
   const color = (d: BarDatum, i: number) => d.color ?? CHART_PALETTE[i % CHART_PALETTE.length];
 
   return (
-    <div className="w-full space-y-2">
+    <div className={wide ? "w-full space-y-2.5" : "w-full space-y-2"}>
       {rows.map((d, i) => {
         const pct = Math.max((d.value / max) * 100, 1.5);
         const isActive = active === i;
@@ -296,7 +300,8 @@ export function HorizontalBarChart({
           >
             <span
               className={cn(
-                "w-28 shrink-0 truncate text-[10px] leading-tight text-[var(--color-muted-foreground)] transition-colors",
+                "shrink-0 truncate leading-tight text-[var(--color-muted-foreground)] transition-colors",
+                wide ? "w-[140px] text-right text-[9px] md:text-[10px]" : "w-28 text-[10px]",
                 isActive && "text-[var(--color-foreground)]",
               )}
               title={d.label}
@@ -304,10 +309,16 @@ export function HorizontalBarChart({
               {d.label}
             </span>
             <span className="relative min-w-0 flex-1">
-              <span className="block h-3.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-sunken)]" />
               <span
                 className={cn(
-                  "absolute inset-y-0 left-0 origin-left rounded-full transition-[width,opacity,filter] duration-[600ms] ease-[var(--ease-out-quint)] motion-reduce:transition-none",
+                  "block w-full overflow-hidden bg-[var(--color-surface-sunken)]",
+                  wide ? "h-5 rounded-md" : "h-3.5 rounded-full",
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute inset-y-0 left-0 origin-left transition-[width,opacity,filter] duration-[600ms] ease-[var(--ease-out-quint)] motion-reduce:transition-none",
+                  wide ? "rounded-md" : "rounded-full",
                   active !== null && !isActive && "opacity-45",
                 )}
                 style={{
@@ -331,7 +342,8 @@ export function HorizontalBarChart({
             </span>
             <span
               className={cn(
-                "w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-[var(--color-foreground)]/80 transition-opacity",
+                "shrink-0 text-right font-medium tabular-nums text-[var(--color-foreground)]/80 transition-opacity",
+                wide ? "w-12 text-[10px]" : "w-8 text-[10px]",
                 active !== null && !isActive && "opacity-45",
               )}
             >

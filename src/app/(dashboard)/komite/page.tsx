@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { KpiCard } from "@/components/ui/card";
-import { ChartCard, BarChart, HorizontalBarChart, type BarDatum } from "@/components/ui/chart";
+import { ChartCard, BarChart, type BarDatum } from "@/components/ui/chart";
 import { PhotoCarousel } from "@/components/dashboard/photo-carousel";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { requirePermission } from "@/lib/authorization";
@@ -280,8 +280,8 @@ export default async function KomiteDashboardPage() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <ChartCard title="Distribusi Ruangan">
-            <HorizontalBarChart data={charts.rooms} total={stats.totalStaff} />
+          <ChartCard title="Distribusi Ruangan" className="lg:col-span-2">
+            <BarChart data={charts.rooms} total={stats.totalStaff} rotateLabels />
           </ChartCard>
           <ChartCard title="Status STR">
             <BarChart data={charts.str} />
@@ -295,14 +295,14 @@ export default async function KomiteDashboardPage() {
           <ChartCard title="Status BTCLS">
             <BarChart data={charts.btclsStatus} />
           </ChartCard>
+          <ChartCard title="Sertifikat Kompetensi" className="lg:col-span-2">
+            <BarChart data={charts.comp} rotateLabels />
+          </ChartCard>
           <ChartCard title="Kepemilikan ACLS">
             <BarChart data={charts.aclsOwn} />
           </ChartCard>
           <ChartCard title="Status ACLS">
             <BarChart data={charts.aclsStatus} />
-          </ChartCard>
-          <ChartCard title="Sertifikat Kompetensi">
-            <HorizontalBarChart data={charts.comp} />
           </ChartCard>
         </div>
       </div>
