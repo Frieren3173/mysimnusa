@@ -404,6 +404,52 @@ impor dilakukan terpisah).
   `document.<CODE>.*`, `competency.<CODE>`, `education.level`). Kolom lain diabaikan
   (sheet `Users` dengan `PasswordHash` **tidak** diimpor — password tidak disentuh).
 
+---
+
+# Fase D — Impor data dari spreadsheet (dijalankan setelah `IMPORT OK`)
+
+Pengguna memberi `IMPORT OK`. Google SOURCE (`presdirwhy3173@gmail.com`) & DESTINATION
+(`friewhy3173@gmail.com`) tersambung (terverifikasi di `migration_connections`).
+
+**Kendala & solusi:** UI "Scan Sheet" di Vercel gagal (`ENOENT … /var/task/storage/migration`)
+karena filesystem Vercel **read-only**. Karena `AUTH_SECRET` lokal identik dengan Vercel
+(token dapat didekripsi lokal), impor dijalankan **dari mesin lokal** (punya disk tulis)
+dengan **target DB produksi**, memakai engine aplikasi yang sama (scan → validate → import
+→ sync). Host-guard produksi diterapkan di setiap perintah tulis.
+
+## D1. Impor staf + metadata dokumen
+
+Sumber: sheet `Form Responses 1` (369 baris; 36 kolom dipetakan ke DB, 3 diabaikan).
+Batch: `cmuyvtq7j000008vjw4e2nzjq` (COMPLETED).
+
+| Hasil | Nilai |
+| --- | --- |
+| staff | **368** (217 create + 148 update + 3 via retry) |
+| documents (metadata) | **2526** |
+| dokumen dengan link Drive | 2158 |
+| staff_education | 367 |
+| staff_competencies | 149 |
+| failed items (final) | **0** (3 awal = transaction timeout 5s, di-retry sukses) |
+
+Idempoten via `Staff.legacySourceId` / `Document.legacySourceId` (aman diulang).
+
+## D2. Sinkronisasi byte dokumen (Drive SOURCE → DESTINATION)
+
+`runSyncChunk` (20 berkas/chunk): unduh dari akun SOURCE → unggah ke akun DESTINATION →
+tautkan `Document.storageKey`/`storageFileId`. Dijalankan lokal→produksi, berjalan
+bertahap (2158 berkas). Idempoten (dokumen yang sudah punya `storageKey` dilewati).
+
+Status akhir dilaporkan terpisah setelah sinkronisasi selesai.
+
+## Catatan penting untuk fitur migrasi berikutnya
+
+1. **Vercel read-only** → alur migrasi berbasis disk (`storage/migration`) **tidak
+   berfungsi di produksi**. Perlu perbaikan (mis. `/tmp` atau buffer in-memory) — akan
+   dibahas di pekerjaan berikutnya sesuai permintaan pengguna.
+2. **Transaction timeout 5s** pada baris berat → beberapa gagal, tetapi idempoten &
+   dapat di-retry. Pertimbangkan menaikkan `maxWait/timeout` atau memecah transaksi.
+
+
 
 
 
