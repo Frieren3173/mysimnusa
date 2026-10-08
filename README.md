@@ -167,23 +167,42 @@ sudah diabaikan oleh Git.
 `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
 (camera/microphone/geolocation/payment/usb dimatikan), dan `Strict-Transport-Security` (produksi).
 
-### CSP hardening (report-only → blocking)
+### CSP: report-only ↔ enforce (tanpa mengubah perilaku default)
 
-CSP saat ini dipasang sebagai **`Content-Security-Policy-Report-Only`** — hanya melaporkan, tidak
-memblokir. Kebijakan yang dipasang:
+Default adalah **`report-only`** (hanya melaporkan, tidak memblokir). Ganti perilaku
+lewat env `CSP_MODE` — kebijakan (isi) tetap sama, hanya nama header yang berubah:
+
+| `CSP_MODE` | Header yang dikirim | Efek |
+| --- | --- | --- |
+| `report-only` (default) | `Content-Security-Policy-Report-Only` | Observasi; tidak memblokir |
+| `enforce` | `Content-Security-Policy` | Memblokir pelanggaran |
+
+> **Catatan:** nilai `CSP_MODE` dibaca saat **build** (`headers()` dijalankan pada
+> `next build`), jadi set variabel ini di environment build Vercel lalu redeploy
+> agar berlaku.
+
+Kebijakan yang dipasang:
 
 ```
 default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
 object-src 'none'; img-src 'self' data: blob:; media-src 'self'; font-src 'self' data:;
 style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval';
-connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'
+connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; report-uri /api/csp-report
 ```
+
+**Endpoint laporan:** pelanggaran dikirim otomatis oleh browser ke
+`POST /api/csp-report` (dilayani oleh satu catch-all API — **tidak** menambah
+Vercel Function). Endpoint ini **tidak butuh login**, membatasi body ≤ 8 KB,
+menyaring field yang tidak perlu, dan hanya menulis ke **log server** (tidak ke
+database).
 
 **Cara memeriksa laporan pelanggaran:**
 
-1. Buka aplikasi di browser, lalu **DevTools → Console**. Pelanggaran CSP muncul sebagai
-   *"Refused to load/execute … because it violates the … Content Security Policy"*.
-2. Filter kata `Content Security Policy` di Console untuk melihat semua pelanggaran.
-3. Setelah beberapa waktu pemakaian tanpa pelanggaran, ubah di `next.config.ts` header dari
-   `Content-Security-Policy-Report-Only` menjadi `Content-Security-Policy` untuk mulai memblokir.
-   Bila muncul pelanggaran, tambahkan origin yang diperlukan pada direktif terkait sebelum beralih.
+1. **Konsol browser** — buka aplikasi, **DevTools → Console**, filter kata
+   `Content Security Policy`. Pelanggaran tampil sebagai *"Refused to load/execute …"*.
+2. **Log server** — baris berawalan `[mysimnusa:csp]` (JSON ringkas: `blockedUri`,
+   `violatedDirective`, `documentUri`, …). Tersedia di **Vercel → Deployments →
+   Functions → Logs**.
+3. Setelah beberapa waktu pemakaian **tanpa pelanggaran**, set `CSP_MODE=enforce`
+   di environment (Vercel) untuk mulai memblokir. Bila muncul pelanggaran,
+   tambahkan origin yang diperlukan pada direktif terkait lalu ulangi.

@@ -1,12 +1,12 @@
 import type { NextConfig } from "next";
 
 /**
- * Content-Security-Policy (REPORT-ONLY).
+ * Content-Security-Policy.
  *
- * Installed in report-only mode on purpose: it never blocks anything, so the
- * app keeps working exactly as before while the browser reports violations to
- * the console. Once the reports are consistently clean, promote it to the
- * blocking `Content-Security-Policy` header (see README → "CSP hardening").
+ * Default mode is **report-only** (never blocks), so the app keeps working while
+ * the browser reports violations. Set `CSP_MODE=enforce` to switch the same
+ * policy to the blocking `Content-Security-Policy` header once reports are clean
+ * (see README → "CSP hardening"). The policy content is identical either way.
  *
  * The policy is derived from what the app actually loads:
  *   • media  — background videos under /assets (mp4/webm), same origin
@@ -15,8 +15,9 @@ import type { NextConfig } from "next";
  *   • script/style — Next.js inline bootstrap (needs 'unsafe-inline' until a
  *     nonce is wired through; report-only means this is observation, not a gate)
  *   • connect — same origin (Google OAuth / Drive calls happen server-side)
+ *   • report-uri — violations are posted to /api/csp-report (no auth, no DB)
  */
-const cspReportOnly = [
+const cspPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -30,9 +31,17 @@ const cspReportOnly = [
   "connect-src 'self'",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
+  "report-uri /api/csp-report",
 ].join("; ");
 
 const isProd = process.env.NODE_ENV === "production";
+
+// `report-only` (default) keeps the report-only header; `enforce` blocks.
+const cspMode = (process.env.CSP_MODE ?? "report-only").trim().toLowerCase();
+const cspHeaderName =
+  cspMode === "enforce"
+    ? "Content-Security-Policy"
+    : "Content-Security-Policy-Report-Only";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -56,8 +65,8 @@ const securityHeaders = [
   ...(isProd
     ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
     : []),
-  // Report-only: observe, never block.
-  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+  // Report-only by default; blocking when CSP_MODE=enforce.
+  { key: cspHeaderName, value: cspPolicy },
 ];
 
 const nextConfig: NextConfig = {

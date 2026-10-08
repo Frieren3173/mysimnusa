@@ -54,6 +54,7 @@ import * as h51 from "@/server/api/komite-staff-$id$-documents";
 import * as h52 from "@/server/api/documents-$id$-thumbnail";
 import * as h53 from "@/server/api/diklat-certificate-template";
 import * as h54 from "@/server/api/diklat-trainings-$id$-certificates-generate";
+import * as h55 from "@/server/api/csp-report";
 
 // Consolidated API route table.
 // Every URL/method that previously lived in its own route.ts file is
@@ -113,6 +114,7 @@ const routes: RouteEntry[] = [
   { pattern: ["komite", "staff"], module: h49 },
   { pattern: ["komite", "staff", ":id"], module: h50 },
   { pattern: ["komite", "staff", ":id", "documents"], module: h51 },
+  { pattern: ["csp-report"], module: h55 },
 ];
 
 const handlers = createGroupHandler([], routes);
