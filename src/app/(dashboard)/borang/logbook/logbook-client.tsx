@@ -8,7 +8,13 @@ import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui
 import { BorangStatusBadge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Download, Pencil, Send, Users, Trash2 } from "lucide-react";
+import { USER_EDITABLE_STATUSES } from "@/lib/borang-workflow";
 import { StaffLogbookModal } from "./staff-logbook-modal";
+
+/** Statuses in which the owner may edit/resubmit (DRAFT or REVISION_REQUIRED). */
+function isEditableStatus(status: string): boolean {
+  return (USER_EDITABLE_STATUSES as readonly string[]).includes(status) || status === "REJECTED";
+}
 
 interface Entry {
   id: string;
@@ -380,7 +386,17 @@ export function LogbookClient({
             onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
           >
             <option value="">Semua</option>
-            {["DRAFT", "SUBMITTED", "VERIFICATION", "APPROVED", "REJECTED", "ARCHIVED"].map((s) => (
+            {[
+              "DRAFT",
+              "SUBMITTED",
+              "REVISION_REQUIRED",
+              "APPROVED_KARU",
+              "READY_TO_PRINT",
+              "PRINTED",
+              "COMPLETED",
+              "REJECTED",
+              "ARCHIVED",
+            ].map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -499,9 +515,9 @@ export function LogbookClient({
                     </Td>
                     <Td className="text-xs">
                       {e.actionType}
-                      {e.status === "REJECTED" && e.rejectReason && (
+                      {(e.status === "REJECTED" || e.status === "REVISION_REQUIRED") && e.rejectReason && (
                         <p className="text-[10px] text-red-600 mt-0.5">
-                          Ditolak: {e.rejectReason}
+                          Revisi: {e.rejectReason}
                         </p>
                       )}
                     </Td>
@@ -510,7 +526,7 @@ export function LogbookClient({
                       <BorangStatusBadge status={e.status} />
                     </Td>
                     <Td className="text-right whitespace-nowrap">
-                      {canUpdate && ["DRAFT", "REJECTED"].includes(e.status) && (
+                      {canUpdate && isEditableStatus(e.status) && (
                         <Button
                           variant="ghost"
                           size="icon-sm"
@@ -521,7 +537,7 @@ export function LogbookClient({
                           <Pencil size={13} className="text-slate-500" />
                         </Button>
                       )}
-                      {canSubmit && ["DRAFT", "REJECTED"].includes(e.status) && (
+                      {canSubmit && isEditableStatus(e.status) && (
                         <Button
                           variant="secondary"
                           size="sm"

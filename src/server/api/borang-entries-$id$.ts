@@ -7,6 +7,8 @@ import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE } from "@/lib/borang";
 import { isEntryOwnerOrPrivileged } from "@/lib/borang-access";
+import { loadBorangScope, canAccessBorangEntry } from "@/lib/borang-scope";
+import { isUserEditableStatus } from "@/lib/borang-workflow";
 import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const EditSchema = z.object({
@@ -33,8 +35,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const entry = await prisma.borangEntry.findUnique({ where: { id } });
   if (!entry) return err("NOT_FOUND", "Entri tidak ditemukan", 404);
-  if (!["DRAFT", "REJECTED"].includes(entry.status)) {
-    return err("INVALID_STATUS", "Hanya entri DRAFT/REJECTED yang dapat diubah", 409);
+
+  // Editable only while still a draft or returned for revision. New workflow
+  // uses REVISION_REQUIRED; legacy entries use REJECTED.
+  if (!isUserEditableStatus(entry.status) && entry.status !== "REJECTED") {
+    return err("INVALID_STATUS", "Hanya borang DRAFT/REVISI yang dapat diubah", 409);
+  }
+
+  // Room scoping: a plain user may only touch entries they can access.
+  const scope = await loadBorangScope(user);
+  if (!user.isSuperAdmin() && !canAccessBorangEntry(scope, user.id, entry)) {
+    await logAudit({
+      userId: user.id,
+      staffId: entry.staffId,
+      borangId: id,
+      module: "borang",
+      resource: "borang_entry",
+      resourceId: id,
+      action: "EDIT_FORBIDDEN",
+      ipAddress: clientIp(req),
+    });
+    return err("FORBIDDEN", "Anda tidak memiliki akses ke borang ini.", 403);
   }
 
   // Ownership: only the creator/owner (or a privileged user) may edit.

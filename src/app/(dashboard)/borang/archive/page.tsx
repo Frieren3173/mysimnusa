@@ -13,6 +13,7 @@ export default async function ArchivePage() {
   return (
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Arsip" }]}
+      roles={currentUser.roles}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

@@ -1,5 +1,13 @@
 export type BorangAction = "SUBMIT" | "VERIFY" | "APPROVE" | "REJECT" | "ARCHIVE";
 
+// Status labels/variants now live in `borang-workflow.ts` (single source of
+// truth, extended for the Kepala Ruang workflow). Re-exported here so existing
+// imports from `@/lib/borang` keep working unchanged.
+export {
+  BORANG_STATUS_LABEL,
+  BORANG_STATUS_VARIANT,
+} from "./borang-workflow";
+
 export const PATIENT_CODE_RE = /^(TN|NY|BY\.(TN|NY))\.[A-Z]{1,2}$/;
 
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -181,27 +189,6 @@ export function expandPatientRows(entries: PatientEntryInput[]): PatientRow[] {
 
   return rows;
 }
-
-export const BORANG_STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Draf",
-  SUBMITTED: "Terkirim",
-  VERIFICATION: "Verifikasi",
-  APPROVED: "Disetujui",
-  REJECTED: "Ditolak",
-  ARCHIVED: "Diarsipkan",
-};
-
-export const BORANG_STATUS_VARIANT: Record<
-  string,
-  "default" | "draft" | "pending" | "info" | "active" | "rejected" | "archived"
-> = {
-  DRAFT: "draft",
-  SUBMITTED: "pending",
-  VERIFICATION: "info",
-  APPROVED: "active",
-  REJECTED: "rejected",
-  ARCHIVED: "archived",
-};
 
 export const ACTION_LABEL: Record<BorangAction, string> = {
   SUBMIT: "Kirim",

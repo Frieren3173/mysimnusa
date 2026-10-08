@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
+import { BORANG_STATUS_LABEL, BORANG_STATUS_VARIANT } from "@/lib/borang-workflow";
 
 // ─── Badge / Status Badge ───────────────────────────────────
 
@@ -68,15 +69,6 @@ const DOCUMENT_STATUS_LABELS: Record<string, { label: string; variant: BadgeProp
   MISSING:   { label: "Belum Tersedia", variant: "missing" },
 };
 
-const BORANG_STATUS_LABELS: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
-  DRAFT:        { label: "Draft", variant: "draft" },
-  SUBMITTED:    { label: "Diajukan", variant: "submitted" },
-  VERIFICATION: { label: "Verifikasi", variant: "pending" },
-  APPROVED:     { label: "Disetujui", variant: "approved" },
-  REJECTED:     { label: "Ditolak", variant: "rejected" },
-  ARCHIVED:     { label: "Diarsipkan", variant: "archived" },
-};
-
 const TRAINING_STATUS_LABELS: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
   DRAFT:     { label: "Draft", variant: "draft" },
   PUBLISHED: { label: "Terbuka", variant: "info" },
@@ -90,8 +82,17 @@ export function DocumentStatusBadge({ status, label }: { status: string; label?:
   return <Badge variant={entry.variant}>{label ?? entry.label}</Badge>;
 }
 
+/**
+ * Borang status badge.
+ *
+ * Labels/variants come from `@/lib/borang-workflow` (single source of truth)
+ * so the full Kepala Ruang workflow — REVISION_REQUIRED, APPROVED_KARU,
+ * READY_TO_PRINT, PRINTED, COMPLETED — renders correctly, while legacy
+ * statuses keep their existing appearance.
+ */
 export function BorangStatusBadge({ status }: { status: string }) {
-  const { label, variant } = BORANG_STATUS_LABELS[status] ?? { label: status, variant: "default" as const };
+  const label = BORANG_STATUS_LABEL[status] ?? status;
+  const variant = (BORANG_STATUS_VARIANT[status] ?? "default") as BadgeProps["variant"];
   return <Badge variant={variant}>{label}</Badge>;
 }
 

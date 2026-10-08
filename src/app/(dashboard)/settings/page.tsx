@@ -69,6 +69,12 @@ export default async function SettingsPage() {
                 Manajemen Pengguna
               </Link>
               <Link
+                href="/settings/system/kepala-ruang"
+                className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Pemetaan Kepala Ruang
+              </Link>
+              <Link
                 href="/admin/audit"
                 className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >

@@ -20,7 +20,44 @@ interface NavItem {
   href?: string;
   icon?: React.ReactNode;
   children?: NavItem[];
+  /** Roles allowed to see this item. Empty/undefined = everyone. */
+  roles?: string[];
 }
+
+/**
+ * Navigation definition.
+ *
+ * `roles` controls *menu visibility only* — every route also enforces access
+ * server-side. Adding the business roles keeps the sidebar aligned with the
+ * Borang workflow while legacy roles keep their previous menus.
+ */
+const R = {
+  SUPER_ADMIN: "SUPER_ADMIN",
+  SUPERADMIN: "SUPERADMIN",
+  ADMIN_KOMITE: "ADMIN_KOMITE",
+  ADMIN_BORANG: "ADMIN_BORANG",
+  ADMIN_DIKLAT: "ADMIN_DIKLAT",
+  VERIFIER: "VERIFIER",
+  KOMITE: "KOMITE_KEPERAWATAN_KEBIDANAN",
+  DIKLAT_BORANG: "DIKLAT_BORANG",
+  USER: "USER",
+  KEPALA_RUANG: "KEPALA_RUANG",
+} as const;
+
+const SUPER_ROLES = [R.SUPER_ADMIN, R.SUPERADMIN];
+const KOMITE_ROLES = [...SUPER_ROLES, R.ADMIN_KOMITE, R.KOMITE];
+const BORANG_ROLES = [
+  ...SUPER_ROLES,
+  R.ADMIN_BORANG,
+  R.ADMIN_KOMITE,
+  R.VERIFIER,
+  R.KOMITE,
+  R.DIKLAT_BORANG,
+  R.USER,
+  R.KEPALA_RUANG,
+];
+const DIKLAT_ROLES = [...SUPER_ROLES, R.ADMIN_DIKLAT, R.DIKLAT_BORANG];
+const ADMIN_ROLES = SUPER_ROLES;
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -31,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Komite Keperawatan dan Kebidanan",
     icon: <ShieldCheck size={16} />,
+    roles: KOMITE_ROLES,
     children: [
       { label: "Dashboard", href: "/komite" },
       { label: "Data SDM", href: "/komite/staff" },
@@ -42,18 +80,24 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Borang",
     icon: <FileText size={16} />,
+    roles: BORANG_ROLES,
     children: [
       { label: "Dashboard", href: "/borang" },
       { label: "Logbook", href: "/borang/logbook" },
-      { label: "Master Ruangan", href: "/borang/master/ruangan" },
-      { label: "Master Tindakan", href: "/borang/master/tindakan" },
-      { label: "Verifikasi", href: "/borang/verification" },
-      { label: "Arsip", href: "/borang/archive" },
+      { label: "Input Borang", href: "/borang/entry" },
+      { label: "Review Kepala Ruang", href: "/borang/review", roles: [...SUPER_ROLES, R.KEPALA_RUANG, R.ADMIN_BORANG] },
+      { label: "Sekretariat", href: "/borang/secretariat", roles: [...SUPER_ROLES, R.DIKLAT_BORANG, R.ADMIN_BORANG] },
+      { label: "Cetak & Selesai", href: "/borang/print", roles: [...SUPER_ROLES, R.DIKLAT_BORANG, R.ADMIN_BORANG] },
+      { label: "Verifikasi", href: "/borang/verification", roles: [...SUPER_ROLES, R.ADMIN_BORANG, R.VERIFIER] },
+      { label: "Arsip", href: "/borang/archive", roles: [...SUPER_ROLES, R.ADMIN_BORANG, R.VERIFIER] },
+      { label: "Master Ruangan", href: "/borang/master/ruangan", roles: SUPER_ROLES },
+      { label: "Master Tindakan", href: "/borang/master/tindakan", roles: SUPER_ROLES },
     ],
   },
   {
     label: "Diklat",
     icon: <GraduationCap size={16} />,
+    roles: DIKLAT_ROLES,
     children: [
       { label: "Dashboard", href: "/diklat" },
       { label: "Pelatihan", href: "/diklat/trainings" },
@@ -66,6 +110,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Administrasi",
     icon: <Users size={16} />,
+    roles: ADMIN_ROLES,
     children: [
       { label: "Pengguna", href: "/admin/users" },
       { label: "Audit Log", href: "/admin/audit" },
@@ -75,16 +120,42 @@ const NAV_ITEMS: NavItem[] = [
     label: "Pengaturan",
     href: "/settings",
     icon: <Settings size={16} />,
+    roles: [...SUPER_ROLES, R.ADMIN_KOMITE, R.ADMIN_BORANG, R.ADMIN_DIKLAT, R.KOMITE, R.DIKLAT_BORANG, R.USER, R.KEPALA_RUANG],
   },
 ];
+
+/** True when the item is visible for the given roles (empty roles = visible). */
+function visibleFor(item: NavItem, roles: string[]): boolean {
+  if (!item.roles || item.roles.length === 0) return true;
+  return item.roles.some((r) => roles.includes(r));
+}
+
+/** Filters a nav tree for the given roles (recursively for children). */
+function filterNav(items: NavItem[], roles: string[]): NavItem[] {
+  return items
+    .filter((item) => visibleFor(item, roles))
+    .map((item) =>
+      item.children
+        ? { ...item, children: filterNav(item.children, roles) }
+        : item,
+    )
+    .filter((item) => !item.children || item.children.length > 0);
+}
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** Role names for menu visibility. Undefined = show all (back-compat). */
+  roles?: string[];
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, roles }: SidebarProps) {
   const pathname = usePathname();
+  // Undefined `roles` (older callers) keeps the full menu for back-compat.
+  const navItems = React.useMemo(
+    () => (roles ? filterNav(NAV_ITEMS, roles) : NAV_ITEMS),
+    [roles],
+  );
   const [openGroups, setOpenGroups] = React.useState<Set<string>>(() => {
     // Auto-open the group that contains current path
     const initial = new Set<string>();
@@ -190,7 +261,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           if (item.href) {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (

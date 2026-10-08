@@ -36,6 +36,7 @@ export default async function LogbookPage({
   return (
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Logbook" }]}
+      roles={currentUser.roles}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

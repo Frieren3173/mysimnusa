@@ -32,6 +32,10 @@ model User {
   auditLogs        AuditLog[]
   migrationBatches MigrationBatch[]
   borangCreated    BorangEntry[]     @relation("BorangCreatedBy")
+  borangSubmitted  BorangEntry[]     @relation("BorangSubmittedBy")
+  borangPrinted    BorangEntry[]     @relation("BorangPrintedBy")
+  borangCompleted  BorangEntry[]     @relation("BorangCompletedBy")
+  kepalaRuangRooms RoomKepalaRuang[] @relation("RoomKepalaRuangUser")
 
   @@map("users")
 }
@@ -158,9 +162,39 @@ model Room {
   staff          Staff[]
   borangEntries  BorangEntry[]
   nursingActions RoomNursingAction[]
+  kepalaRuang    RoomKepalaRuang?
 
   @@index([category])
   @@map("rooms")
+}
+
+/// Explicit Superadmin-managed mapping: one Kepala Ruang user per Room.
+///
+/// This mapping is the single source of truth for who may review a room's
+/// Borang entries. It is deliberately NOT inferred from the Staff–Room
+/// relation — a Room may legitimately have many staff but only one Kepala
+/// Ruang, assigned explicitly by a Superadmin.
+///
+/// `name`/`nip` are denormalised snapshots of the assigned user's staff record
+/// so the current mapping is cheap to render. Historical accuracy is preserved
+/// separately by snapshotting the reviewer onto each Borang entry at submit
+/// time (changing this mapping never rewrites past submissions).
+model RoomKepalaRuang {
+  id         String   @id @default(cuid())
+  roomId     String   @unique
+  userId     String
+  staffId    String?
+  name       String
+  nip        String?
+  assignedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation("RoomKepalaRuangUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("room_kepala_ruang")
 }
 
 // ─────────────────────────────────────────────
@@ -396,14 +430,37 @@ model BorangEntry {
   verifierNotes     String?
   rejectReason      String?
   submittedAt       DateTime?
+  submittedById     String? // who submitted (usually the owner)
   verifiedAt        DateTime?
   approvedAt        DateTime?
   archivedAt        DateTime?
+
+  // ── Kepala Ruang workflow (additive, nullable) ──────────────────────────
+  /// Snapshot of the room's Kepala Ruang captured at submit time, so a later
+  /// mapping change never rewrites the review history of an existing pengajuan.
+  kepalaRuangUserId String?
+  kepalaRuangName   String?
+  kepalaRuangNip    String?
+  /// Timestamp of the Kepala Ruang decision (APPROVED_KARU / REVISION_REQUIRED).
+  kepalaRuangAt     DateTime?
+  /// Administrative (DIKLAT_BORANG / sekretariat) review marker.
+  adminReviewedAt   DateTime?
+  adminReviewedById String?
+  /// Print + completion lifecycle.
+  printReadyAt      DateTime?
+  printedAt         DateTime?
+  printedById       String?
+  completedAt       DateTime?
+  completedById     String?
+
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
   staff         Staff                @relation(fields: [staffId], references: [id])
   createdBy     User?                @relation("BorangCreatedBy", fields: [createdById], references: [id])
+  submittedBy   User?                @relation("BorangSubmittedBy", fields: [submittedById], references: [id])
+  printedBy     User?                @relation("BorangPrintedBy", fields: [printedById], references: [id])
+  completedBy   User?                @relation("BorangCompletedBy", fields: [completedById], references: [id])
   room          Room?                @relation(fields: [roomId], references: [id])
   nursingAction NursingAction?       @relation(fields: [nursingActionId], references: [id])
   verifications BorangVerification[]
@@ -412,10 +469,19 @@ model BorangEntry {
   @@index([staffId])
   @@index([createdById])
   @@index([status])
+  @@index([roomId])
+  @@index([kepalaRuangUserId])
   @@index([createdAt])
   @@map("borang_entries")
 }
 
+/// Borang lifecycle status.
+///
+/// Legacy statuses (VERIFICATION, APPROVED, REJECTED, ARCHIVED) are retained
+/// for backward compatibility with entries created before the Kepala Ruang
+/// workflow. New entries use the review chain:
+///   DRAFT → SUBMITTED → APPROVED_KARU | REVISION_REQUIRED
+///         → READY_TO_PRINT → PRINTED → COMPLETED
 enum BorangStatus {
   DRAFT
   SUBMITTED
@@ -423,6 +489,11 @@ enum BorangStatus {
   APPROVED
   REJECTED
   ARCHIVED
+  REVISION_REQUIRED
+  APPROVED_KARU
+  READY_TO_PRINT
+  PRINTED
+  COMPLETED
 }
 
 model BorangVerification {

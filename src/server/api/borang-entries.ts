@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
 import { PATIENT_CODE_RE, generatePatientCode, generateRmNumber } from "@/lib/borang";
 import { canActOnBehalf } from "@/lib/borang-access";
+import { loadBorangScope, borangListWhere } from "@/lib/borang-scope";
 import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const CreateSchema = z.object({
@@ -41,8 +42,26 @@ export async function GET(req: NextRequest) {
   const period = url.searchParams.get("period");
   const search = url.searchParams.get("search")?.trim();
   const mine = url.searchParams.get("mine") === "1";
+  const assigned = url.searchParams.get("assigned") === "1";
+
+  // Room/ownership scoping — enforced server-side, never trusted from the UI.
+  const scope = await loadBorangScope(user);
+  const scopeWhere = borangListWhere(scope, user.id);
+
+  // `assigned=1` narrows the Kepala Ruang review queue to the actor's rooms.
+  const assignedWhere =
+    assigned && !scope.unrestricted
+      ? scope.isKaru && scope.assignedRoomIds.length > 0
+        ? { roomId: { in: scope.assignedRoomIds } }
+        : { id: "__none__" }
+      : undefined;
+
+  const andClauses: Record<string, unknown>[] = [];
+  if (scopeWhere) andClauses.push(scopeWhere);
+  if (assignedWhere) andClauses.push(assignedWhere);
 
   const where = {
+    ...(andClauses.length > 0 ? { AND: andClauses } : {}),
     ...(status ? { status: status as never } : {}),
     ...(period ? { period } : {}),
     ...(mine && user.staff?.id ? { staffId: user.staff.id } : {}),
@@ -98,6 +117,21 @@ export async function POST(req: NextRequest) {
       "Anda hanya dapat membuat logbook untuk data petugas milik akun Anda.",
       403,
     );
+  }
+
+  // Room scoping: a user without "act on behalf" privileges may only log against
+  // their own room. This prevents cross-room data entry via a crafted request.
+  if (!canActOnBehalf(user) && data.roomId && user.staff?.roomId && data.roomId !== user.staff.roomId) {
+    await logAudit({
+      userId: user.id,
+      staffId,
+      module: "borang",
+      resource: "borang_entry",
+      action: "CROSS_ROOM_DENIED",
+      after: { attemptedRoomId: data.roomId, ownRoomId: user.staff.roomId },
+      ipAddress: clientIp(req),
+    });
+    return err("FORBIDDEN_ROOM", "Anda hanya dapat mencatat Borang untuk ruangan Anda sendiri.", 403);
   }
 
   const staff = await prisma.staff.findUnique({ where: { id: staffId } });

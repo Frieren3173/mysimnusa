@@ -19,6 +19,7 @@ export default async function VerificationPage() {
   return (
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Verifikasi" }]}
+      roles={currentUser.roles}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,
