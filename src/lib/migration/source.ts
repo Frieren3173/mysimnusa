@@ -313,6 +313,32 @@ export function extractDriveId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * Native Google Workspace MIME types and the export format used for downloads.
+ * A Drive UI URL alone does not prove this: a `/document/d/…` link can point to
+ * an uploaded Word file, which must be downloaded with `alt=media` rather than
+ * the native-Docs export endpoint.
+ */
+export const GOOGLE_NATIVE_EXPORT_MIME: Record<string, string> = {
+  "application/vnd.google-apps.document":
+    "application/pdf",
+  "application/vnd.google-apps.spreadsheet":
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.google-apps.presentation":
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.google-apps.drawing": "image/png",
+};
+
+/** Builds a Drive download URL, exporting only genuine native Workspace files. */
+export function driveDownloadUrl(fileId: string, mimeType?: string | null): string {
+  const encoded = encodeURIComponent(fileId);
+  const exportMime = mimeType ? GOOGLE_NATIVE_EXPORT_MIME[mimeType] : undefined;
+  if (exportMime) {
+    return `https://www.googleapis.com/drive/v3/files/${encoded}/export?mimeType=${encodeURIComponent(exportMime)}`;
+  }
+  return `https://www.googleapis.com/drive/v3/files/${encoded}?alt=media&supportsAllDrives=true`;
+}
+
 export function normalizeName(name: string): string {
   return name
     .toLowerCase()

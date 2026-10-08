@@ -439,6 +439,19 @@ Idempoten via `Staff.legacySourceId` / `Document.legacySourceId` (aman diulang).
 tautkan `Document.storageKey`/`storageFileId`. Dijalankan lokal→produksi, berjalan
 bertahap (2158 berkas). Idempoten (dokumen yang sudah punya `storageKey` dilewati).
 
+Hasil sinkronisasi: **2157 dari 2158 berkas** memiliki `storageKey`; tersisa **1 berkas**
+dengan error `File tidak ditemukan di Drive (404)`. Dari 6 kegagalan awal, 1 gagal kuota
+tujuan dicoba ulang dan berhasil; 4 gagal akses palsu diperbaiki lewat perbaikan unduhan
+di bawah; 1 tautan sumber memang hilang di Drive.
+
+### Perbaikan unduhan tautan `/document/d/…`
+
+Tautan antarmuka `docs.google.com/document/d/…` ternyata dapat menunjuk berkas biner
+yang diunggah (mis. DOCX/DOC), bukan Google Docs asli. Kode lama selalu memakai endpoint
+ekspor sehingga Drive menjawab 403. Sekarang Drive metadata (`mimeType`) diperiksa lebih
+dulu dan hanya berkas Workspace asli yang diekspor; biner diunduh lewat `alt=media`.
+Ditambah helper `driveDownloadUrl()` dan tesnya.
+
 Status akhir dilaporkan terpisah setelah sinkronisasi selesai.
 
 ## Catatan penting untuk fitur migrasi berikutnya

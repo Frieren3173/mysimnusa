@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { putObject, objectExists } from "@/lib/storage";
-import { extractDriveId } from "./source";
+import { driveDownloadUrl, extractDriveId } from "./source";
 import { googleFetch } from "@/lib/google/auth";
 
 // ─── Status ────────────────────────────────────
@@ -250,23 +250,45 @@ function looksHtml(buf: Buffer): boolean {
   return head.startsWith("<!doctype") || head.startsWith("<html") || head.startsWith("<head");
 }
 
-async function fetchDriveFile(fileId: string, isGoogleDoc: boolean): Promise<Buffer> {
-  // Legacy source files are read through the authenticated SOURCE connection so
-  // the legacy Drive never has to be made public. Google Docs are exported to
-  // PDF; everything else is streamed with alt=media.
-  const url = isGoogleDoc
-    ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=${encodeURIComponent("application/pdf")}`
-    : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`;
-
-  let res: Response;
+async function requestDriveUrl(url: string): Promise<Response> {
   try {
-    res = await googleFetch("SOURCE", url, { signal: AbortSignal.timeout(45000) });
+    return await googleFetch("SOURCE", url, { signal: AbortSignal.timeout(45000) });
   } catch (e) {
     const message =
       e instanceof Error && e.name === "TimeoutError"
         ? "Timeout saat mengunduh file (45s)"
         : `Gagal terhubung ke Google Drive: ${e instanceof Error ? e.message : "kesalahan tidak diketahui"}`;
     throw new Error(message);
+  }
+}
+
+async function driveMimeType(fileId: string): Promise<string | null> {
+  const meta = await requestDriveUrl(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=mimeType&supportsAllDrives=true`,
+  );
+  if (!meta.ok) return null;
+  const json = (await meta.json().catch(() => null)) as { mimeType?: unknown } | null;
+  return typeof json?.mimeType === "string" ? json.mimeType : null;
+}
+
+async function fetchDriveFile(fileId: string, sourceUrl: string): Promise<Buffer> {
+  // Legacy source files are read through the authenticated SOURCE connection so
+  // the legacy Drive never has to be made public. Native Google Docs are exported;
+  // uploaded binaries (even when shared through a `/document/d/…` URL) use direct
+  // media download.
+  const looksLikeGoogleDoc = /\/document\/d\//.test(sourceUrl);
+  let res = await requestDriveUrl(
+    driveDownloadUrl(fileId, looksLikeGoogleDoc ? "application/vnd.google-apps.document" : null),
+  );
+
+  if (!res.ok && res.status === 403 && looksLikeGoogleDoc) {
+    // A `/document/d/…` link can identify an uploaded binary rather than a native
+    // Google Doc. Check the stored MIME type before retaining an export failure.
+    const mimeType = await driveMimeType(fileId).catch(() => null);
+    const retryUrl = mimeType ? driveDownloadUrl(fileId, mimeType) : null;
+    if (retryUrl && !retryUrl.includes("/export?")) {
+      res = await requestDriveUrl(retryUrl);
+    }
   }
 
   const buf = Buffer.from(await res.arrayBuffer());
@@ -366,8 +388,7 @@ export async function runSyncChunk(limit: number, resetFailed: boolean): Promise
           if (/\/folders\//.test(url)) throw new Error("Link folder, bukan file — tidak bisa diunduh otomatis");
           const fileId = doc.legacyDriveId ?? extractDriveId(url);
           if (!fileId) throw new Error("Link Drive tidak valid");
-          const isGoogleDoc = /\/document\/d\//.test(url);
-          const buf = await fetchDriveFile(fileId, isGoogleDoc);
+          const buf = await fetchDriveFile(fileId, url);
           const meta = sniff(buf);
           // Store the downloaded binary through the storage layer (Cloudflare R2
           // in production, local disk in development). Neon keeps metadata only.
