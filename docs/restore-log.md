@@ -1,0 +1,148 @@
+# Restore Log — Neon point-in-time recovery (MYSIMNUSA)
+
+Semua waktu UTC + WIB (UTC+7). Tidak ada data pribadi, URL koneksi, atau secret
+yang dicatat. Semua query investigasi bersifat READ ONLY.
+
+## Fase 0 — Identifikasi (read-only)
+
+| Item | Nilai |
+| --- | --- |
+| Neon CLI | `neon` v8.0.6 (global, `%APPDATA%\npm`), auth OAuth profil DEFAULT |
+| Project | `round-mud-19247174` (RSAJT Nursing Management), region `aws-ap-southeast-1` |
+| Branch produksi | `production` — **root / default / primary** |
+| Branch ID | `br-autumn-firefly-b32yykkg` |
+| Retention history | `history_retention_seconds: 21600` (**6 jam**) |
+| Endpoint produksi (prefix) | `ep-orange-dew-b389r3mr` (cocok dengan host `DATABASE_URL` aplikasi) |
+
+Tidak ada branch lain (hanya `production`). Tidak ada branch cadangan.
+
+### Keadaan SEKARANG (2026-10-08T00:34Z)
+
+| Tabel | Baris |
+| --- | --- |
+| users | 1 (created `2026-10-07T17:31:02Z`) |
+| staff | 3 (created `2026-10-07T17:31:02–03Z`) |
+| documents | 0 |
+| borang_entries | 0 |
+| trainings | 0 |
+| certificates | 0 |
+| audit_logs | 7 (min `2026-10-07T17:24:33Z`, max `2026-10-07T23:25:06Z`) |
+| sessions | 3 |
+| login_attempts | 0 |
+| **`_prisma_migrations`** | **TIDAK ADA (MISSING)** |
+
+Total 37 tabel publik ada. `_prisma_migrations` **tidak ada** → skema dibuat ulang
+tanpa riwayat migrasi (konsisten dengan `db push`/reset), bukan lewat `migrate deploy`.
+
+**Indikasi jam insiden:** `users`/`staff` seed dibuat `2026-10-07T17:31Z`; audit log
+terawal yang tersisa `17:24:33Z`. Jadi reset+seed terjadi sekitar **17:24–17:31Z**
+(WIB ~00:24–00:31 tanggal 8 Okt).
+
+## Fase 1 — Pencarian titik restore (Time Travel, read-only)
+
+Koneksi point-in-time read-only: `neon connection-string "production@<ts>"`.
+
+| Timestamp UTC | Timestamp WIB | Perkiraan hasil | Catatan |
+| --- | --- | --- | --- |
+| 2026-10-07T17:30:00Z | 2026-10-08T00:30 | ❌ BEFORE-WINDOW | Di luar retensi |
+| 2026-10-07T18:00:00Z | 01:00 | ❌ BEFORE-WINDOW | Di luar retensi |
+| 2026-10-07T18:31:30Z | 01:31 | ❌ BEFORE-WINDOW | Di luar retensi |
+| 2026-10-07T18:33:55Z | 01:33 | ❌ BEFORE-WINDOW | Di luar retensi |
+| 2026-10-07T18:34:30Z | 01:34 | ❌ BEFORE-WINDOW | Di luar retensi |
+| **2026-10-07T18:35:00Z** | **01:35** | ✅ OK — users=1 staff=3 docs=0 | **Titik TERAWAL yang tersedia** |
+| 2026-10-07T18:36:00Z | 01:36 | ✅ users=1 staff=3 docs=0; `_prisma_migrations` MISSING | Sudah hanya data seed |
+| 2026-10-07T18:35:00Z (sekarang +6j) | — | ✅ users=1 staff=3 docs=0 | = kondisi sekarang |
+
+**Batas bawah window ≈ `2026-10-07T18:34:45Z`** (antara 18:34:30 dan 18:35:00).
+
+## Kesimpulan — TIDAK ADA titik restore yang berguna
+
+Seluruh window retensi 6 jam (`~2026-10-07T18:34:45Z` s/d sekarang) **sudah berisi
+hanya data hasil seed** (1 user, 3 staff contoh, 0 dokumen). Data staf asli hilang
+pada **~17:24–17:31Z**, yaitu **~1 jam SEBELUM batas bawah retention window**.
+
+➡️ **Point-in-time restore TIDAK dapat mengembalikan data staf asli:** titik paling
+awal yang tersedia pun sudah merupakan kondisi pasca-insiden. **Tidak ada restore
+yang diusulkan.**
+
+`_prisma_migrations` juga hilang di seluruh window, jadi memperbaiki skema pun tidak
+memulihkan data.
+
+## Rekomendasi (perlu keputusan pemilik data)
+
+1. **Jangan restore** — tidak akan menambah data apa pun; berisiko menimpa.
+2. Cari sumber cadangan lain: ekspor Google Drive (dokumen), file XLSX sumber
+   migration di `storage/migration/`, arsip/backup lokal, atau snapshot manual.
+3. Database tanpa `_prisma_migrations`: untuk ke depan, gunakan `prisma migrate
+   deploy` (bukan `db push`) dan aktifkan retensi history lebih panjang / snapshots
+   berkala di Neon.
+4. Setelah data pulih, jalankan migrasi tahap 1 & 2 dengan `migrate deploy` (setelah
+   `MIGRATE OK`).
+
+## Larangan yang dipatuhi
+
+Tidak ada `migrate reset`/`dev`, `db push`, seed, DROP/TRUNCATE/DELETE/UPDATE/INSERT
+manual, penghapusan branch, perubahan env Vercel, maupun restore yang dijalankan.
+
+---
+
+# Fase A — Pencarian sumber data (read-only)
+
+Dokumentasi lanjutan (rebuild skema). Semua query READ ONLY; tidak ada URL/secret/
+data pribadi yang dicetak.
+
+## A1. Sumber data yang DITEMUKAN
+
+| Sumber | Lokasi | Isi (tanpa data pribadi) | Status |
+| --- | --- | --- | --- |
+| **XLSX sumber migration** | `storage/migration/` (5 berkas, ~484 KB masing-masing, tanggal 3–4 Okt) | 4 sheet; `Form Responses 1` = **368 baris data × 39 kolom** (NAMA/NIP/email/ruangan/STR/SIP/kompetensi/berkas/dll). 5 berkas = snapshot dataset yang sama | ✅ **Sumber utama untuk rebuild staf + dokumen** |
+| **Berkas dokumen terunggah** | `storage/documents/` | **2157 berkas, ~1232 MB, 368 direktori pemilik** (key `staff/{id}/...`) | ✅ Sumber berkas untuk metadata dokumen |
+| Skema aplikasi | `prisma/schema.prisma` + `prisma/migrations/` (9 migrasi) | Sumber kebenaran struktur tabel | ✅ |
+| Rawat aset | `assets-raw/` | logo (bukan data staf) | — |
+
+Catatan: header XLSX memetakan langsung ke vocabulary import aplikasi
+(`staff.*`, `document.<CODE>.*`, `competency.<CODE>`, `education.level`), sehingga
+dataset ini dapat diproses ulang oleh Migration Center.
+
+## A2. Sumber data yang TIDAK ADA
+
+| Sumber | Hasil |
+| --- | --- |
+| Neon restore window | ❌ Data asli hilang sebelum window 6 jam (lihat Fase 0–1 di atas) |
+| Snapshot Neon | ❌ Tidak ada |
+| Branch Neon lain | ❌ Hanya `production` |
+| Docker volume `rsajt_pgdata` | ❌ **Docker tidak terpasang** di mesin ini (`docker` tidak ada di PATH) |
+| `*.sql` / `*.dump` / `*.backup` | ❌ Tidak ada di project/parent/Downloads (selain file migrasi) |
+| Riwayat git (semua branch/reflog/stash) | ❌ Tidak ada berkas data/dump yang pernah ter-commit (tanpa stash) |
+| `.neon` | Hanya `orgId`/`projectId`/`branch` (tanpa secret) |
+| Folder sibling `C:\laragon\www\{frieren-cbt,ibs,myibsrsajt}` | ❌ Tidak ada dump terkait |
+
+## A3. Implikasi rebuild
+
+- **Data staf & dokumen dapat dibangun ulang** dari `storage/migration/*.xlsx` +
+  `storage/documents/` melalui pipeline Migration Center (XLSX → field mapping →
+  import). Tidak perlu mengetik ulang data.
+- **`MigrationConnection` (token Google) ikut hilang** — tabel tersebut kosong di DB
+  sekarang, jadi **akun Google (SOURCE & DESTINATION) harus disambungkan ulang lewat
+  UI** Migration Center setelah rebuild. Token Google tidak dapat dipulihkan dari
+  mana pun.
+- Data lain yang tidak ada di XLSX (mis. borang_entries, trainings, certificates,
+  audit_logs, user/role non-seed) **tidak dapat dikembalikan**; perlu dibuat ulang
+  lewat UI sesuai kebutuhan.
+
+## A4. Rekomendasi
+
+1. **Bangun ulang skema** produksi dengan riwayat migrasi yang benar (`migrate
+   deploy`) — lihat Fase B/C.
+2. Setelah skema siap, **hubungkan ulang Google** di Migration Center (token hilang).
+3. **Impor ulang data staf/dokumen** dari XLSX + berkas lokal via Migration Center.
+4. Retensi: naikkan `history_retention_seconds` dan/atau buat snapshot berkala.
+
+## Keterbatasan lingkungan (dilaporkan)
+
+- **Docker tidak tersedia** → uji "Postgres LOKAL sekali-pakai" (Fase B.3) dan uji
+  seed (Fase B.4) **tidak dapat dijalankan** di mesin ini. Perlu keputusan: sediakan
+  Docker/Postgres lokal, atau gunakan **branch Neon sementara (scratch)** untuk uji
+  (non-destruktif terhadap `production`), atau lewati uji lokal dengan risiko yang
+  disetujui.
+
