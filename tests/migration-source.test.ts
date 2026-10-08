@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { driveDownloadUrl, extractSheetIdFromUrl } from "@/lib/migration/source";
+import * as XLSX from "xlsx";
+import {
+  driveDownloadUrl,
+  extractSheetIdFromUrl,
+  readSheetObjectsFromWorkbook,
+} from "@/lib/migration/source";
 
 describe("extractSheetIdFromUrl (Google host allow-list)", () => {  it("extracts the ID from an allowed Google Sheets URL", () => {
     expect(
@@ -44,5 +49,35 @@ describe("driveDownloadUrl", () => {
     expect(driveDownloadUrl("file-id")).toBe(
       "https://www.googleapis.com/drive/v3/files/file-id?alt=media&supportsAllDrives=true",
     );
+  });
+});
+
+describe("readSheetObjectsFromWorkbook", () => {
+  it("resolves HYPERLINK INDEX/MATCH labels to their source URLs", () => {
+    const lookup = XLSX.utils.aoa_to_sheet([
+      ["NIP", "Photo"],
+      ["123", "https://drive.google.com/file/d/photo-123/view"],
+      ["456", ""],
+    ]);
+    const main = XLSX.utils.aoa_to_sheet([
+      ["NIP", "Photo"],
+      ["123", "Buka Foto"],
+      ["456", "Buka Foto"],
+    ]);
+    main["B2"]!.f =
+      'IFERROR(HYPERLINK(INDEX(Lookup!$B$2:$B$3,MATCH($A2,Lookup!$A$2:$A$3,0)),"Buka Foto"),"")';
+    main["B2"]!.v = "Buka Foto";
+    main["B3"]!.f =
+      'IFERROR(HYPERLINK(INDEX(Lookup!$B$2:$B$3,MATCH($A3,Lookup!$A$2:$A$3,0)),"Buka Foto"),"")';
+    main["B3"]!.v = "Buka Foto";
+    const wb = {
+      SheetNames: ["Main", "Lookup"],
+      Sheets: { Main: main, Lookup: lookup },
+    };
+
+    expect(readSheetObjectsFromWorkbook(wb, "Main")).toEqual([
+      { NIP: "123", Photo: "https://drive.google.com/file/d/photo-123/view" },
+      { NIP: "456", Photo: "Buka Foto" },
+    ]);
   });
 });

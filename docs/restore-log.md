@@ -439,7 +439,7 @@ Idempoten via `Staff.legacySourceId` / `Document.legacySourceId` (aman diulang).
 tautkan `Document.storageKey`/`storageFileId`. Dijalankan lokal→produksi, berjalan
 bertahap (2158 berkas). Idempoten (dokumen yang sudah punya `storageKey` dilewati).
 
-Hasil sinkronisasi: **2157 dari 2158 berkas** memiliki `storageKey`; tersisa **1 berkas**
+Hasil sinkronisasi awal: **2157 dari 2158 berkas** memiliki `storageKey`; tersisa **1 berkas**
 dengan error `File tidak ditemukan di Drive (404)`. Dari 6 kegagalan awal, 1 gagal kuota
 tujuan dicoba ulang dan berhasil; 4 gagal akses palsu diperbaiki lewat perbaikan unduhan
 di bawah; 1 tautan sumber memang hilang di Drive.
@@ -452,7 +452,40 @@ ekspor sehingga Drive menjawab 403. Sekarang Drive metadata (`mimeType`) diperik
 dulu dan hanya berkas Workspace asli yang diekspor; biner diunduh lewat `alt=media`.
 Ditambah helper `driveDownloadUrl()` dan tesnya.
 
-Status akhir dilaporkan terpisah setelah sinkronisasi selesai.
+### Rekonsiliasi Excel menyeluruh
+
+Sumber yang dibandingkan:
+
+- File pengguna: `Downloads/webapp keperawatan/Database_Pendataan_Perawat_dan_Bidan_RSAJT_done.xlsx`
+  (368 baris `Form Responses 1`; hash sama dengan salinan migrasi lokal tertua).
+- Google Sheet live: 369 baris; semua 368 baris file pengguna cocok, ditambah **1 baris baru**.
+  Sesuai persetujuan, acuan akhir mengikuti **sheet live terbaru**.
+- Sheet `Users` tetap tidak diimpor.
+
+Temuan dan perbaikan:
+
+1. **Foto dan Surat Pengalaman:** 177 baris masing-masing menampilkan label
+   `Buka Foto` / `Buka Surat`, bukan URL. Akar masalahnya adalah importer hanya membaca
+   nilai cache formula dan tidak mengevaluasi `HYPERLINK(INDEX(...MATCH...))` ke
+   `Form Responses 2`. Parser sekarang menyelesaikan referensi internal dan database
+   diperbarui.
+   - FOTO dengan byte tersimpan: **190 → 367 dari 367**
+   - Surat Pengalaman dengan byte tersimpan: **190 → 367 dari 367**
+2. **ACLS:** sumber hanya memiliki **4 tautan berkas**, tetapi **8 tanggal kedaluwarsa**.
+   Empat baris tanpa berkas/tanpa tautan dan tanpa nomor dokumen dihapus sesuai
+   persetujuan. Sekarang **4 baris ACLS**, semuanya memiliki byte tersimpan.
+3. **Sertifikat kompetensi:** 149 URL tersimpan di `StaffCompetency.documentUrl`, sedangkan
+   halaman kompetensi hanya mencari `Documents`. Dibuat **10 tipe dokumen kompetensi**
+   dan **149 baris Dokumen**, lalu byte-nya disinkronkan. Sekarang **149 dokumen
+   kompetensi tersimpan**, sehingga badge kompetensi dapat membuka berkas.
+4. **Sisa yang belum dapat dipulihkan:** 1 dokumen CV karena berkas sumber tidak
+   ditemukan di Drive (`404`). Perlu tautan pengganti atau unggahan manual.
+
+Status akhir produksi setelah perbaikan: **368 staf**, **2671 dokumen**,
+**2660 dokumen dengan byte tersimpan**, **1 tautan Drive tersisa**.
+
+Cabang pengaman tambahan yang dibuat sebelum perbaikan di atas:
+`pre-photo-repair-2026-10-08` dan `pre-acls-competency-2026-10-08`.
 
 ## Catatan penting untuk fitur migrasi berikutnya
 

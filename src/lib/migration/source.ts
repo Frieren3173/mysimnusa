@@ -137,10 +137,305 @@ export function readSheetObjects(
   sheetName: string
 ): Record<string, unknown>[] {
   const wb = readWorkbook(filePath);
+  return readSheetObjectsFromWorkbook(wb, sheetName).slice(0, MAX_ROWS_PER_SHEET);
+}
+
+/** Read rows from an already-loaded workbook. Exported for unit tests. */
+export function readSheetObjectsFromWorkbook(
+  wb: XLSX.WorkBook,
+  sheetName: string
+): Record<string, unknown>[] {
   const ws = wb.Sheets[sheetName];
   if (!ws) return [];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
-  return rows.slice(0, MAX_ROWS_PER_SHEET);
+  resolveSheetHyperlinks(ws, wb);
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+}
+
+/**
+ * Replace cached display text with the URL inside supported HYPERLINK formulas.
+ *
+ * Google Sheets exports alias text such as “Buka Foto” while retaining the source
+ * formula. The migration importer needs the underlying link, not the label.
+ * Only references inside the uploaded workbook are followed; no code is executed.
+ */
+export function resolveSheetHyperlinks(ws: XLSX.WorkSheet, wb: XLSX.WorkBook): void {
+  for (const [address, cell] of Object.entries(ws)) {
+    if (address.startsWith("!")) continue;
+    const formula = typeof cell === "object" && cell !== null && "f" in cell ? String((cell as { f?: unknown }).f ?? "") : "";
+    const value = typeof cell === "object" && cell !== null && "v" in cell ? (cell as { v?: unknown }).v : null;
+    if (!formula || value === null || value === undefined || value === "") continue;
+    if (/^https?:\/\//i.test(String(value))) continue;
+    const target = resolveHyperlinkTarget(formula, wb, ws, address, new Set());
+    if (target && isHttpUrl(target)) {
+      (cell as XLSX.CellObject).v = target;
+      (cell as XLSX.CellObject).w = target;
+      (cell as XLSX.CellObject).t = "s";
+    }
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\/\S+$/i.test(value.trim());
+}
+
+function splitFormulaArguments(input: string): string[] {
+  const args: string[] = [];
+  let depth = 0;
+  let single = false;
+  let double = false;
+  let current = "";
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i]!;
+    if (single) {
+      current += char;
+      if (char === "'") {
+        if (input[i + 1] === "'") {
+          current += input[++i];
+        } else {
+          single = false;
+        }
+      }
+      continue;
+    }
+    if (double) {
+      current += char;
+      if (char === '"') {
+        if (input[i + 1] === '"') {
+          current += input[++i];
+        } else {
+          double = false;
+        }
+      }
+      continue;
+    }
+    if (char === "'") {
+      single = true;
+      current += char;
+    } else if (char === '"') {
+      double = true;
+      current += char;
+    } else if (char === "(") {
+      depth++;
+      current += char;
+    } else if (char === ")") {
+      depth--;
+      current += char;
+    } else if (char === "," && depth === 0) {
+      args.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  args.push(current);
+  return args;
+}
+
+function unquoteFormulaString(value: string): string {
+  const text = value.trim();
+  if (text.length >= 2 && text.startsWith("'") && text.endsWith("'")) {
+    return text.slice(1, -1).replace(/''/g, "'");
+  }
+  if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+    return text.slice(1, -1).replace(/""/g, '"');
+  }
+  return text;
+}
+
+function parseWorkbookCellReference(
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  reference: string
+): { sheet: string; address: string } | null {
+  const match = /^(?:'((?:[^']|'')+)'|([A-Za-z0-9_]+))?!?\$?([A-Z]+)\$?(\d+)$/i.exec(reference.trim());
+  if (!match) return null;
+  const sheet = (match[1] ?? match[2] ?? currentSheet).replace(/''/g, "'");
+  const sheetNames = new Map(wb.SheetNames.map((name) => [name.toLowerCase(), name]));
+  const actualSheet = sheetNames.get(sheet.toLowerCase()) ?? currentSheet;
+  try {
+    const decoded = XLSX.utils.decode_cell(`${match[3]!.toUpperCase()}${match[4]}`);
+    return { sheet: actualSheet, address: XLSX.utils.encode_cell(decoded) };
+  } catch {
+    return null;
+  }
+}
+
+function cellStringValue(
+  wb: XLSX.WorkBook,
+  sheet: string,
+  address: string,
+  seen: Set<string>
+): string | null {
+  const ws = wb.Sheets[sheet];
+  const cell = ws?.[address] as XLSX.CellObject | undefined;
+  if (!cell || cell.v === null || cell.v === undefined) return null;
+  if (typeof cell.f === "string" && cell.f && !/^https?:\/\//i.test(String(cell.v))) {
+    const key = `${sheet}!${address}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    const resolved = resolveHyperlinkTarget(cell.f, wb, ws!, address, seen);
+    if (resolved && isHttpUrl(resolved)) return resolved;
+  }
+  return String(cell.v);
+}
+
+function matchLookupValue(
+  lookupExpression: string,
+  rangeExpression: string,
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  currentAddress: string,
+  seen: Set<string>
+): number | null {
+  const rangeMatch = /^(?:'((?:[^']|'')+)'|([A-Za-z0-9_]+))?!?\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/i.exec(rangeExpression.trim());
+  if (!rangeMatch) return null;
+  const sheetName = ((rangeMatch[1] ?? rangeMatch[2] ?? currentSheet).replace(/''/g, "'"));
+  const sheetNames = new Map(wb.SheetNames.map((name) => [name.toLowerCase(), name]));
+  const actualSheet = sheetNames.get(sheetName.toLowerCase()) ?? currentSheet;
+  const start = XLSX.utils.decode_cell(`${rangeMatch[3]!.toUpperCase()}${rangeMatch[4]}`);
+  const end = XLSX.utils.decode_cell(`${rangeMatch[5]!.toUpperCase()}${rangeMatch[6]}`);
+  const wanted = lookupValue(lookupExpression, wb, currentSheet, currentAddress, seen);
+  if (wanted === null) return null;
+  const target = wanted.trim().toLowerCase();
+  if (!target) return null;
+
+  for (let row = start.r; row <= end.r; row++) {
+    for (let col = start.c; col <= end.c; col++) {
+      const candidate = cellStringValue(wb, actualSheet, XLSX.utils.encode_cell({ r: row, c: col }), seen);
+      if (candidate !== null && candidate.trim().toLowerCase() === target) {
+        return row - start.r + 1;
+      }
+    }
+  }
+  return null;
+}
+
+function lookupValue(
+  expression: string,
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  currentAddress: string,
+  seen: Set<string>
+): string | null {
+  const text = expression.trim();
+  if (!text) return null;
+  if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"'))) {
+    return unquoteFormulaString(text);
+  }
+  if (/^[+-]?\d+(\.\d+)?$/.test(text)) return text;
+  const reference = parseWorkbookCellReference(wb, currentSheet, text);
+  if (reference) {
+    return cellStringValue(wb, reference.sheet, reference.address, seen);
+  }
+  return null;
+}
+
+function resolveIntegerExpression(
+  expression: string,
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  seen: Set<string>
+): number | null {
+  const text = expression.trim();
+  if (/^MATCH\s*\(/i.test(text)) {
+    return resolveMatchValue(text, wb, currentSheet, "", seen);
+  }
+  const value = lookupValue(text, wb, currentSheet, "", seen);
+  if (value !== null && /^[+-]?\d+$/.test(value.trim())) return Number(value);
+  return null;
+}
+
+function resolveIndexValue(
+  expression: string,
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  seen: Set<string>
+): string | null {
+  const match = /^INDEX\s*\(([\s\S]*)\)$/i.exec(expression.trim());
+  if (!match) return null;
+  const args = splitFormulaArguments(match[1] ?? "");
+  if (args.length < 2) return null;
+  const rangeMatch = /^(?:'((?:[^']|'')+)'|([A-Za-z0-9_]+))?!?\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/i.exec(args[0]!.trim());
+  if (!rangeMatch) return null;
+  const sheetName = (rangeMatch[1] ?? rangeMatch[2] ?? currentSheet).replace(/''/g, "'");
+  const sheetNames = new Map(wb.SheetNames.map((name) => [name.toLowerCase(), name]));
+  const actualSheet = sheetNames.get(sheetName.toLowerCase()) ?? currentSheet;
+  const start = XLSX.utils.decode_cell(`${rangeMatch[3]!.toUpperCase()}${rangeMatch[4]}`);
+  const end = XLSX.utils.decode_cell(`${rangeMatch[5]!.toUpperCase()}${rangeMatch[6]}`);
+  const rowNumber = resolveIntegerExpression(args[1]!.trim(), wb, currentSheet, seen);
+  if (rowNumber === null || rowNumber < 1) return null;
+  const row = start.r + rowNumber - 1;
+  if (row > end.r) return null;
+  const column = args[2] !== undefined
+    ? (resolveIntegerExpression(args[2].trim(), wb, currentSheet, seen) ?? 1)
+    : 1;
+  const resolvedColumn = start.c + column - 1;
+  if (resolvedColumn < start.c || resolvedColumn > end.c) return null;
+  return cellStringValue(wb, actualSheet, XLSX.utils.encode_cell({ r: row, c: resolvedColumn }), seen);
+}
+
+function resolveMatchValue(
+  expression: string,
+  wb: XLSX.WorkBook,
+  currentSheet: string,
+  currentAddress: string,
+  seen: Set<string>
+): number | null {
+  const match = /^MATCH\s*\(([\s\S]*)\)$/i.exec(expression.trim());
+  if (!match) return null;
+  const args = splitFormulaArguments(match[1] ?? "");
+  if (args.length < 2) return null;
+  return matchLookupValue(args[0]!.trim(), args[1]!.trim(), wb, currentSheet, currentAddress, seen);
+}
+
+function resolveHyperlinkTarget(
+  formula: string,
+  wb: XLSX.WorkBook,
+  currentSheet: XLSX.WorkSheet,
+  currentAddress: string,
+  seen: Set<string>
+): string | null {
+  const sheetName = wb.SheetNames.find((name) => wb.Sheets[name] === currentSheet) ?? "";
+  const text = formula.trim();
+  const ifError = /^IFERROR\s*\(([\s\S]*)\)$/i.exec(text);
+  if (ifError) {
+    for (const branch of splitFormulaArguments(ifError[1] ?? "")) {
+      const resolved = resolveHyperlinkTarget(branch, wb, currentSheet, currentAddress, seen);
+      if (resolved && isHttpUrl(resolved)) return resolved;
+    }
+    return null;
+  }
+
+  const hyperlink = /^HYPERLINK\s*\(([\s\S]*)\)$/i.exec(text);
+  if (hyperlink) {
+    const args = splitFormulaArguments(hyperlink[1] ?? "");
+    if (args.length === 0) return null;
+    const index = resolveIndexValue(args[0]!.trim(), wb, sheetName, seen);
+    if (index && isHttpUrl(index)) return index;
+    const nested = resolveHyperlinkTarget(args[0]!.trim(), wb, currentSheet, currentAddress, seen);
+    if (nested && isHttpUrl(nested)) return nested;
+    const literal = unquoteFormulaString(args[0]!.trim());
+    return isHttpUrl(literal) ? literal : null;
+  }
+
+  if (/^INDEX\s*\(/i.test(text)) {
+    const resolved = resolveIndexValue(text, wb, sheetName, seen);
+    return resolved && isHttpUrl(resolved) ? resolved : null;
+  }
+
+  if (/^MATCH\s*\(/i.test(text)) {
+    const position = resolveMatchValue(text, wb, sheetName, currentAddress, seen);
+    return position !== null ? String(position) : null;
+  }
+
+  const reference = parseWorkbookCellReference(wb, sheetName, text);
+  if (reference) {
+    const value = cellStringValue(wb, reference.sheet, reference.address, seen);
+    return value && isHttpUrl(value) ? value : null;
+  }
+
+  const literal = unquoteFormulaString(text);
+  return isHttpUrl(literal) ? literal : null;
 }
 
 function readWorkbook(filePath: string, attempts = 4): XLSX.WorkBook {
@@ -150,7 +445,7 @@ function readWorkbook(filePath: string, attempts = 4): XLSX.WorkBook {
       // Read bytes ourselves: XLSX.readFile's fs shim is unreliable inside
       // the Next.js route bundle (freshly written files on Windows).
       const buf = fs.readFileSync(filePath);
-      return XLSX.read(buf, { type: "buffer", cellDates: true });
+      return XLSX.read(buf, { type: "buffer", cellDates: true, cellFormula: true });
     } catch (e) {
       lastErr = e;
       const end = Date.now() + 150 * (i + 1);
