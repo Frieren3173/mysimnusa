@@ -241,4 +241,136 @@ Prasyarat: Anda membalas persis **`REBUILD OK`**.
 
 **Berhenti di sini.** Menunggu balasan `REBUILD OK` (dan `SEED OK` sebelum seed).
 
+---
+
+# Fase B3 (opsi 1) — Uji rebuild di scratch branch Neon
+
+## Branch & endpoint
+
+| Item | Nilai |
+| --- | --- |
+| Branch scratch | **`scratch-rebuild-test`** (`br-orange-lake-b32l0o2u`) |
+| Dibuat dari | `pre-rebuild-2026-10-08` (bukan production) |
+| Endpoint | **`ep-autumn-field-b3wbob81`** (`ep-autumn-field-b3wbob81.c-4.ap-southeast-1.aws.neon.tech`) |
+| Production endpoint (prefix) | `ep-orange-dew-b389r3mr` — **dibedakan & dijaga** |
+
+Semua perintah tulis dijalankan lewat **host-guard**: menolak jika URL mengandung
+`ep-orange-dew-b389r3mr` atau tidak mengandung `ep-autumn-field-b3wbob81`; URL
+di-override eksplisit (tidak dibaca dari `.env`). Branch scratch **tidak dihapus**.
+
+## Skenario A — migrate deploy dari skema kosong
+
+1. Skema scratch dikosongkan: `DROP SCHEMA public CASCADE` + `CREATE SCHEMA public`
+   (sebelumnya 37 tabel, tanpa `_prisma_migrations`; sesudahnya 0 tabel).
+2. `prisma migrate deploy` → **9 migrasi diterapkan berurutan**:
+   `init` → `add_drive_folder…` → `add_storage_migration_tracking` →
+   `add_google_connection_roles` → **`finalize_canonical_rooms`** →
+   **`unique_nursing_action_name`** → `add_login_attempt` (renamed) →
+   `borang_entry_created_by` (renamed) → `borang_unique_per_year` (renamed).
+   Urutan terverifikasi benar (migrasi #5–6 sebelum #7–9).
+3. `prisma migrate status` → **"Database schema is up to date!"** (9 applied).
+4. Verifikasi objek (read-only):
+
+| Objek | Hasil |
+| --- | --- |
+| `borang_entries_year_rm_key`, `borang_entries_year_patient_key` (partial unique) | ✅ ada |
+| Tabel `login_attempts` | ✅ ada |
+| Kolom `borang_entries.createdById` (nullable) | ✅ ada |
+| `_prisma_migrations` applied | 9 |
+| Total tabel publik | 38 (37 + `_prisma_migrations`) |
+
+Catatan `migrate diff`: CLI `--from-url` mengembalikan **P1013** pada lingkungan ini
+(keterbatasan CLI/Node 24 dengan URL Neon), sehingga drift diverifikasi lewat
+`migrate status` ("up to date") + pemeriksaan objek langsung. **Tidak ada drift.**
+
+**Koreksi penting:** `finalize_canonical_rooms` **tidak membuat** 17 ruangan — migrasi
+itu hanya menambah kolom `category`/`subcategory`, mem-backfill, dan menghapus 14
+ruangan legacy. **17 ruangan kanonik dibuat oleh `prisma/seed.ts`.** Karena itu
+`rooms count = 0` setelah migrate-only adalah **benar** (lihat hasil seed di bawah).
+
+## Uji seed minimal (tanpa staf contoh) di scratch
+
+Pengaman baru ditambahkan ke `prisma/seed.ts`: menolak berjalan kecuali
+`ALLOW_SEED=1` **dan** `CONFIRM_DB_HOST` sama persis dengan host `DATABASE_URL`.
+Dijalankan di scratch (`ALLOW_SEED=1`, `CONFIRM_DB_HOST=ep-autumn-field-b3wbob81…`,
+`SEED_SAMPLE_STAFF=0`).
+
+Hasil (read-only setelah seed):
+
+| Tabel | Jumlah |
+| --- | --- |
+| users | 1 (superadmin) |
+| roles | 7 |
+| permissions | 36 |
+| document_types | 11 |
+| competencies | 8 |
+| rooms | **17** (semua punya `category`) |
+| nursing_actions | 228 |
+| room_nursing_actions | 291 |
+| staff | **0** ✅ (staf contoh dilewati sesuai default) |
+
+Kesimpulan B3: **migrate + seed (tanpa staf contoh) terbukti berhasil** di scratch.
+
+---
+
+# Analisis pemulihan data staf & dokumen dari sumber lokal (READ ONLY — tidak mengimpor)
+
+## Bagaimana XLSX + storage/documents terhubung
+
+- **`storage/migration/*.xlsx` (5 berkas)**: 368 baris data × 39 kolom. Kolom berkas
+  (STR/SIP/CV/Ijazah/Foto/RKK/BTCLS/ACLS/dll) berisi **URL Google Drive**
+  (`drive.google.com`) — **bukan** path `storage/documents/`. Dari 5 berkas, 4 adalah
+  snapshot "Form Responses" yang sama + 1 versi final.
+- **`storage/documents/` (2157 berkas, 368 direktori)**: kunci `staff/{id}/{kode}/file`,
+  dipakai oleh provider **`local`**. `{id}` adalah **ID staf dari DB lama** (cuid) —
+  ID ini **sudah tidak ada** setelah rebuild.
+
+## Idempotensi impor
+
+- **Staf**: dedup key = `Staff.legacySourceId = "xlsx:" + (nip | email | "namaprofesi")`.
+  Impor ulang baris yang sama → **UPDATE**, bukan duplikat.
+- **Dokumen**: dedup key = `Document.legacySourceId = "xlsx:{staffKey}:{CODE}"`, dan
+  dilewati bila sudah punya `storageKey` + `storageProvider` (idempoten).
+- **MigrationItem** dipakai oleh Storage Migration (batch/scan) dengan unique
+  `(batchId, sourceFileId)` — bukan oleh impor XLSX. Impor XLSX memakai
+  `Staff.legacySourceId`/`Document.legacySourceId` di atas.
+
+## Kaitan ID staf baru ke key dokumen lama `staff/{id}/...`
+
+Impor XLSX membuat **ID staf baru** (cuid baru). ID lama pada folder
+`storage/documents/{idLama}` **tidak lagi cocok** dengan staf hasil impor, sehingga
+berkas lokal **tidak otomatis tertaut**. Untuk menautkan diperlukan salah satu:
+
+1. **Jalur Drive (disarankan, sesuai desain):** kolom XLSX berisi URL Drive. Bila berkas
+   masih ada di Drive (akun SOURCE), sambungkan Google lalu jalankan **Storage
+   Migration (SOURCE→DESTINATION)**; engine impor akan menautkan dokumen ke berkas
+   DESTINATION melalui `StorageMigrationItem` (`sourceFileId → destinationFileId`).
+2. **Jalur lokal:** karena ID lama hilang, berkas `storage/documents/{idLama}` harus
+   dipetakan ulang ke ID staf baru (mis. cocokkan lewat NIP/nama dari metadata berkas),
+   lalu unggah ulang via `POST /api/komite/staff/{id}/documents`. Tidak ada mekanisme
+   otomatis yang membaca folder lokal ini.
+
+## Apakah `admin-migration-upload` bisa dipakai langsung dengan 5 XLSX lokal?
+
+**Ya.** Endpoint `POST /api/admin/migration/upload` menerima berkas `.xlsx` (multipart,
+≤ 30 MB, magic bytes ZIP) dan langsung mem-parse-nya server-side (`scanXlsxFile`) —
+**tidak memerlukan koneksi Google SOURCE**. Google SOURCE hanya dibutuhkan oleh
+`admin-migration-scan` (untuk URL Google Sheets). Jadi 5 XLSX lokal dapat diunggah
+langsung setelah login SUPER_ADMIN. (Token Google tetap perlu disambungkan ulang untuk
+mengambil **byte dokumen** dari Drive.)
+
+## Rencana impor yang benar (nanti, setelah `REBUILD OK` + `SEED OK`)
+
+1. Login superadmin → Migration Center → **Unggah XLSX** (`admin-migration-upload`) —
+   tanpa Google.
+2. Review mapping kolom → **Import** (idempoten via `legacySourceId`).
+3. Sambungkan Google (SOURCE + DESTINATION) → jalankan **Storage Migration** untuk
+   memindahkan byte dokumen dari Drive lama ke Drive tujuan; dokumen tertaut otomatis.
+4. Untuk berkas yang hanya ada lokal (`storage/documents/`): unggah ulang manual/beregu
+   ke staf yang sesuai (tidak ada auto-link karena ID lama hilang).
+
+**Tidak ada impor yang dijalankan.** Branch `scratch-rebuild-test` dibiarkan (Anda yang
+menghapus).
+
+
 

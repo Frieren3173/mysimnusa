@@ -18,6 +18,31 @@ const databaseUrl =
 if (!databaseUrl) {
   throw new Error("[seed] DATABASE_URL is not set");
 }
+
+// ─── Safety guard ────────────────────────────────────────────
+// Seeding writes data. To avoid accidentally seeding the wrong database, the
+// script refuses to run unless BOTH are provided:
+//   ALLOW_SEED=1                      — explicit opt-in to seeding
+//   CONFIRM_DB_HOST=<host>            — must equal the host of DATABASE_URL
+// This makes it impossible to seed by a stray `npm run db:seed`.
+if (process.env.ALLOW_SEED !== "1") {
+  throw new Error(
+    "[seed] Refused: set ALLOW_SEED=1 to confirm you intend to seed this database.",
+  );
+}
+let seedHost = "";
+try {
+  seedHost = new URL(databaseUrl).hostname;
+} catch {
+  throw new Error("[seed] Refused: DATABASE_URL is not a valid URL.");
+}
+const confirmHost = (process.env.CONFIRM_DB_HOST ?? "").trim();
+if (!confirmHost || confirmHost !== seedHost) {
+  throw new Error(
+    "[seed] Refused: CONFIRM_DB_HOST must exactly match the target database host.",
+  );
+}
+
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString: databaseUrl, max: 3 }),
 });
