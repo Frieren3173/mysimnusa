@@ -372,5 +372,38 @@ mengambil **byte dokumen** dari Drive.)
 **Tidak ada impor yang dijalankan.** Branch `scratch-rebuild-test` dibiarkan (Anda yang
 menghapus).
 
+---
+
+# Fase C — REBUILD PRODUKSI (dijalankan setelah `REBUILD OK` + `SEED OK`)
+
+Pengguna memberi `REBUILD OK` dan `SEED OK`. Semua perintah tulis melalui **host-guard
+produksi** (menolak bila host bukan `ep-orange-dew-b389r3mr`, dan menolak bila itu host
+scratch). URL di-override eksplisit (tidak dibaca dari `.env`).
+
+| Langkah | Hasil |
+| --- | --- |
+| C1. Branch cadangan | `pre-rebuild-2026-10-08` masih ada (ready) → titik rollback ✅ |
+| C2. Kosongkan skema `production` | `DROP SCHEMA public CASCADE` + `CREATE SCHEMA public`; 37 → 0 tabel ✅ |
+| C3. `prisma migrate deploy` | 9 migrasi diterapkan berurutan ✅ |
+| C4. `migrate status` | **"Database schema is up to date!"** ✅ |
+| C4. Verifikasi objek | partial unique `borang_entries_year_rm_key`+`_patient_key`, `login_attempts`, `borang_entries.createdById` ada; 9 migrasi; 38 tabel ✅ |
+| C5. Seed (tanpa staf contoh) | role/permission/document type/competency/17 ruangan/228 tindakan/291 relasi/superadmin ✅ |
+| C6. Verifikasi seed | users=1, roles=7, permissions=36, document_types=11, competencies=8, **rooms=17**, nursing_actions=228, room_nursing_actions=291, **staff=0, documents=0**, superadmin=1 ✅ |
+
+**Produksi kini bersih & siap impor.** Belum ada data staf/dokumen (sesuai rencana —
+impor dilakukan terpisah).
+
+## Catatan impor data (belum dijalankan)
+
+- **Akun Google harus disambungkan ulang di UI** (koneksi lama ikut terhapus saat wipe;
+  `migration_connections` kosong). Akun: SOURCE = akun lama pemilik berkas,
+  DESTINATION = akun penyimpanan tujuan.
+- **Sumber data**: sheet `Form Responses 1` pada spreadsheet pengguna (368 baris, 39
+  kolom) — kolom berkas berisi **link Google Drive**. Dapat juga via 5 XLSX lokal.
+- **Scope**: hanya kolom yang dipetakan Migration Center (`staff.*`,
+  `document.<CODE>.*`, `competency.<CODE>`, `education.level`). Kolom lain diabaikan
+  (sheet `Users` dengan `PasswordHash` **tidak** diimpor — password tidak disentuh).
+
+
 
 
