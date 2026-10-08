@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import {
   driveDownloadUrl,
   extractSheetIdFromUrl,
+  normalizeNip,
   readSheetObjectsFromWorkbook,
 } from "@/lib/migration/source";
 
@@ -49,6 +50,19 @@ describe("driveDownloadUrl", () => {
     expect(driveDownloadUrl("file-id")).toBe(
       "https://www.googleapis.com/drive/v3/files/file-id?alt=media&supportsAllDrives=true",
     );
+  });
+});
+
+describe("normalizeNip", () => {
+  it("treats punctuation-only placeholders as missing", () => {
+    expect(normalizeNip("-")).toBeNull();
+    expect(normalizeNip(" -- ")).toBeNull();
+    expect(normalizeNip("")).toBeNull();
+    expect(normalizeNip(null)).toBeNull();
+  });
+
+  it("preserves genuine identifiers", () => {
+    expect(normalizeNip(" 3516015806906001 ")).toBe("3516015806906001");
   });
 });
 

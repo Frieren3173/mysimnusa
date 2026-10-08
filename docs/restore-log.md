@@ -469,20 +469,24 @@ Temuan dan perbaikan:
    nilai cache formula dan tidak mengevaluasi `HYPERLINK(INDEX(...MATCH...))` ke
    `Form Responses 2`. Parser sekarang menyelesaikan referensi internal dan database
    diperbarui.
-   - FOTO dengan byte tersimpan: **190 → 367 dari 367**
-   - Surat Pengalaman dengan byte tersimpan: **190 → 367 dari 367**
-2. **ACLS:** sumber hanya memiliki **4 tautan berkas**, tetapi **8 tanggal kedaluwarsa**.
+   - FOTO dengan byte tersimpan: **190 → 368 dari 368**
+   - Surat Pengalaman dengan byte tersimpan: **190 → 368 dari 368**
+2. **NIP placeholder:** dua baris sumber memakai tanda `-`, sehingga baris kedua
+   ditandai duplikat dan tidak diimpor. Parser sekarang memperlakukan NIP tanpa
+   alfanumerik sebagai kosong dan memakai email sebagai kunci. Baris yang terlewat
+   telah diimpor, sehingga staf menjadi **369**.
+3. **ACLS:** sumber hanya memiliki **4 tautan berkas**, tetapi **8 tanggal kedaluwarsa**.
    Empat baris tanpa berkas/tanpa tautan dan tanpa nomor dokumen dihapus sesuai
    persetujuan. Sekarang **4 baris ACLS**, semuanya memiliki byte tersimpan.
-3. **Sertifikat kompetensi:** 149 URL tersimpan di `StaffCompetency.documentUrl`, sedangkan
+4. **Sertifikat kompetensi:** 149 URL tersimpan di `StaffCompetency.documentUrl`, sedangkan
    halaman kompetensi hanya mencari `Documents`. Dibuat **10 tipe dokumen kompetensi**
    dan **149 baris Dokumen**, lalu byte-nya disinkronkan. Sekarang **149 dokumen
    kompetensi tersimpan**, sehingga badge kompetensi dapat membuka berkas.
-4. **Sisa yang belum dapat dipulihkan:** 1 dokumen CV karena berkas sumber tidak
+5. **Sisa yang belum dapat dipulihkan:** 1 dokumen CV karena berkas sumber tidak
    ditemukan di Drive (`404`). Perlu tautan pengganti atau unggahan manual.
 
-Status akhir produksi setelah perbaikan: **368 staf**, **2671 dokumen**,
-**2660 dokumen dengan byte tersimpan**, **1 tautan Drive tersisa**.
+Status akhir produksi setelah perbaikan: **369 staf**, **2678 dokumen**,
+**2667 dokumen dengan byte tersimpan**, **1 tautan Drive tersisa**.
 
 Cabang pengaman tambahan yang dibuat sebelum perbaikan di atas:
 `pre-photo-repair-2026-10-08` dan `pre-acls-competency-2026-10-08`.

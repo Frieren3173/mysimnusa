@@ -131,6 +131,20 @@ function headerKey(h: string): string {
   return h.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Treat placeholder NIP values as missing.
+ *
+ * A string such as "-" contains no identifier and must not participate in NIP
+ * deduplication. Callers fall back to email or name/profession instead.
+ */
+export function normalizeNip(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (!/[A-Za-z0-9]/.test(text)) return null;
+  return text;
+}
+
 /** Read sheet rows as objects keyed by header (first row = header). */
 export function readSheetObjects(
   filePath: string,

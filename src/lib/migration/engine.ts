@@ -7,6 +7,7 @@ import {
   isDriveUrl,
   extractDriveId,
   normalizeName,
+  normalizeNip,
   rowHash,
   migrationFilePath,
   ScanResult,
@@ -51,7 +52,7 @@ function getScan(batchId: string, scan: unknown): ScanResult | null {
 }
 
 /** Read + merge all sheets into extracted, validated rows. */
-async function extractRows(batchId: string): Promise<ExtractedRow[]> {
+export async function extractRows(batchId: string): Promise<ExtractedRow[]> {
   const batch = await prisma.migrationBatch.findUniqueOrThrow({
     where: { id: batchId },
     include: { fieldMappings: true },
@@ -134,7 +135,7 @@ async function extractRows(batchId: string): Promise<ExtractedRow[]> {
       if (t.startsWith("staff.")) {
         const field = t.slice(6);
         if (isEmpty) continue;
-        if (field === "nip") rec.staff.nip = String(v).trim();
+        if (field === "nip") rec.staff.nip = normalizeNip(v);
         else if (field === "name") rec.staff.name = String(v).trim();
         else if (field === "email") rec.staff.email = String(v).trim();
         else if (field === "phone") rec.staff.phone = String(v).trim();
@@ -533,7 +534,7 @@ export async function dryRunBatch(batchId: string) {
 
 // ─── IMPORT ────────────────────────────────────
 
-async function importOne(
+export async function importOne(
   rows: ExtractedRow[],
   sourceId: string,
   userId: string | null
