@@ -146,3 +146,99 @@ dataset ini dapat diproses ulang oleh Migration Center.
   (non-destruktif terhadap `production`), atau lewati uji lokal dengan risiko yang
   disetujui.
 
+---
+
+# Fase B — Persiapan pembangunan ulang
+
+## B1. Branch cadangan (non-destruktif) — SELESAI
+
+| Item | Nilai |
+| --- | --- |
+| Nama branch | **`pre-rebuild-2026-10-08`** |
+| Branch ID | `br-weathered-sunset-b3vntcbu` |
+| Dibuat dari | `production` (keadaan sekarang) |
+| Tanggal | 2026-10-08T00:43:40Z (WIB 07:43) |
+| Status | `ready` |
+
+Branch ini **tidak dihapus** dan menjadi titik pemulihan bila rebuild bermasalah.
+
+## B2. Urutan folder migrasi — DIPERBAIKI
+
+Sebelum: 3 migrasi baru bertanggal `20261007…` (sortir **sebelum** `20261012130000`).
+Sesudah rename (isi SQL tidak diubah, hanya nama folder):
+
+| Urutan | Folder migrasi |
+| --- | --- |
+| 1 | `20261004085628_init` |
+| 2 | `20261005000340_add_drive_folder_and_document_storage_provider` |
+| 3 | `20261005000631_add_storage_migration_tracking` |
+| 4 | `20261005093000_add_google_connection_roles` |
+| 5 | `20261012120000_finalize_canonical_rooms` |
+| 6 | `20261012130000_unique_nursing_action_name` |
+| 7 | `20261013000001_add_login_attempt` (dari `20261007231847…`) |
+| 8 | `20261013000002_borang_entry_created_by` (dari `20261007232357…`) |
+| 9 | `20261013000003_borang_unique_per_year` (dari `20261007233058…`) |
+
+Kronologi nyata dikonfirmasi via git: migrasi #5–6 ditambahkan 2026-10-06 (commit
+`fffb454`); #7–9 ditambahkan 2026-10-07 (commit `5111e67`/`8c9ff7f`/`6585d67`).
+Urutan sekarang = kronologi. Diverifikasi ulang nanti lewat `migrate deploy`.
+
+## B3. Uji rebuild di Postgres LOKAL — ⛔ TERBLOKIR
+
+- `docker` **tidak terpasang** (tidak ada di PATH; Docker Desktop tidak ada).
+- `wsl` **tidak terpasang**.
+- `psql` / `pg_ctl` tidak ada; port **5432 tertutup**.
+- Laragon ada, tetapi hanya menyediakan MySQL/Redis — **bukan Postgres**.
+
+Karena tidak ada Postgres lokal, langkah "kosongkan skema → `migrate deploy` → `migrate
+status`/`diff` bersih → verifikasi index unik parsial borang & data ruangan kanonik"
+**belum dijalankan**. Sesuai aturan, saya berhenti dan melaporkan.
+
+Opsi (perlu keputusan Anda):
+1. **Scratch branch Neon** sementara untuk uji (non-destruktif terhadap `production`;
+   mis. `scratch-rebuild-<tanggal>`), lalu dihapus setelah uji bersih.
+2. Pasang Docker/Postgres lokal lalu uji ulang.
+3. Lewati uji lokal (risiko: kesalahan migrasi baru ketahuan saat dilakukan ke
+   `production`).
+
+## B4. Seed: staf contoh jadi OPT-IN — SELESAI
+
+`prisma/seed.ts`:
+- **Wajib (selalu)**: permissions, roles + role-permissions, document types,
+  competencies, 17 ruangan kanonik, master tindakan, akun superadmin, relasi
+  ruangan-tindakan.
+- **Staf contoh (Siti/Dewi/Budi)**: kini hanya dibuat bila `SEED_SAMPLE_STAFF=1`.
+  **Default = dilewati** (aman untuk produksi). Kredensial/password tidak diubah.
+- Didokumentasikan di `.env.example`.
+- Catatan: uji runtime seed belum dijalankan (terblokir B3); perubahan berupa
+  percabangan `if` sederhana di sekitar blok yang sudah ada.
+
+## B5. Rencana Fase C (dijalankan HANYA setelah `REBUILD OK`)
+
+Prasyarat: Anda membalas persis **`REBUILD OK`**.
+
+1. **Snapshot keamanan**: pastikan branch `pre-rebuild-2026-10-08` tetap ada.
+2. **Kosongkan skema `production`** (destruktif): drop seluruh objek `public`
+   (tabel/index/enum/tipe) dan tabel `_prisma_migrations` bila ada. Dilakukan
+   langsung ke endpoint **unpooled production** (menulis), tanpa `migrate reset`/
+   `db push`.
+3. **`prisma migrate deploy`** ke `production` (koneksi **unpooled**) → membuat
+   seluruh 9 migrasi berurutan, termasuk `_prisma_migrations`.
+4. **Verifikasi** (read-only): `prisma migrate status` (semua applied, tidak ada
+   pending); `prisma migrate diff --from-migrations … --to-schema-datamodel …`
+   (tanpa drift); cek index unik parsial `borang_entries_year_rm_key` dan
+   `borang_entries_year_patient_key`; cek 17 ruangan kanonik hasil
+   `finalize_canonical_rooms`.
+5. **Seed wajib** (HANYA setelah Anda membalas persis **`SEED OK`**):
+   `npm run db:seed` dengan `SEED_SAMPLE_STAFF` **tidak** di-set (staf contoh
+   dilewati) → membuat role, permission, document type, competency, 17 ruangan,
+   master tindakan, superadmin. Tidak mengubah password/akun.
+6. **Rebuild data** (setelah SEED OK): hubungkan ulang Google (SOURCE+DESTINATION)
+   via UI, lalu impor ulang staf+dokumen dari `storage/migration/*.xlsx` +
+   `storage/documents/` via Migration Center.
+7. **Rollback** (HANYA setelah Anda membalas persis **`ROLLBACK OK`**) bila perlu:
+   pulihkan `production` dari branch `pre-rebuild-2026-10-08`.
+
+**Berhenti di sini.** Menunggu balasan `REBUILD OK` (dan `SEED OK` sebelum seed).
+
+

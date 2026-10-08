@@ -289,52 +289,61 @@ async function main() {
     });
   }
 
-  // 7. Seed sample Staff records (only when the DB has no staff yet).
-  console.log("Checking sample staff...");
-  const existingStaffCount = await prisma.staff.count();
-  if (existingStaffCount === 0) {
-    const igdRoom = await prisma.room.findFirst({ where: { name: "IGD" } });
-    const ibsRoom = await prisma.room.findFirst({ where: { name: "IBS" } });
-
-    const sampleStaff = [
-      {
-        nip: "198501152010012001",
-        name: "Ns. Siti Rahmawati, S.Kep",
-        email: "siti.rahmawati@rsajt.co.id",
-        phone: "081234567890",
-        profession: "Perawat",
-        roomId: igdRoom?.id,
-        employmentStatus: "ACTIVE",
-      },
-      {
-        nip: "199003222014022003",
-        name: "Bdn. Dewi Lestari, S.Tr.Keb",
-        email: "dewi.lestari@rsajt.co.id",
-        phone: "081298765432",
-        profession: "Bidan",
-        roomId: ibsRoom?.id,
-        employmentStatus: "ACTIVE",
-      },
-      {
-        nip: "198811052012011002",
-        name: "Ns. Budi Santoso, M.Kep",
-        email: "budi.santoso@rsajt.co.id",
-        phone: "081311223344",
-        profession: "Perawat",
-        roomId: igdRoom?.id,
-        employmentStatus: "ACTIVE",
-      },
-    ];
-
-    for (const s of sampleStaff) {
-      await prisma.staff.upsert({
-        where: { nip: s.nip },
-        update: {},
-        create: s,
-      });
-    }
+  // 7. Seed sample Staff records — OPT-IN only.
+  //
+  // The three sample staff (Siti / Dewi / Budi) are placeholders for local
+  // development. They must NOT be created in production, so this block runs only
+  // when `SEED_SAMPLE_STAFF=1` is set explicitly. Default (unset/0) skips it.
+  const seedSampleStaff = process.env.SEED_SAMPLE_STAFF === "1";
+  if (!seedSampleStaff) {
+    console.log("Sample staff dilewati (set SEED_SAMPLE_STAFF=1 untuk membuat staf contoh).");
   } else {
-    console.log(`  ${existingStaffCount} staff sudah ada — seed sample staff dilewati.`);
+    console.log("Checking sample staff...");
+    const existingStaffCount = await prisma.staff.count();
+    if (existingStaffCount === 0) {
+      const igdRoom = await prisma.room.findFirst({ where: { name: "IGD" } });
+      const ibsRoom = await prisma.room.findFirst({ where: { name: "IBS" } });
+
+      const sampleStaff = [
+        {
+          nip: "198501152010012001",
+          name: "Ns. Siti Rahmawati, S.Kep",
+          email: "siti.rahmawati@rsajt.co.id",
+          phone: "081234567890",
+          profession: "Perawat",
+          roomId: igdRoom?.id,
+          employmentStatus: "ACTIVE",
+        },
+        {
+          nip: "199003222014022003",
+          name: "Bdn. Dewi Lestari, S.Tr.Keb",
+          email: "dewi.lestari@rsajt.co.id",
+          phone: "081298765432",
+          profession: "Bidan",
+          roomId: ibsRoom?.id,
+          employmentStatus: "ACTIVE",
+        },
+        {
+          nip: "198811052012011002",
+          name: "Ns. Budi Santoso, M.Kep",
+          email: "budi.santoso@rsajt.co.id",
+          phone: "081311223344",
+          profession: "Perawat",
+          roomId: igdRoom?.id,
+          employmentStatus: "ACTIVE",
+        },
+      ];
+
+      for (const s of sampleStaff) {
+        await prisma.staff.upsert({
+          where: { nip: s.nip },
+          update: {},
+          create: s,
+        });
+      }
+    } else {
+      console.log(`  ${existingStaffCount} staff sudah ada — seed sample staff dilewati.`);
+    }
   }
 
   console.log("Seeding complete!");
