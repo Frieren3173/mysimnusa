@@ -6,7 +6,8 @@ import { KpiCard, Section, AlertItem } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { DocumentStatusBadge, BorangStatusBadge } from "@/components/ui/badge";
-import { formatDateShort } from "@/lib/utils";
+import { formatDateShort, daysUntilExpiry } from "@/lib/utils";
+import { EXPIRY_WARNING_DAYS } from "@/lib/constants";
 import { requireAuth } from "@/lib/authorization";
 import { prisma } from "@/lib/prisma";
 import { appShellUser, appShellVisibility } from "@/lib/app-shell-props";
@@ -21,12 +22,27 @@ import {
 
 export const metadata: Metadata = { title: "Overview" };
 
+/**
+ * How many expiring documents the dashboard table previews. The banner and card
+ * always show the TRUE total; when there are more rows than this, the table
+ * says so and links to the full Legalitas list so no data is unreachable.
+ */
+const EXPIRING_TABLE_PREVIEW = 25;
+
 export default async function DashboardPage() {
   const currentUser = await requireAuth();
 
-  // Load KPI data concurrently
+  // Load KPI data concurrently.
+  //
+  // METRIC DEFINITION (single source of truth for banner + card + table):
+  //   "Dokumen mendekati kedaluwarsa" = documents whose `expiryDate` falls in
+  //   [today, today + EXPIRY_WARNING_DAYS] AND that are not `isLifetime`.
+  //   Documents without an expiry date (non-expiring types) are excluded, and
+  //   already-expired documents are reported separately. The count is a real
+  //   `count()` — never the length of a limited page.
   let staffCount = 0;
   let expiringDocsCount = 0;
+  let expiredDocsCount = 0;
   let pendingBorangCount = 0;
   let upcomingTrainingsCount = 0;
   let expiringDocs: Prisma.DocumentGetPayload<{ include: { staff: true; documentType: true } }>[] = [];
@@ -34,24 +50,31 @@ export default async function DashboardPage() {
 
   try {
     const now = new Date();
-    const in90Days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    const in90Days = new Date(now.getTime() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
+    const expiringWhere = {
+      isLifetime: false,
+      expiryDate: { gte: now, lte: in90Days },
+    } as const;
+    const expiredWhere = { isLifetime: false, expiryDate: { lt: now } } as const;
 
     const [
       staffTotal,
-      expDocs,
+      expTotal,
+      expList,
+      expiredTotal,
       pendingB,
       trainings,
       recentBorang,
     ] = await Promise.all([
       prisma.staff.count({ where: { isActive: true } }),
+      prisma.document.count({ where: expiringWhere }),
       prisma.document.findMany({
-        where: {
-          expiryDate: { lte: in90Days, gte: now },
-        },
+        where: expiringWhere,
         include: { staff: true, documentType: true },
-        take: 5,
         orderBy: { expiryDate: "asc" },
+        take: EXPIRING_TABLE_PREVIEW,
       }),
+      prisma.document.count({ where: expiredWhere }),
       prisma.borangEntry.count({
         where: { status: { in: ["SUBMITTED", "VERIFICATION"] } },
       }),
@@ -70,10 +93,12 @@ export default async function DashboardPage() {
     ]);
 
     staffCount = staffTotal;
-    expiringDocsCount = expDocs.length;
+    // Real count — the banner/card/table all reference this same number.
+    expiringDocsCount = expTotal;
+    expiredDocsCount = expiredTotal;
     pendingBorangCount = pendingB;
     upcomingTrainingsCount = trainings;
-    expiringDocs = expDocs;
+    expiringDocs = expList;
     pendingBorang = recentBorang;
   } catch {
     // DB might not be connected yet in dev — fallback to 0s gracefully
@@ -112,7 +137,7 @@ export default async function DashboardPage() {
                 <AlertItem
                   type="warning"
                   title="Dokumen Mendekati Kadaluarsa"
-                  description={`${expiringDocsCount} STR / SIP perawat akan berakhir dalam 90 hari.`}
+                  description={`${expiringDocsCount} dokumen berakhir dalam ${EXPIRY_WARNING_DAYS} hari${expiredDocsCount > 0 ? `, ${expiredDocsCount} sudah expired` : ""}.`}
                   count={expiringDocsCount}
                   action={
                     <Link href="/komite/legalitas" className="font-medium text-amber-700 underline">
@@ -150,9 +175,9 @@ export default async function DashboardPage() {
               className="col-span-2 border-[var(--color-primary)]/25 bg-[var(--color-primary-subtle)]/60 lg:col-span-1"
             />
             <KpiCard
-              title="Legalitas Expiring"
+              title="Dokumen Akan Berakhir"
               value={expiringDocsCount}
-              subtitle="STR/SIP dalam 90 hari"
+              subtitle={`Dalam ${EXPIRY_WARNING_DAYS} hari`}
               variant={expiringDocsCount > 0 ? "warning" : "default"}
               icon={<ShieldCheck size={18} />}
             />
@@ -176,8 +201,8 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Expiring Legal Documents */}
           <Section
-            title="Legalitas Mendekati Kadaluarsa"
-            description="STR & SIP yang perlu diperpanjang"
+            title="Dokumen Mendekati Kadaluarsa"
+            description={`Menampilkan ${expiringDocs.length} dari ${expiringDocsCount} dokumen dalam ${EXPIRY_WARNING_DAYS} hari`}
             action={
               <Link href="/komite/legalitas" className="text-xs font-medium text-[var(--color-primary)] underline-offset-4 transition-colors hover:underline">
                 Semua legalitas →
@@ -190,30 +215,47 @@ export default async function DashboardPage() {
                   <Th>Nama</Th>
                   <Th>Dokumen</Th>
                   <Th>Tanggal Berakhir</Th>
+                  <Th>Sisa</Th>
                   <Th>Status</Th>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {expiringDocs.length === 0 ? (
                   <TableRow>
-                    <Td colSpan={4} className="py-10 text-center text-xs text-[var(--color-muted-foreground)]">
+                    <Td colSpan={5} className="py-10 text-center text-xs text-[var(--color-muted-foreground)]">
                       Tidak ada dokumen yang mendekati kadaluarsa.
                     </Td>
                   </TableRow>
                 ) : (
-                  expiringDocs.map((doc) => (
-                    <TableRow key={doc.id}>
-                      <Td className="font-medium text-[var(--color-foreground)]">{doc.staff.name}</Td>
-                      <Td>{doc.documentType.name}</Td>
-                      <Td>{formatDateShort(doc.expiryDate)}</Td>
-                      <Td>
-                        <DocumentStatusBadge status="EXPIRING" />
-                      </Td>
-                    </TableRow>
-                  ))
+                  expiringDocs.map((doc) => {
+                    const days = daysUntilExpiry(doc.expiryDate);
+                    return (
+                      <TableRow key={doc.id}>
+                        <Td className="font-medium text-[var(--color-foreground)]">{doc.staff.name}</Td>
+                        <Td>{doc.documentType.name}</Td>
+                        <Td>{formatDateShort(doc.expiryDate)}</Td>
+                        <Td className="text-xs tabular-nums">
+                          {days === null ? "—" : days < 0 ? `${Math.abs(days)} hari lewat` : `${days} hari`}
+                        </Td>
+                        <Td>
+                          <DocumentStatusBadge status="EXPIRING" />
+                        </Td>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
+            {expiringDocsCount > expiringDocs.length && (
+              <div className="px-1 pt-2">
+                <Link
+                  href="/komite/legalitas"
+                  className="text-xs font-medium text-[var(--color-primary)] underline-offset-4 hover:underline"
+                >
+                  +{expiringDocsCount - expiringDocs.length} dokumen lainnya → lihat semua
+                </Link>
+              </div>
+            )}
           </Section>
 
           {/* Pending Borang Verification */}

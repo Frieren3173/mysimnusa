@@ -1,52 +1,137 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { Section, EmptyState } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
-import { Badge, DocumentStatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
 import { requirePermission } from "@/lib/authorization";
-import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { deriveDocumentStatus, formatDateShort, formatFileSize } from "@/lib/utils";
-import { FileText, Download } from "lucide-react";
-import { StaffDetailButton } from "../staff/staff-detail-modal";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { searchInputClass } from "@/components/layout/page-toolbar";
+import { ServerPagination } from "@/components/ui/server-pagination";
+import { DokumenClient, type StaffDocGroup } from "./dokumen-client";
 
 export const metadata: Metadata = { title: "Dokumen — Komite Keperawatan" };
+
+const PER_PAGE = 50;
 
 export default async function DokumenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; search?: string }>;
+  searchParams: Promise<{ type?: string; search?: string; page?: string }>;
 }) {
   const currentUser = await requirePermission(PERMISSIONS.KOMITE_DOCUMENT_READ);
   const params = await searchParams;
   const search = params.search?.trim();
+  const activeType = params.type?.toUpperCase();
+  const page = Math.max(1, Number(params.page) || 1);
 
   let docTypes: Awaited<ReturnType<typeof prisma.documentType.findMany>> = [];
-  let docs: Prisma.DocumentGetPayload<{
-    include: { staff: { include: { room: true } }; documentType: true };
-  }>[] = [];
+  let groups: StaffDocGroup[] = [];
+  let total = 0;
 
   try {
     docTypes = await prisma.documentType.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
     });
-    docs = await prisma.document.findMany({
-      where: {
-        ...(params.type ? { documentType: { code: params.type } } : {}),
-        ...(search ? { staff: { name: { contains: search, mode: "insensitive" as const } } } : {}),
+
+    // Which staff have ≥1 matching document? Paginate over STAFF, not documents,
+    // so one person appears once and the page renders a bounded number of rows
+    // (fixes the "Page Unresponsive" caused by rendering the whole set).
+    const staffWhere: Prisma.StaffWhereInput = {
+      documents: {
+        some: {
+          ...(activeType ? { documentType: { code: activeType } } : {}),
+        },
       },
-      include: {
-        staff: { include: { room: true } },
-        documentType: true,
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 300,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { nip: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [staffTotal, staffRows] = await Promise.all([
+      prisma.staff.count({ where: staffWhere }),
+      prisma.staff.findMany({
+        where: staffWhere,
+        select: { id: true, name: true, nip: true, profession: true, room: { select: { name: true } } },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * PER_PAGE,
+        take: PER_PAGE,
+      }),
+    ]);
+    total = staffTotal;
+
+    // Fetch the matching documents for only the staff on this page.
+    const staffIds = staffRows.map((s) => s.id);
+    const docs =
+      staffIds.length === 0
+        ? []
+        : await prisma.document.findMany({
+            where: {
+              staffId: { in: staffIds },
+              ...(activeType ? { documentType: { code: activeType } } : {}),
+            },
+            select: {
+              id: true,
+              staffId: true,
+              filename: true,
+              storageKey: true,
+              legacyDriveUrl: true,
+              expiryDate: true,
+              isLifetime: true,
+              documentType: { select: { code: true, name: true, hasExpiry: true } },
+            },
+            orderBy: [{ updatedAt: "desc" }],
+          });
+
+    const byStaff = new Map<string, typeof docs>();
+    for (const d of docs) {
+      const list = byStaff.get(d.staffId) ?? [];
+      list.push(d);
+      byStaff.set(d.staffId, list);
+    }
+
+    // Preserve document-type ordering as configured (STR, SIP, BTCLS, ACLS, …).
+    const typeOrder = new Map(docTypes.map((t, i) => [t.code, i]));
+
+    groups = staffRows.map((s) => {
+      const staffDocs = byStaff.get(s.id) ?? [];
+      const typeMap = new Map<string, { code: string; name: string; files: StaffDocGroup["types"][number]["files"] }>();
+      for (const d of staffDocs) {
+        const code = d.documentType.code;
+        const entry =
+          typeMap.get(code) ??
+          { code, name: d.documentType.name, files: [] as StaffDocGroup["types"][number]["files"] };
+        entry.files.push({
+          id: d.id,
+          filename: d.filename,
+          storageKey: d.storageKey,
+          legacyDriveUrl: d.legacyDriveUrl,
+          expiryDate: d.expiryDate ? d.expiryDate.toISOString() : null,
+          isLifetime: d.isLifetime,
+          hasExpiry: d.documentType.hasExpiry,
+          documentTypeCode: code,
+          documentTypeName: d.documentType.name,
+        });
+        typeMap.set(code, entry);
+      }
+      const types = [...typeMap.values()].sort(
+        (a, b) => (typeOrder.get(a.code) ?? 999) - (typeOrder.get(b.code) ?? 999),
+      );
+      return {
+        staffId: s.id,
+        staffName: s.name,
+        nip: s.nip,
+        profession: s.profession,
+        roomName: s.room?.name ?? null,
+        types,
+      };
     });
   } catch {
     // DB not ready
@@ -60,23 +145,24 @@ export default async function DokumenPage({
   return (
     <AppShell
       breadcrumbs={breadcrumbs}
+      roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Komite",
       }}
-      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-7xl">
         <StickyPageHeader
           title="Dokumen Tenaga"
-          description="Berkas legalitas, pendidikan, dan administrasi yang terdaftar per tenaga"
+          description="Berkas legalitas, pendidikan, dan administrasi per tenaga. Klik tombol dokumen untuk detail dan membuka berkas."
           toolbar={
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href="/komite/dokumen"
                 className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                  !params.type ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                  !activeType ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 Semua
@@ -86,21 +172,21 @@ export default async function DokumenPage({
                   key={t.id}
                   href={`/komite/dokumen?type=${t.code}`}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    params.type === t.code ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                    activeType === t.code ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   {t.code}
                 </Link>
               ))}
               <form action="/komite/dokumen" className="ml-auto">
-                {params.type && <input type="hidden" name="type" value={params.type} />}
+                {activeType && <input type="hidden" name="type" value={activeType} />}
                 <input
                   type="search"
                   name="search"
-                  aria-label="Cari tenaga berdasarkan nama"
+                  aria-label="Cari tenaga berdasarkan nama atau NIP"
                   defaultValue={search ?? ""}
-                  placeholder="Cari nama tenaga…"
-                  className={searchInputClass("w-52")}
+                  placeholder="Cari nama / NIP…"
+                  className={searchInputClass("w-56")}
                 />
               </form>
             </div>
@@ -108,90 +194,14 @@ export default async function DokumenPage({
         />
 
         <Section>
-          <Table scroll>
-            <TableHeader>
-              <TableRow>
-                <Th className="w-12">No</Th>
-                <Th>Tenaga</Th>
-                <Th>Jenis</Th>
-                <Th>Nama Berkas</Th>
-                <Th>Ukuran</Th>
-                <Th>Berlaku Hingga</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Aksi</Th>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {docs.length === 0 ? (
-                <TableRow>
-                  <Td colSpan={8}>
-                    <EmptyState
-                      title="Belum ada dokumen"
-                      description="Dokumen muncul setelah diunggah pada profil tenaga atau dimigrasi dari Drive."
-                      icon={<FileText size={32} />}
-                    />
-                  </Td>
-                </TableRow>
-              ) : (
-                docs.map((d, i) => {
-                  const status = deriveDocumentStatus(d.expiryDate, d.isLifetime);
-                  const hasLocal = !!d.storageKey;
-                  return (
-                    <TableRow key={d.id}>
-                      <Td className="text-xs tabular-nums text-slate-500">{i + 1}</Td>
-                      <Td className="text-sm font-medium">
-                        <StaffDetailButton staffId={d.staff.id}>{d.staff.name}</StaffDetailButton>
-                        <span className="block text-[10px] text-slate-400">
-                          {d.staff.room?.name ?? "—"}
-                        </span>
-                      </Td>
-                      <Td>
-                        <Badge variant="default">{d.documentType.code}</Badge>
-                      </Td>
-                      <Td className="text-xs text-slate-600 max-w-[220px] truncate">
-                        {d.filename ?? d.legacyDriveUrl ?? "—"}
-                      </Td>
-                      <Td className="text-xs tabular-nums">{formatFileSize(d.fileSize)}</Td>
-                      <Td className="text-xs">
-                        {d.isLifetime ? "Seumur hidup" : formatDateShort(d.expiryDate)}
-                      </Td>
-                      <Td>
-                        <DocumentStatusBadge
-                          status={status}
-                          label={
-                            d.documentType.code === "STR" && status === "ACTIVE"
-                              ? "Belum Seumur Hidup"
-                              : undefined
-                          }
-                        />
-                      </Td>
-                      <Td className="text-right">
-                        {hasLocal ? (
-                          <a
-                            href={`/api/documents/${d.id}/download`}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
-                          >
-                            <Download size={12} aria-hidden="true" /> Unduh
-                          </a>
-                        ) : d.legacyDriveUrl ? (
-                          <a
-                            href={d.legacyDriveUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
-                          >
-                            <Download size={12} aria-hidden="true" /> Drive
-                          </a>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">Belum ada berkas</span>
-                        )}
-                      </Td>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+          <DokumenClient groups={groups} />
+          <ServerPagination
+            basePath="/komite/dokumen"
+            params={{ type: activeType, search }}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+          />
         </Section>
       </div>
     </AppShell>

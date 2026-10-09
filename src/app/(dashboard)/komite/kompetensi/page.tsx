@@ -12,8 +12,11 @@ import { StaffDetailButton } from "../staff/staff-detail-modal";
 import { CompetencyBadgeButton } from "./competency-cell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { ServerPagination } from "@/components/ui/server-pagination";
 
 export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" };
+
+const PER_PAGE = 50;
 
 /**
  * Competency matrix.
@@ -23,18 +26,20 @@ export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" }
  *   2. Certificate files (migrated Documents) — optional; a competency with no
  *      migrated file still appears, and clicking it states the file is unavailable.
  *
- * The full matching dataset is rendered (no fixed row cap). The toolbar is sticky
- * and the table header sticks beneath it, so filters stay reachable while scrolling.
+ * Rows are paginated server-side (50/page) so the page stays responsive with a
+ * large workforce; the true total is always shown and every row remains
+ * reachable via the pagination controls.
  */
 export default async function KompetensiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; competency?: string }>;
+  searchParams: Promise<{ search?: string; competency?: string; page?: string }>;
 }) {
   const currentUser = await requirePermission(PERMISSIONS.KOMITE_COMPETENCY_READ);
   const params = await searchParams;
   const search = params.search?.trim() ?? "";
   const competency = params.competency?.trim() ?? "";
+  const page = Math.max(1, Number(params.page) || 1);
 
   let staffRows: {
     id: string;
@@ -45,6 +50,7 @@ export default async function KompetensiPage({
   }[] = [];
   let competencyTypes: { code: string; name: string }[] = [];
   let grandTotal = 0;
+  let filteredTotal = 0;
   const certByStaffCode = new Map<string, { id: string; filename: string | null; expiryDate: string | null }>();
 
   try {
@@ -59,10 +65,12 @@ export default async function KompetensiPage({
       where.competencies = { some: { competency: { code: competency } } };
     }
 
-    const [rows, types, allCount] = await Promise.all([
+    const [rows, types, allCount, matchCount] = await Promise.all([
       prisma.staff.findMany({
         where,
         orderBy: { name: "asc" },
+        skip: (page - 1) * PER_PAGE,
+        take: PER_PAGE,
         select: {
           id: true,
           name: true,
@@ -73,10 +81,12 @@ export default async function KompetensiPage({
       }),
       prisma.competency.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { code: true, name: true } }),
       prisma.staff.count({ where: { isActive: true } }),
+      prisma.staff.count({ where }),
     ]);
     staffRows = rows;
     competencyTypes = types;
     grandTotal = allCount;
+    filteredTotal = matchCount;
 
     // Certificate availability for every row on this page — a single query.
     const staffIds = staffRows.map((s) => s.id);
@@ -117,7 +127,7 @@ export default async function KompetensiPage({
           description="Seluruh kompetensi per tenaga berdasarkan data sumber. Klik badge untuk melihat sertifikat."
           actions={
             <span className="text-xs text-slate-500">
-              {staffRows.length} dari {grandTotal} tenaga
+              {filteredTotal} dari {grandTotal} tenaga
             </span>
           }
           toolbar={
@@ -211,6 +221,13 @@ export default async function KompetensiPage({
                   )}
                 </TableBody>
               </Table>
+            <ServerPagination
+              basePath="/komite/kompetensi"
+              params={{ search: search || undefined, competency: competency || undefined }}
+              page={page}
+              perPage={PER_PAGE}
+              total={filteredTotal}
+            />
           </Section>
         </div>
       </div>
