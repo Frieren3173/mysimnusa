@@ -57,6 +57,15 @@ import * as h54 from "@/server/api/diklat-trainings-$id$-certificates-generate";
 import * as h55 from "@/server/api/csp-report";
 import * as h56 from "@/server/api/admin-room-kepala-ruang";
 import * as h57 from "@/server/api/diklat-trainings-$id$-certificates-process";
+import * as h58 from "@/server/api/diklat-jpl-export";
+import * as h59 from "@/server/api/diklat-history";
+import * as h60 from "@/server/api/diklat-history-$staffId$";
+import * as h61 from "@/server/api/diklat-curriculum";
+import * as h62 from "@/server/api/diklat-curriculum-$id$";
+import * as h63 from "@/server/api/diklat-curriculum-$id$-items";
+import * as h64 from "@/server/api/diklat-curriculum-items-$itemId$";
+import * as h65 from "@/server/api/diklat-agenda";
+import * as h66 from "@/server/api/diklat-curriculum-$id$-document";
 
 // Consolidated API route table.
 // Every URL/method that previously lived in its own route.ts file is
@@ -111,6 +120,15 @@ const routes: RouteEntry[] = [
   { pattern: ["diklat", "trainings", ":id", "participants", ":participantId"], module: h46 },
   { pattern: ["diklat", "trainings", ":id", "certificates", "generate"], module: h54 },
   { pattern: ["diklat", "trainings", ":id", "certificates", "process"], module: h57 },
+  { pattern: ["diklat", "jpl", "export"], module: h58 },
+  { pattern: ["diklat", "history"], module: h59 },
+  { pattern: ["diklat", "history", ":staffId"], module: h60 },
+  { pattern: ["diklat", "curriculum"], module: h61 },
+  { pattern: ["diklat", "curriculum", ":id"], module: h62 },
+  { pattern: ["diklat", "curriculum", ":id", "document"], module: h66 },
+  { pattern: ["diklat", "curriculum", ":id", "items"], module: h63 },
+  { pattern: ["diklat", "curriculum", "items", ":itemId"], module: h64 },
+  { pattern: ["diklat", "agenda"], module: h65 },
   { pattern: ["diklat", "certificate-template"], module: h53 },
   { pattern: ["documents", ":id"], module: h47 },
   { pattern: ["documents", ":id", "download"], module: h48 },

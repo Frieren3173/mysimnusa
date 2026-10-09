@@ -16,6 +16,8 @@ const CreateSchema = z.object({
   location: z.string().trim().max(200).optional().transform((v) => (v ? v : null)),
   capacity: z.coerce.number().int().min(1).max(1000).optional().nullable(),
   status: z.enum(["DRAFT", "PUBLISHED", "ONGOING", "COMPLETED", "CANCELLED"]).default("DRAFT"),
+  /// JPL credited per eligible participant. Optional; must be a non-negative int.
+  jpl: z.coerce.number().int().min(0).max(999).optional().nullable(),
 });
 
 export async function GET(req: NextRequest) {

@@ -116,6 +116,7 @@ export default async function TrainingsPage({
             location: t.location,
             capacity: t.capacity,
             status: t.status,
+            jpl: t.jpl,
             participantCount: t._count.participants,
             certificateCount: t._count.certificates,
           }))}

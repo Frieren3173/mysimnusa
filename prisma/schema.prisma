@@ -542,12 +542,22 @@ model Training {
   /// Optional minimum attendance rate (percentage 0–100) across recorded days.
   minAttendanceRate  Int?
 
+  // ── JPL / per-activity credit (additive) ─────────────────────────────────
+  /// Jam Pelajaran credited to each eligible participant. Null = not set
+  /// (legacy activities keep NULL — never back-filled with a fabricated value).
+  jpl                Int?
+  /// Optional link to the annual curriculum plan item this activity realises.
+  curriculumItemId   String?
+
   instructors  TrainingInstructor[]
   participants TrainingParticipant[]
   attendance   TrainingAttendance[]
   assessments  TrainingAssessment[]
   certificates Certificate[]
+  curriculumItem CurriculumItem? @relation(fields: [curriculumItemId], references: [id], onDelete: SetNull)
 
+  @@index([startDate])
+  @@index([curriculumItemId])
   @@map("trainings")
 }
 
@@ -652,6 +662,62 @@ model Certificate {
   @@index([trainingId])
   @@index([staffId])
   @@map("certificates")
+}
+
+// ─────────────────────────────────────────────
+// CURRICULUM / ANNUAL TRAINING PLAN
+// ─────────────────────────────────────────────
+
+/// An annual curriculum / learning program (e.g. "Kurikulum Diklat 2026").
+/// Holds an uploaded curriculum document plus a list of planned items. Each
+/// planned item can be realised by one or more Training activities.
+model CurriculumProgram {
+  id          String   @id @default(cuid())
+  year        Int
+  name        String
+  description String?
+  status      String   @default("DIRANCANG") // DIRANCANG | TERJADWAL | BERLANGSUNG | SELESAI | DIBATALKAN
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Uploaded curriculum document (uses the existing storage provider).
+  documentStorageKey String?
+  documentProvider   String?
+  documentName       String?
+  documentMimeType   String?
+  documentSize       Int?
+
+  items CurriculumItem[]
+
+  @@index([year])
+  @@index([status])
+  @@map("curriculum_programs")
+}
+
+/// A planned material/activity inside a curriculum program. `trainingId` links
+/// it to the realising Training activity once scheduled/executed.
+model CurriculumItem {
+  id          String   @id @default(cuid())
+  programId   String
+  title       String
+  description String?
+  /// Planned target date (informational; not an execution proof).
+  targetDate  DateTime?
+  /// Planned JPL for the item (informational).
+  targetJpl   Int?
+  /// Placed schedule (optional).
+  scheduledAt DateTime?
+  status      String   @default("DIRANCANG") // DIRANCANG | TERJADWAL | BERLANGSUNG | SELESAI | DIBATALKAN
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  program   CurriculumProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  trainings Training[]
+
+  @@index([programId])
+  @@index([status])
+  @@map("curriculum_items")
 }
 
 // ─────────────────────────────────────────────

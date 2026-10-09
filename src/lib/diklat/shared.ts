@@ -5,6 +5,28 @@
  * unit-tested and reused by both Server and Client Components.
  */
 
+// ── Curriculum / program progress statuses (shared with Training where apt) ──
+export const CURRICULUM_STATUSES = [
+  "DIRANCANG",
+  "TERJADWAL",
+  "BERLANGSUNG",
+  "SELESAI",
+  "DIBATALKAN",
+] as const;
+export type CurriculumStatus = (typeof CURRICULUM_STATUSES)[number];
+
+export const CURRICULUM_STATUS_LABELS: Record<string, string> = {
+  DIRANCANG: "Dirancang",
+  TERJADWAL: "Terjadwal",
+  BERLANGSUNG: "Berlangsung",
+  SELESAI: "Selesai",
+  DIBATALKAN: "Dibatalkan",
+};
+
+export function curriculumStatusLabel(status: string): string {
+  return CURRICULUM_STATUS_LABELS[status] ?? status;
+}
+
 export const TRAINING_STATUSES = [
   "DRAFT",
   "PUBLISHED",

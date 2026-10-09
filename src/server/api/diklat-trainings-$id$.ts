@@ -23,6 +23,9 @@ const UpdateSchema = z.object({
   minScore: z.coerce.number().min(0).max(100).optional().nullable(),
   showScore: z.boolean().optional(),
   minAttendanceRate: z.coerce.number().int().min(0).max(100).optional().nullable(),
+  // JPL per activity + optional curriculum link (additive).
+  jpl: z.coerce.number().int().min(0).max(999).optional().nullable(),
+  curriculumItemId: z.string().min(1).optional().nullable(),
 });
 
 const detailInclude = {
@@ -80,6 +83,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
   }
 
+  // A curriculum link must reference an existing item (guards the FK → clean 422).
+  if (data.curriculumItemId) {
+    const item = await prisma.curriculumItem.findUnique({
+      where: { id: data.curriculumItemId },
+      select: { id: true },
+    });
+    if (!item) {
+      return err("CURRICULUM_ITEM_NOT_FOUND", "Materi kurikulum tidak ditemukan", 422, {
+        curriculumItemId: ["Materi kurikulum tidak ditemukan"],
+      });
+    }
+  }
+
   try {
     const training = await prisma.training.update({
       where: { id },
@@ -104,6 +120,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         minScore: existing.minScore,
         showScore: existing.showScore,
         minAttendanceRate: existing.minAttendanceRate,
+        jpl: existing.jpl,
       },
       after: {
         status: training.status,
@@ -113,6 +130,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         minScore: training.minScore,
         showScore: training.showScore,
         minAttendanceRate: training.minAttendanceRate,
+        jpl: training.jpl,
       },
       ipAddress: clientIp(req),
     });
