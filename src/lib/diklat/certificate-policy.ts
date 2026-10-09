@@ -67,12 +67,16 @@ export interface EligibilityResult {
  *
  * Order of checks (fail fast, most-fundamental first):
  *   1. Cancelled participants are never eligible.
- *   2. Test requirement (Modes B/C, or when `requireTest` is set): the test
+ *   2. Attendance (ALL modes): the participant must actually have ATTENDED —
+ *      at least one HADIR record. Merely being registered is not enough;
+ *      TIDAK_HADIR / SAKIT / IZIN (with no HADIR) and incomplete attendance
+ *      (no records) are NOT eligible. This is the "stored attendance rule".
+ *   3. Test requirement (Modes B/C, or when `requireTest` is set): the test
  *      must be completed.
- *   3. Minimum score (when `requireMinScore`): the score must exist and meet
+ *   4. Minimum score (when `requireMinScore`): the score must exist and meet
  *      the threshold. A missing score never "passes".
- *   4. Attendance requirement (when `minAttendanceRate` is set): at least that
- *      percentage of the activity's participants-days must be HADIR.
+ *   5. `minAttendanceRate` (when set) raises the attendance bar further: at
+ *      least that percentage of the participant's recorded days must be HADIR.
  */
 export function evaluateEligibility(
   policy: CertificatePolicy,
@@ -80,6 +84,17 @@ export function evaluateEligibility(
 ): EligibilityResult {
   if (progress.cancelled) {
     return { eligible: false, reason: "Peserta dibatalkan (CANCELLED)." };
+  }
+
+  // Attendance gate — applies in EVERY mode. A certificate requires the
+  // participant to have attended at least one session (HADIR). SAKIT/IZIN do
+  // not count as present, and a participant with no attendance records at all
+  // is "incomplete", never a pass.
+  if (progress.attendancePresent <= 0) {
+    if (progress.attendanceRecorded <= 0) {
+      return { eligible: false, reason: "Presensi belum dicatat (belum lengkap)." };
+    }
+    return { eligible: false, reason: "Peserta tidak hadir (tidak ada status HADIR)." };
   }
 
   const isTestMode = policy.mode === "TEST_SCORED" || policy.mode === "TEST_COMPLETION";
@@ -101,10 +116,7 @@ export function evaluateEligibility(
 
   if (policy.minAttendanceRate != null && policy.minAttendanceRate > 0) {
     // Rate is measured against the participant's OWN recorded days: present /
-    // recorded. "Incomplete attendance" (no records) is treated as 0% → fails.
-    if (progress.attendanceRecorded <= 0) {
-      return { eligible: false, reason: "Presensi belum dicatat (belum lengkap)." };
-    }
+    // recorded. (Presence ≥ 1 was already guaranteed above.)
     const rate = Math.round((progress.attendancePresent / progress.attendanceRecorded) * 100);
     if (rate < policy.minAttendanceRate) {
       return {

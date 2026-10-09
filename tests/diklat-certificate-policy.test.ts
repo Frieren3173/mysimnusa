@@ -67,10 +67,15 @@ describe("Mode A — ATTENDANCE_ONLY", () => {
   it("does not require a completed test", () => {
     expect(evaluateEligibility(policy(), progress({ testCompleted: false })).eligible).toBe(true);
   });
-  it("qualifies with zero attendance when no min rate is set", () => {
+  it("does NOT qualify without any attendance (presence required)", () => {
     expect(
       evaluateEligibility(policy(), progress({ attendanceRecorded: 0, attendancePresent: 0 })).eligible,
-    ).toBe(true);
+    ).toBe(false);
+  });
+  it("does NOT qualify when only TIDAK_HADIR/SAKIT/IZIN are recorded", () => {
+    expect(
+      evaluateEligibility(policy(), progress({ attendanceRecorded: 3, attendancePresent: 0 })).eligible,
+    ).toBe(false);
   });
 });
 
