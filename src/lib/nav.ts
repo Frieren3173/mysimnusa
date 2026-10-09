@@ -91,6 +91,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Presensi", href: "/diklat/attendance", permission: "diklat.training.read" },
       { label: "Penilaian", href: "/diklat/assessment", permission: "diklat.training.read" },
       { label: "Sertifikat", href: "/diklat/certificates", permission: "diklat.certificate.read" },
+      { label: "Laporan", href: "/diklat/laporan", permission: "diklat.training.read" },
     ],
   },
   {

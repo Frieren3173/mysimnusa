@@ -22,3 +22,21 @@ export function appShellVisibility(user: CurrentUser) {
     permissions: Array.from(user.permissions),
   };
 }
+
+/**
+ * Diklat TrainingManager capability flags, derived from the user's permissions.
+ *
+ * Assessment accepts the dedicated `manage_assessment` permission OR the legacy
+ * `manage_attendance` (kept for backward compatibility), mirroring the API gate
+ * in the assessments route.
+ */
+export function diklatManagerPerms(user: CurrentUser) {
+  return {
+    manageParticipants: user.hasPermission("diklat.training.manage_participants"),
+    manageAttendance: user.hasPermission("diklat.training.manage_attendance"),
+    manageAssessment:
+      user.hasPermission("diklat.training.manage_assessment") ||
+      user.hasPermission("diklat.training.manage_attendance"),
+    issueCertificate: user.hasPermission("diklat.certificate.issue"),
+  };
+}

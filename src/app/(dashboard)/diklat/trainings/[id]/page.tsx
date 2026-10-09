@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePermission } from "@/lib/authorization";
-import { appShellVisibility } from "@/lib/app-shell-props";
+import { appShellVisibility, diklatManagerPerms } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { TrainingManager } from "../../training-manager";
@@ -62,12 +62,7 @@ export default async function TrainingDetailPage({
           }))}
           defaultTab="participants"
           initialTrainingId={training.id}
-          perms={{
-            manageParticipants: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_PARTICIPANTS),
-            manageAttendance: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE),
-            manageAssessment: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE),
-            issueCertificate: currentUser.hasPermission(PERMISSIONS.DIKLAT_CERTIFICATE_ISSUE),
-          }}
+          perms={diklatManagerPerms(currentUser)}
         />
       </div>
     </AppShell>
