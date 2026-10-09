@@ -65,9 +65,10 @@ Provisioned by `scripts/seed-uat-fixtures.mts` (guarded to the staging host).
 
 1. Open the environment-aware Preview for the UAT branch (Vercel SSO required —
    use a team account):
-   `https://mysimnusa-47m2agr24-frie-why.vercel.app` (commit `dbe636b`; created
-   after the staging env vars were attached). Any earlier Preview of the same
-   commit predates the env wiring and must **not** be used.
+   `https://mysimnusa-m0is7o7qc-frie-why.vercel.app` (branch HEAD `92c8462`,
+   docs-only on top of the tested code `dbe636b`; inherits the staging env vars).
+   Any Preview created before the staging env vars were attached must **not** be
+   used.
 2. Sign in with each `uat.*` account and execute `docs/uat-checklist.md`.
 3. Record pass/fail + screenshots per resolution.
 4. Capture any defect with: role, action, expected vs actual, network response.
