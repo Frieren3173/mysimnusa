@@ -115,8 +115,14 @@ export function evaluateEligibility(
   }
 
   if (policy.minAttendanceRate != null && policy.minAttendanceRate > 0) {
-    // Rate is measured against the participant's OWN recorded days: present /
-    // recorded. (Presence ≥ 1 was already guaranteed above.)
+    // LIMITATION (documented): the app has NO formal session model — attendance
+    // is a per-day record with no fixed "total sessions" for an activity. The
+    // rate is therefore measured against the participant's OWN recorded days
+    // (HADIR / recorded), NOT against the activity's full schedule. A
+    // participant with a single HADIR and nothing else is 100%. This is
+    // deliberately separate from the JPL rule ("≥1 HADIR = full JPL"); it does
+    // not imply a proportional/JPL-derived denominator. Changing this requires a
+    // formal session model (a business decision), which is out of scope here.
     const rate = Math.round((progress.attendancePresent / progress.attendanceRecorded) * 100);
     if (rate < policy.minAttendanceRate) {
       return {

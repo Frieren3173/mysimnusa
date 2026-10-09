@@ -78,9 +78,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { trainingId_staffId: { trainingId: id, staffId: data.staffId } },
   });
 
-  // `completed` defaults to the existing value; a successful score save implies
-  // the test was completed unless the caller explicitly says otherwise.
-  const nextCompleted = data.completed ?? existing?.completed ?? data.score != null;
+  // Completion precedence (explicit, documented):
+  //   1. `completed` explicitly sent  → honour it (true OR false).
+  //   2. a score is being saved       → the test is considered completed.
+  //   3. otherwise                    → keep the existing value (default false).
+  const nextCompleted =
+    data.completed !== undefined
+      ? data.completed
+      : data.score != null
+        ? true
+        : (existing?.completed ?? false);
   const completedAt = nextCompleted
     ? (existing?.completedAt ?? new Date())
     : null;

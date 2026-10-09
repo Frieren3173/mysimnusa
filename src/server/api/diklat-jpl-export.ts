@@ -26,10 +26,11 @@ export async function GET(req: NextRequest) {
     return err("BAD_REQUEST", "Parameter year tidak valid (YYYY)", 400);
   }
   const roomId = url.searchParams.get("roomId")?.trim() || null;
+  const search = url.searchParams.get("search")?.trim() || null;
 
   try {
     const [rows, room] = await Promise.all([
-      getJplRows({ year, roomId }),
+      getJplRows({ year, roomId, search }),
       roomId
         ? import("@/lib/prisma").then(({ prisma }) =>
             prisma.room.findUnique({ where: { id: roomId }, select: { name: true } }),

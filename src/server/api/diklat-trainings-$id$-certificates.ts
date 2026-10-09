@@ -5,12 +5,17 @@ import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { logAudit, clientIp } from "@/lib/audit";
-import { logServerError } from "@/lib/logger";
+import { issueCertificatesForTraining } from "@/lib/diklat/certificate-issuance";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
+/**
+ * Manual certificate issue — routes through the SHARED issuance service so the
+ * activity's certificate policy (mode, attendance, test, min score,
+ * minAttendanceRate) is always enforced. There is exactly one source of truth
+ * for "may this participant receive a certificate?".
+ */
 const IssueSchema = z.object({
   staffId: z.string().min(1),
-  certificateNumber: z.string().trim().max(80).optional().nullable(),
-  issuedDate: z.coerce.date().optional(),
 });
 
 async function guard(permission: string) {
@@ -38,55 +43,69 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
 
   const { id } = await params;
-  const training = await prisma.training.findUnique({ where: { id } });
+  const training = await prisma.training.findUnique({ where: { id }, select: { id: true, status: true } });
   if (!training) return err("NOT_FOUND", "Pelatihan tidak ditemukan", 404);
 
   const body = await req.json().catch(() => null);
   const { data, error } = parseBody(IssueSchema, body);
   if (error) return error;
 
+  // The participant must belong to this activity (guards cross-activity issue).
   const participant = await prisma.trainingParticipant.findUnique({
     where: { trainingId_staffId: { trainingId: id, staffId: data.staffId } },
+    select: { staffId: true },
   });
   if (!participant) return err("NOT_PARTICIPANT", "Petugas bukan peserta pelatihan ini", 404);
 
-  const dup = await prisma.certificate.findFirst({
-    where: { trainingId: id, staffId: data.staffId },
-  });
-  if (dup) return err("ALREADY_ISSUED", "Sertifikat sudah terbit untuk peserta ini", 409);
-
   try {
-    const count = await prisma.certificate.count({ where: { trainingId: id } });
-    const num =
-      data.certificateNumber?.trim() ||
-      `SERT/${(training.title || "DIKLAT").replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase()}/${String(count + 1).padStart(4, "0")}`;
+    const summary = await issueCertificatesForTraining(id, {
+      trigger: "MANUAL",
+      actorUserId: user.id,
+      staffIds: [data.staffId],
+    });
 
-    const certificate = await prisma.certificate.create({
-      data: {
-        trainingId: id,
-        staffId: data.staffId,
-        certificateNumber: num,
-        issuedDate: data.issuedDate ?? new Date(),
-      },
+    // A CANCELLED activity never issues.
+    if (summary.cancelled) {
+      return err(
+        "TRAINING_CANCELLED",
+        "Kegiatan dibatalkan — sertifikat tidak dapat diterbitkan.",
+        409,
+      );
+    }
+
+    const result = summary.results[0];
+    if (!result) return err("ISSUE_FAILED", "Gagal menerbitkan sertifikat", 500);
+
+    // Already issued → idempotent no-op (do not create a duplicate).
+    if (result.alreadyIssued) {
+      const existing = await prisma.certificate.findFirst({
+        where: { trainingId: id, staffId: data.staffId },
+      });
+      return ok({ certificate: existing });
+    }
+
+    // Not eligible → surface the policy reason (attendance/test/score).
+    if (!result.issued) {
+      return err("NOT_ELIGIBLE", result.reason || "Peserta belum memenuhi syarat", 422);
+    }
+
+    const certificate = await prisma.certificate.findFirst({
+      where: { trainingId: id, staffId: data.staffId },
     });
 
     await logAudit({
       userId: user.id,
       module: "diklat",
       resource: "certificate",
-      resourceId: certificate.id,
+      resourceId: certificate?.id ?? id,
       action: "CREATED",
-      after: { certificateNumber: num, trainingId: id },
+      after: { certificateNumber: result.certificateNumber, trainingId: id, staffId: data.staffId, trigger: "MANUAL" },
       ipAddress: clientIp(req),
     });
 
     return ok({ certificate });
   } catch (e) {
-    // Prisma unique-constraint violation (P2002) → friendly duplicate message.
-    if (typeof e === "object" && e !== null && (e as { code?: unknown }).code === "P2002") {
-      return err("DUPLICATE_NUMBER", "Nomor sertifikat sudah dipakai", 409);
-    }
     logServerError("diklat.certificates.issue", e);
-    return err("ISSUE_FAILED", "Gagal menerbitkan sertifikat", 500);
+    return err("ISSUE_FAILED", safeErrorMessage("ISSUE_FAILED"), 500);
   }
 }

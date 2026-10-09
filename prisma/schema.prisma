@@ -620,6 +620,10 @@ model TrainingAttendance {
 
   training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
 
+  /// One attendance row per (activity, staff, day). `date` is normalized to UTC
+  /// midnight by the API, so this also guards concurrent writes.
+  @@unique([trainingId, staffId, date])
+  @@index([trainingId])
   @@map("training_attendance")
 }
 

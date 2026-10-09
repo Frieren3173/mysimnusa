@@ -6,6 +6,7 @@ import { Section, KpiCard, Card, CardContent, EmptyState } from "@/components/ui
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ServerPagination } from "@/components/ui/server-pagination";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
 import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
@@ -16,6 +17,9 @@ import { CalendarRange, Download, Target, Users, CheckCircle2, XCircle } from "l
 
 export const metadata: Metadata = { title: "Dashboard JPL" };
 
+/** Rows per page for the JPL staff table (KPIs always use the FULL population). */
+const PER_PAGE = 25;
+
 function clampBar(pct: number): number {
   return Math.max(0, Math.min(100, pct));
 }
@@ -23,7 +27,7 @@ function clampBar(pct: number): number {
 export default async function JplDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; roomId?: string; search?: string }>;
+  searchParams: Promise<{ year?: string; roomId?: string; search?: string; page?: string }>;
 }) {
   const currentUser = await requirePermission(PERMISSIONS.DIKLAT_TRAINING_READ);
   const params = await searchParams;
@@ -31,21 +35,26 @@ export default async function JplDashboardPage({
   const year = Number(params.year) || currentYear;
   const roomId = params.roomId?.trim() || "";
   const search = params.search?.trim() || "";
+  const page = Math.max(1, Number(params.page) || 1);
 
   const [rooms, rows] = await Promise.all([
     prisma.room.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getJplRows({ year, roomId: roomId || null, search: search || null }).catch(() => []),
   ]);
 
+  // KPI + total from the FULL filtered population (never the current page).
   const summary = summarizeJpl(rows);
   summary.year = year;
+
+  const total = rows.length;
+  const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   // Year options: currentYear ±2 + any years present in data.
   const years = Array.from(
     new Set([currentYear - 2, currentYear - 1, currentYear, currentYear + 1, year]),
   ).sort((a, b) => b - a);
 
-  const exportHref = `/api/diklat/jpl/export?year=${year}${roomId ? `&roomId=${roomId}` : ""}`;
+  const exportHref = `/api/diklat/jpl/export?year=${year}${roomId ? `&roomId=${roomId}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
 
   return (
     <AppShell
@@ -128,7 +137,7 @@ export default async function JplDashboardPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.length === 0 ? (
+                  {pageRows.length === 0 ? (
                     <TableRow>
                       <Td colSpan={7}>
                         <EmptyState
@@ -139,9 +148,9 @@ export default async function JplDashboardPage({
                       </Td>
                     </TableRow>
                   ) : (
-                    rows.map((r, i) => (
+                    pageRows.map((r, i) => (
                       <TableRow key={r.staffId}>
-                        <Td className="text-xs tabular-nums text-slate-500">{i + 1}</Td>
+                        <Td className="text-xs tabular-nums text-slate-500">{(page - 1) * PER_PAGE + i + 1}</Td>
                         <Td className="text-xs font-medium">
                           <Link href={`/diklat/riwayat/${r.staffId}?year=${year}`} className="text-blue-700 hover:underline">
                             {r.staffName}
@@ -170,6 +179,13 @@ export default async function JplDashboardPage({
                   )}
                 </TableBody>
               </Table>
+              <ServerPagination
+                basePath="/diklat/jpl"
+                params={{ year: String(year), roomId: roomId || undefined, search: search || undefined }}
+                page={page}
+                perPage={PER_PAGE}
+                total={total}
+              />
             </CardContent>
           </Card>
         </Section>

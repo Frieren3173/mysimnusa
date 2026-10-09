@@ -96,6 +96,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Date-range consistency — mirror the POST validation using the EFFECTIVE
+  // (merged) dates, so editing one side can never produce endDate < startDate.
+  const effStart = data.startDate ?? existing.startDate;
+  const effEnd = data.endDate ?? existing.endDate;
+  if (effEnd < effStart) {
+    return err("INVALID_RANGE", "Tanggal selesai tidak boleh sebelum tanggal mulai", 422, {
+      endDate: ["Tanggal selesai sebelum tanggal mulai"],
+    });
+  }
+
   try {
     const training = await prisma.training.update({
       where: { id },

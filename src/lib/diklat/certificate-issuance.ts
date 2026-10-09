@@ -46,6 +46,8 @@ export interface IssueSummary {
   issued: number;
   alreadyIssued: number;
   notEligible: number;
+  /** True when issuance was skipped because the activity is CANCELLED. */
+  cancelled?: boolean;
   results: IssueResult[];
 }
 
@@ -57,6 +59,7 @@ async function loadProgress(trainingId: string) {
       select: {
         id: true,
         title: true,
+        status: true,
         certificateMode: true,
         requireTest: true,
         requireMinScore: true,
@@ -115,6 +118,31 @@ export async function issueCertificatesForTraining(
 ): Promise<IssueSummary> {
   const { training, participants, attendance, assessments } = await loadProgress(trainingId);
   if (!training) throw new Error("Pelatihan tidak ditemukan");
+
+  // A CANCELLED activity must never issue certificates — via the manual
+  // endpoint, the batch `process` route, or an auto-trigger. This is the single
+  // source of truth (the shared service) so no alternative issue path can slip
+  // past it. We return a zero-issued summary rather than throwing, so callers
+  // surface an explicit "no issuance" result.
+  if (training.status === "CANCELLED") {
+    const scoped = opts.staffIds
+      ? participants.filter((p) => opts.staffIds!.includes(p.staffId))
+      : participants;
+    return {
+      processed: scoped.length,
+      issued: 0,
+      alreadyIssued: 0,
+      notEligible: scoped.length,
+      cancelled: true,
+      results: scoped.map((p) => ({
+        staffId: p.staffId,
+        eligible: false,
+        issued: false,
+        alreadyIssued: false,
+        reason: "Kegiatan dibatalkan (CANCELLED) — sertifikat tidak diterbitkan.",
+      })),
+    };
+  }
 
   const policy: CertificatePolicy = normalizePolicy(training);
 
@@ -338,4 +366,38 @@ export async function notifyCertificateReady(
     logServerError("certificate-issuance.notify", e);
     return false;
   }
+}
+
+/**
+ * Evaluates the certificate policy for EVERY participant of an activity,
+ * returning a map `staffId → { eligible, reason }`. This is the shared
+ * eligibility check used by document-production paths (e.g. the .pptx
+ * generator) so they enforce the SAME rule as issuance — no duplicated policy.
+ *
+ * Returns `cancelled: true` when the activity is CANCELLED (nobody is eligible).
+ */
+export async function evaluateTrainingEligibility(trainingId: string): Promise<{
+  cancelled: boolean;
+  eligibleByStaff: Map<string, { eligible: boolean; reason: string }>;
+}> {
+  const { training, participants, attendance, assessments } = await loadProgress(trainingId);
+  if (!training) return { cancelled: false, eligibleByStaff: new Map() };
+
+  const cancelled = training.status === "CANCELLED";
+  const policy: CertificatePolicy = normalizePolicy(training);
+  const eligibleByStaff = new Map<string, { eligible: boolean; reason: string }>();
+
+  for (const p of participants) {
+    if (cancelled) {
+      eligibleByStaff.set(p.staffId, {
+        eligible: false,
+        reason: "Kegiatan dibatalkan (CANCELLED).",
+      });
+      continue;
+    }
+    const progress = progressFor(p.staffId, attendance, assessments, p.status === "CANCELLED");
+    eligibleByStaff.set(p.staffId, evaluateEligibility(policy, progress));
+  }
+
+  return { cancelled, eligibleByStaff };
 }

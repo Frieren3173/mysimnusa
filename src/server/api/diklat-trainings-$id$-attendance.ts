@@ -54,29 +54,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!participant) return err("NOT_PARTICIPANT", "Petugas bukan peserta pelatihan ini", 404);
 
+  // Normalize to UTC midnight so the (trainingId, staffId, date) unique key is
+  // stable. `date` is a date-only field in this app (no session time).
   const dayStart = new Date(data.date);
   dayStart.setUTCHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
-  const existing = await prisma.trainingAttendance.findFirst({
-    where: { trainingId: id, staffId: data.staffId, date: { gte: dayStart, lt: dayEnd } },
+  // Concurrency-safe upsert on the unique key. `notes` is only changed when the
+  // request explicitly includes it (omitted → preserved on update; null on the
+  // first insert).
+  const attendance = await prisma.trainingAttendance.upsert({
+    where: {
+      trainingId_staffId_date: { trainingId: id, staffId: data.staffId, date: dayStart },
+    },
+    create: {
+      trainingId: id,
+      staffId: data.staffId,
+      date: dayStart,
+      status: data.status,
+      notes: data.notes ?? null,
+    },
+    update: {
+      status: data.status,
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+    },
   });
-
-  const attendance = existing
-    ? await prisma.trainingAttendance.update({
-        where: { id: existing.id },
-        data: { status: data.status, notes: data.notes ?? null },
-      })
-    : await prisma.trainingAttendance.create({
-        data: {
-          trainingId: id,
-          staffId: data.staffId,
-          date: dayStart,
-          status: data.status,
-          notes: data.notes ?? null,
-        },
-      });
 
   // Auto-issuance: a saved attendance may make this participant eligible.
   // Idempotent + scoped to the one participant (best-effort — never blocks the

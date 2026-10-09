@@ -72,6 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       issued: summary.issued,
       alreadyIssued: summary.alreadyIssued,
       notEligible: summary.notEligible,
+      cancelled: summary.cancelled ?? false,
       notified,
       results: summary.results,
     });
