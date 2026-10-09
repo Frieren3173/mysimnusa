@@ -9,7 +9,8 @@ import { prisma } from "@/lib/prisma";
  *   • A participant earns the activity's JPL only when they are ATTENDED —
  *     at least one HADIR record. SAKIT/IZIN alone do not count; no attendance
  *     records = no JPL.
- *   • CANCELLED activities grant no JPL, and cancelled participants earn none.
+ *   • CANCELLED activities grant no JPL, and participants whose registration is
+ *     CANCELLED earn none either (even if a stray attendance row exists).
  *   • Activities with a NULL jpl grant nothing (never fabricated).
  *   • JPL is attributed to the year of the activity's `startDate`.
  *   • The aggregation is computed from a single set of attendance rows (no
@@ -25,6 +26,23 @@ export const ANNUAL_JPL_TARGET = 20;
 
 /** Attendance statuses that earn JPL. */
 export const JPL_PRESENT_STATUSES = ["HADIR"] as const;
+
+/**
+ * Pure rule: whether a (training, staff) pair earns the activity's JPL.
+ * A participant earns JPL only when they ATTENDED (>=1 HADIR) and their
+ * registration is not CANCELLED. Dupes/absence grant nothing.
+ */
+export function earnsJpl(input: {
+  attendedPresent: boolean;
+  participantCancelled: boolean;
+  activityCancelled: boolean;
+  activityJpl: number | null;
+}): boolean {
+  if (!input.attendedPresent) return false;
+  if (input.participantCancelled) return false;
+  if (input.activityCancelled) return false;
+  return (input.activityJpl ?? 0) > 0;
+}
 
 export interface JplRow {
   staffId: string;
@@ -120,7 +138,6 @@ export async function getJplRows(filter: JplFilter): Promise<JplRow[]> {
       status: { not: "CANCELLED" },
       jpl: { not: null, gt: 0 },
       startDate: { gte: from, lt: to },
-      ...(filter.roomId ? {} : {}),
     },
     select: { id: true, jpl: true },
   });
@@ -136,10 +153,23 @@ export async function getJplRows(filter: JplFilter): Promise<JplRow[]> {
           select: { trainingId: true, staffId: true },
         });
 
+  // Participants whose registration is CANCELLED earn no JPL (matches the
+  // documented rule + the certificate policy), even if a HADIR row lingers.
+  const cancelledPairs = new Set<string>();
+  if (trainingIds.length > 0) {
+    const cancelled = await prisma.trainingParticipant.findMany({
+      where: { trainingId: { in: trainingIds }, status: "CANCELLED" },
+      select: { trainingId: true, staffId: true },
+    });
+    for (const c of cancelled) cancelledPairs.add(`${c.trainingId}|${c.staffId}`);
+  }
+
   // Distinct (trainingId, staffId) pairs that were present — de-dupes dup rows.
   const presentPairs = new Map<string, { trainingId: string; staffId: string }>();
   for (const a of attendance) {
-    presentPairs.set(`${a.trainingId}|${a.staffId}`, a);
+    const key = `${a.trainingId}|${a.staffId}`;
+    if (cancelledPairs.has(key)) continue;
+    presentPairs.set(key, a);
   }
 
   // Accumulate JPL per staff.

@@ -5,8 +5,9 @@ import { ANNUAL_JPL_TARGET } from "@/lib/diklat/jpl";
  * One staff member's training history (shared by the detail page + API).
  *
  * Returns each activity the staff participates in, with the JPL they actually
- * EARNED (only when attended — >=1 HADIR — and the activity is not CANCELLED),
- * plus score/grade/test/certificate when present. No data is fabricated.
+ * EARNED (only when attended — >=1 HADIR — the activity is not CANCELLED, and
+ * the participant's registration is not CANCELLED), plus score/grade/test/
+ * certificate when present. No data is fabricated.
  */
 export interface HistoryItem {
   trainingId: string;
@@ -95,7 +96,10 @@ export async function getStaffHistory(staffId: string, year: number | null): Pro
 
   const items: HistoryItem[] = participants.map((p) => {
     const t = p.training;
-    const attendedOk = attended.has(t.id) && t.status !== "CANCELLED";
+    // A participant earns JPL only when they actually attended AND their
+    // registration is not cancelled (mirrors the certificate policy + jpl.ts).
+    const attendedOk =
+      attended.has(t.id) && t.status !== "CANCELLED" && p.status !== "CANCELLED";
     const a = aByT.get(t.id);
     return {
       trainingId: t.id,

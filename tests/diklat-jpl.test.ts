@@ -4,6 +4,7 @@ import {
   buildJplRow,
   summarizeJpl,
   JPL_PRESENT_STATUSES,
+  earnsJpl,
   type JplRow,
 } from "@/lib/diklat/jpl";
 
@@ -81,5 +82,25 @@ describe("summarizeJpl", () => {
     expect(s.metCount).toBe(1);
     expect(s.notMetCount).toBe(2);
     expect(s.totalJpl).toBe(25);
+  });
+});
+
+describe("earnsJpl (pure per-pair rule)", () => {
+  const base = { attendedPresent: true, participantCancelled: false, activityCancelled: false, activityJpl: 10 };
+  it("earns when attended + not cancelled + activity has JPL", () => {
+    expect(earnsJpl(base)).toBe(true);
+  });
+  it("does NOT earn without attendance", () => {
+    expect(earnsJpl({ ...base, attendedPresent: false })).toBe(false);
+  });
+  it("does NOT earn for a CANCELLED participant (even if a HADIR row exists)", () => {
+    expect(earnsJpl({ ...base, participantCancelled: true })).toBe(false);
+  });
+  it("does NOT earn for a CANCELLED activity", () => {
+    expect(earnsJpl({ ...base, activityCancelled: true })).toBe(false);
+  });
+  it("does NOT earn when the activity has no JPL (null/0)", () => {
+    expect(earnsJpl({ ...base, activityJpl: null })).toBe(false);
+    expect(earnsJpl({ ...base, activityJpl: 0 })).toBe(false);
   });
 });
