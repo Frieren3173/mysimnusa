@@ -528,6 +528,20 @@ model Training {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
+  // ── Certificate policy (additive; per-activity) ──────────────────────────
+  /// ATTENDANCE_ONLY (Mode A) | TEST_SCORED (Mode B) | TEST_COMPLETION (Mode C)
+  certificateMode    String  @default("ATTENDANCE_ONLY")
+  /// Mode B/C: a test must be completed before eligibility.
+  requireTest        Boolean @default(false)
+  /// Modes B/C: when true, the participant must reach `minScore`.
+  requireMinScore    Boolean @default(false)
+  /// Minimum passing score (0–100) when `requireMinScore` is true.
+  minScore           Float?
+  /// Whether the participant's score appears on the generated certificate.
+  showScore          Boolean @default(false)
+  /// Optional minimum attendance rate (percentage 0–100) across recorded days.
+  minAttendanceRate  Int?
+
   instructors  TrainingInstructor[]
   participants TrainingParticipant[]
   attendance   TrainingAttendance[]
@@ -565,6 +579,16 @@ model TrainingParticipant {
   registeredAt DateTime @default(now())
   status       String   @default("REGISTERED") // REGISTERED, CONFIRMED, CANCELLED
 
+  // ── Certificate eligibility & issuance (additive) ────────────────────────
+  /// Last computed eligibility (does NOT change once a certificate is issued).
+  eligible          Boolean   @default(false)
+  /// Human-readable reason for the current eligibility decision.
+  eligibilityReason String?
+  /// When the certificate was issued for this participant (idempotency marker).
+  certificateIssuedAt DateTime?
+  /// When the participant was notified (in-app) that the certificate is ready.
+  notifiedAt        DateTime?
+
   training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
   staff    Staff    @relation(fields: [staffId], references: [id])
 
@@ -596,6 +620,9 @@ model TrainingAssessment {
   score      Float?
   grade      String?
   notes      String?
+  /// Whether the test has been completed/submitted (Mode B/C gate).
+  completed  Boolean  @default(false)
+  completedAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -613,10 +640,15 @@ model Certificate {
   issuedDate        DateTime @default(now())
   storageKey        String?
   filename          String?
+  /// Audit: which user triggered issuance (null = automatic/system trigger).
+  issuedById        String?
+  /// Audit: what triggered it — MANUAL | AUTO_ATTENDANCE | AUTO_ASSESSMENT.
+  trigger           String?
   createdAt         DateTime @default(now())
 
   training Training @relation(fields: [trainingId], references: [id])
 
+  @@unique([trainingId, staffId])
   @@index([trainingId])
   @@index([staffId])
   @@map("certificates")

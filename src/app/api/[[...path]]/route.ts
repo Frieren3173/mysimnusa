@@ -56,6 +56,7 @@ import * as h53 from "@/server/api/diklat-certificate-template";
 import * as h54 from "@/server/api/diklat-trainings-$id$-certificates-generate";
 import * as h55 from "@/server/api/csp-report";
 import * as h56 from "@/server/api/admin-room-kepala-ruang";
+import * as h57 from "@/server/api/diklat-trainings-$id$-certificates-process";
 
 // Consolidated API route table.
 // Every URL/method that previously lived in its own route.ts file is
@@ -109,6 +110,7 @@ const routes: RouteEntry[] = [
   { pattern: ["diklat", "trainings", ":id", "participants"], module: h45 },
   { pattern: ["diklat", "trainings", ":id", "participants", ":participantId"], module: h46 },
   { pattern: ["diklat", "trainings", ":id", "certificates", "generate"], module: h54 },
+  { pattern: ["diklat", "trainings", ":id", "certificates", "process"], module: h57 },
   { pattern: ["diklat", "certificate-template"], module: h53 },
   { pattern: ["documents", ":id"], module: h47 },
   { pattern: ["documents", ":id", "download"], module: h48 },

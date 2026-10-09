@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses menerbitkan sertifikat", 403);
 
   const { id } = await params;
-  const training = await prisma.training.findUnique({ where: { id }, select: { id: true, title: true } });
+  const training = await prisma.training.findUnique({ where: { id }, select: { id: true, title: true, showScore: true } });
   if (!training) return err("NOT_FOUND", "Pelatihan tidak ditemukan", 404);
   if (!templateExists()) return err("TEMPLATE_MISSING", "Template sertifikat belum tersedia", 404);
 
@@ -63,6 +63,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (participants.length !== new Set(data.staffIds).size) {
     return err("NOT_PARTICIPANT", "Ada peserta yang bukan bagian dari pelatihan ini", 422);
   }
+
+  // Scores are included on the certificate ONLY when the activity allows it.
+  const assessments = training.showScore
+    ? await prisma.trainingAssessment.findMany({
+        where: { trainingId: id, staffId: { in: data.staffIds } },
+        select: { staffId: true, score: true },
+      })
+    : [];
+  const scoreByStaff = new Map(
+    assessments.map((a) => [a.staffId, a.score != null ? Number(a.score) : null]),
+  );
 
   const pattern = data.numberPattern || DEFAULT_NUMBER_PATTERN;
   const prefix = data.numberPrefix || DEFAULT_NUMBER_PREFIX;
@@ -130,6 +141,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     kepalaSeksiNip: KEPALA_SEKSI.nip,
     kepalaDiklatNama: data.kepalaDiklatNama ?? undefined,
     kepalaDiklatNip: data.kepalaDiklatNip ?? undefined,
+    // Score included only when the activity policy allows it.
+    nilai: training.showScore
+      ? (scoreByStaff.get(a.staff.id) != null ? String(scoreByStaff.get(a.staff.id)) : "")
+      : undefined,
   });
 
   try {

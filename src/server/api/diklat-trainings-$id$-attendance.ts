@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { issueCertificatesForTraining } from "@/lib/diklat/certificate-issuance";
+import { logServerError } from "@/lib/logger";
 
 const UpsertSchema = z.object({
   staffId: z.string().min(1),
@@ -76,5 +78,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       });
 
-  return ok({ attendance });
+  // Auto-issuance: a saved attendance may make this participant eligible.
+  // Idempotent + scoped to the one participant (best-effort — never blocks the
+  // attendance write).
+  const eligibility = await evaluateAndMaybeIssue(id, data.staffId, "AUTO_ATTENDANCE");
+
+  return ok({ attendance, certificate: eligibility });
+}
+
+/**
+ * Recomputes eligibility for one participant and issues their certificate when
+ * they qualify (idempotent). Exposed as a small wrapper so attendance and
+ * assessment routes share the exact same behaviour. Never throws.
+ */
+async function evaluateAndMaybeIssue(
+  trainingId: string,
+  staffId: string,
+  trigger: "AUTO_ATTENDANCE" | "AUTO_ASSESSMENT",
+): Promise<{ issued: boolean; eligible: boolean; reason: string } | null> {
+  try {
+    const summary = await issueCertificatesForTraining(trainingId, {
+      trigger,
+      staffIds: [staffId],
+    });
+    const r = summary.results[0];
+    return r ? { issued: r.issued, eligible: r.eligible, reason: r.reason } : null;
+  } catch (e) {
+    logServerError("diklat.attendance.auto-issue", e);
+    return null;
+  }
 }

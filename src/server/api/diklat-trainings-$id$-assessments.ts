@@ -4,12 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkAnyPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { issueCertificatesForTraining } from "@/lib/diklat/certificate-issuance";
+import { logServerError } from "@/lib/logger";
 
 const UpsertSchema = z.object({
   staffId: z.string().min(1),
   score: z.coerce.number().min(0).max(100).nullable().optional(),
   grade: z.string().trim().max(10).optional().nullable(),
   notes: z.string().trim().max(500).optional().nullable(),
+  /// Whether the test has been completed/submitted (Mode B/C gate).
+  completed: z.boolean().optional(),
 });
 
 function deriveGrade(score: number | null | undefined): string | null {
@@ -74,10 +78,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { trainingId_staffId: { trainingId: id, staffId: data.staffId } },
   });
 
+  // `completed` defaults to the existing value; a successful score save implies
+  // the test was completed unless the caller explicitly says otherwise.
+  const nextCompleted = data.completed ?? existing?.completed ?? data.score != null;
+  const completedAt = nextCompleted
+    ? (existing?.completedAt ?? new Date())
+    : null;
+
   const payload = {
-    score: data.score ?? null,
-    grade: grade ?? null,
-    notes: data.notes ?? null,
+    score: data.score ?? existing?.score ?? null,
+    grade: grade ?? existing?.grade ?? null,
+    notes: data.notes !== undefined ? data.notes : existing?.notes ?? null,
+    completed: nextCompleted,
+    completedAt,
   };
 
   const assessment = existing
@@ -86,5 +99,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: { trainingId: id, staffId: data.staffId, ...payload },
       });
 
-  return ok({ assessment });
+  // Auto-issuance: a completed test (and/or a passing score) may qualify the
+  // participant. Idempotent + scoped to this participant; never blocks the save.
+  let certificate: { issued: boolean; eligible: boolean; reason: string } | null = null;
+  try {
+    const summary = await issueCertificatesForTraining(id, {
+      trigger: "AUTO_ASSESSMENT",
+      staffIds: [data.staffId],
+    });
+    const r = summary.results[0];
+    if (r) certificate = { issued: r.issued, eligible: r.eligible, reason: r.reason };
+  } catch (e) {
+    logServerError("diklat.assessment.auto-issue", e);
+  }
+
+  return ok({ assessment, certificate });
 }
