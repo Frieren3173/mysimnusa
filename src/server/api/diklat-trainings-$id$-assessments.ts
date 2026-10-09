@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
-import { checkPermission } from "@/lib/authorization";
+import { checkAnyPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 
 const UpsertSchema = z.object({
@@ -21,15 +21,25 @@ function deriveGrade(score: number | null | undefined): string | null {
   return "E";
 }
 
-async function guard(permission: string) {
-  const { authorized, user } = await checkPermission(permission);
+/**
+ * Assessment management is granted by the dedicated
+ * `diklat.training.manage_assessment` permission OR the legacy
+ * `diklat.training.manage_attendance` (so existing roles keep working).
+ */
+const ASSESSMENT_PERMISSIONS = [
+  PERMISSIONS.DIKLAT_TRAINING_MANAGE_ASSESSMENT,
+  PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE,
+];
+
+async function guard() {
+  const { authorized, user } = await checkAnyPermission(ASSESSMENT_PERMISSIONS);
   if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
   return null;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await guard(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE);
+  const denied = await guard();
   if (denied) return denied;
 
   const { id } = await params;
@@ -41,7 +51,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { authorized, user } = await checkPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE);
+  const { authorized, user } = await checkAnyPermission(ASSESSMENT_PERMISSIONS);
   if (!user) return err("UNAUTHORIZED", "Silakan login terlebih dahulu", 401);
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses", 403);
 
