@@ -4,11 +4,25 @@ import * as React from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge, DocumentStatusBadge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/utils";
+import { deriveValidity, isDocumentAvailable, VALIDITY_META } from "@/lib/documents";
+import { DocumentBadgeButton } from "@/components/ui/document-badge-button";
 import { StaffPhoto } from "./staff-photo";
+
+interface StaffDoc {
+  id: string;
+  number: string | null;
+  expiryDate: string | null;
+  isLifetime: boolean;
+  status: string;
+  storageKey?: string | null;
+  legacyDriveUrl?: string | null;
+  filename?: string | null;
+  documentType: { name: string; code: string; hasExpiry?: boolean };
+}
 
 interface StaffDetail {
   id: string;
@@ -21,15 +35,14 @@ interface StaffDetail {
   employmentStatus: string;
   legacySourceId: string | null;
   room: { name: string } | null;
-  documents: {
+  documents: StaffDoc[];
+  competencies: {
     id: string;
-    number: string | null;
-    expiryDate: string | null;
-    isLifetime: boolean;
-    status: string;
-    documentType: { name: string; code: string };
+    certNumber?: string | null;
+    expiryDate?: string | null;
+    documentUrl?: string | null;
+    competency: { name: string; code?: string };
   }[];
-  competencies: { id: string; competency: { name: string } }[];
 }
 
 function ageFrom(dob: string | null): string {
@@ -99,20 +112,20 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
       <button
         type="button"
         aria-label="Tutup"
         onClick={onClose}
-        className="absolute inset-0 bg-black/50"
+        className="fixed inset-0 bg-black/50"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Detail Tenaga"
-        className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg bg-white shadow-xl"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
           <h2 className="text-sm font-semibold text-slate-900">Detail Tenaga</h2>
           <button
             type="button"
@@ -124,7 +137,7 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
           </button>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           {loading && (
             <p className="py-8 text-center text-xs text-slate-500">Memuat data tenaga...</p>
           )}
@@ -180,53 +193,19 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
                 </dl>
               </div>
 
-              {/* Legal documents */}
+              {/* Documents — grouped by type, clickable validity badge opens the
+                  shared detail modal (availability from the file reference). */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Dokumen Legalitas (STR &amp; SIP)</CardTitle>
+                  <CardTitle>Dokumen</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <Th>Jenis Dokumen</Th>
-                        <Th>Nomor Dokumen</Th>
-                        <Th>Tanggal Berakhir</Th>
-                        <Th>Status</Th>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {staff.documents.length === 0 ? (
-                        <TableRow>
-                          <Td colSpan={4} className="text-center text-xs text-slate-400 py-6">
-                            Belum ada dokumen legalitas yang diunggah.
-                          </Td>
-                        </TableRow>
-                      ) : (
-                        staff.documents.map((doc) => (
-                          <TableRow key={doc.id}>
-                            <Td className="font-medium text-slate-900">{doc.documentType.name}</Td>
-                            <Td className="font-mono text-xs">{doc.number ?? "—"}</Td>
-                            <Td>{formatDateShort(doc.expiryDate)}</Td>
-                            <Td>
-                              <DocumentStatusBadge
-                                status={doc.status}
-                                label={
-                                  doc.documentType.code === "STR" && doc.status === "ACTIVE"
-                                    ? "Belum Seumur Hidup"
-                                    : undefined
-                                }
-                              />
-                            </Td>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                  <StaffDocumentsTable staffName={staff.name} documents={staff.documents} />
                 </CardContent>
               </Card>
 
-              {/* Competencies */}
+              {/* Competencies — clickable; opens the certificate file when the
+                  staff has one registered. */}
               <Card>
                 <CardHeader>
                   <CardTitle>Kompetensi Klinis</CardTitle>
@@ -239,9 +218,31 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {staff.competencies.map((c) => (
-                        <Badge key={c.id} variant="default" showDot={false}>
-                          {c.competency.name}
-                        </Badge>
+                        <DocumentBadgeButton
+                          key={c.id}
+                          staffName={staff.name}
+                          title={c.competency.name}
+                          variant="default"
+                          label={c.competency.name}
+                          files={
+                            c.documentUrl
+                              ? [
+                                  {
+                                    id: c.documentUrl,
+                                    filename: `${c.competency.name} — sertifikat`,
+                                    legacyDriveUrl: c.documentUrl,
+                                    expiryDate: c.expiryDate ?? null,
+                                    hasExpiry: true,
+                                  },
+                                ]
+                              : []
+                          }
+                          title_attr={
+                            c.documentUrl
+                              ? `${c.competency.name} — klik untuk buka sertifikat`
+                              : `${c.competency.name} — berkas belum tersedia`
+                          }
+                        />
                       ))}
                     </div>
                   )}
@@ -252,5 +253,94 @@ function StaffDetailModal({ staffId, onClose }: { staffId: string; onClose: () =
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Groups a staff member's documents by type and renders one row per type.
+ * The validity badge is clickable and opens the shared document modal, which
+ * lists every file for that type. Availability is decided by the file
+ * reference, so an Expired (or non-expiring) document can still be opened.
+ */
+function StaffDocumentsTable({ staffName, documents }: { staffName: string; documents: StaffDoc[] }) {
+  if (documents.length === 0) {
+    return (
+      <p className="px-5 py-6 text-center text-xs text-slate-400">
+        Belum ada dokumen yang diunggah.
+      </p>
+    );
+  }
+
+  const byType = new Map<string, StaffDoc[]>();
+  for (const d of documents) {
+    const list = byType.get(d.documentType.code) ?? [];
+    list.push(d);
+    byType.set(d.documentType.code, list);
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <Th>Jenis Dokumen</Th>
+          <Th>Berkas</Th>
+          <Th>Berlaku Hingga</Th>
+          <Th>Status</Th>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {[...byType.entries()].map(([code, docs]) => {
+          const primary = docs.find(isDocumentAvailable) ?? docs[0];
+          const validity = deriveValidity({
+            expiryDate: primary.expiryDate,
+            isLifetime: primary.isLifetime,
+            hasExpiry: primary.documentType.hasExpiry,
+          });
+          const meta = VALIDITY_META[validity];
+          const label =
+            code === "STR" && validity === "ACTIVE" ? "Belum Seumur Hidup" : meta.label;
+          return (
+            <TableRow key={code}>
+              <Td className="font-medium text-slate-900">{primary.documentType.name}</Td>
+              <Td className="text-xs text-slate-600">
+                {docs.filter(isDocumentAvailable).length > 0 ? (
+                  <span>
+                    {docs.filter(isDocumentAvailable).length} berkas
+                  </span>
+                ) : (
+                  <span className="italic text-slate-400">Belum tersedia</span>
+                )}
+              </Td>
+              <Td className="text-xs">
+                {primary.isLifetime
+                  ? "Seumur Hidup"
+                  : primary.documentType.hasExpiry === false || !primary.expiryDate
+                    ? "Tanpa tanggal berakhir"
+                    : formatDateShort(primary.expiryDate)}
+              </Td>
+              <Td>
+                <DocumentBadgeButton
+                  staffName={staffName}
+                  title={primary.documentType.name}
+                  files={docs.map((d) => ({
+                    id: d.id,
+                    filename: d.filename,
+                    storageKey: d.storageKey,
+                    legacyDriveUrl: d.legacyDriveUrl,
+                    expiryDate: d.expiryDate,
+                    isLifetime: d.isLifetime,
+                    hasExpiry: d.documentType.hasExpiry,
+                    documentTypeCode: code,
+                    documentTypeName: primary.documentType.name,
+                  }))}
+                  label={label}
+                  variant={meta.variant}
+                />
+              </Td>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

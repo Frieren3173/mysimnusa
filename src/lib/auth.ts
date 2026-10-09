@@ -106,8 +106,9 @@ export const getCurrentUser = React.cache(async () => {
     roles,
     permissions,
     hasRole: (role: string) => roles.includes(role),
+    hasAnyRole: (allowed: readonly string[]) => allowed.some((r) => roles.includes(r)),
     hasPermission: (perm: string) => permissions.has(perm),
-    isSuperAdmin: () => roles.includes("SUPER_ADMIN"),
+    isSuperAdmin: () => roles.includes("SUPER_ADMIN") || roles.includes("SUPERADMIN"),
   };
 });
 

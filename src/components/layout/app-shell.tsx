@@ -8,10 +8,14 @@ import { Topbar } from "./topbar";
 interface AppShellProps {
   breadcrumbs?: { label: string; href?: string }[];
   user?: { name: string; email: string; role: string };
+  /** Role names for menu visibility (server-provided, never trusted for authz). */
+  roles?: string[];
+  /** Permission codes for menu visibility (server-provided, never trusted for authz). */
+  permissions?: string[];
   children: React.ReactNode;
 }
 
-export function AppShell({ breadcrumbs, user, children }: AppShellProps) {
+export function AppShell({ breadcrumbs, user, roles, permissions, children }: AppShellProps) {
   const [collapsed, setCollapsed] = React.useState(false);
   const pathname = usePathname();
 
@@ -19,7 +23,12 @@ export function AppShell({ breadcrumbs, user, children }: AppShellProps) {
     <div className="flex h-screen overflow-hidden bg-[var(--color-background)]">
       {/* Sidebar — hidden on mobile, collapsible on desktop */}
       <div className="hidden md:flex">
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((v) => !v)}
+          roles={roles}
+          permissions={permissions}
+        />
       </div>
 
       {/* Main area */}

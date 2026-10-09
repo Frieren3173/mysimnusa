@@ -36,6 +36,8 @@ export default async function LogbookPage({
   return (
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Logbook" }]}
+      roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

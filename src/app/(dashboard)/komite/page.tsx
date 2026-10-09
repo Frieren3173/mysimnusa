@@ -6,6 +6,7 @@ import { ChartCard, BarChart, type BarDatum } from "@/components/ui/chart";
 import { PhotoCarousel } from "@/components/dashboard/photo-carousel";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { deriveDocumentStatus, cn } from "@/lib/utils";
@@ -232,7 +233,7 @@ export default async function KomiteDashboardPage() {
   };
 
   return (
-    <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
+    <AppShell breadcrumbs={breadcrumbs} user={userInfo} {...appShellVisibility(currentUser)}>
       <div className="mx-auto max-w-7xl space-y-6 stagger-children">
         <StickyPageHeader
           title="Dashboard Komite Keperawatan dan Kebidanan"

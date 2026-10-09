@@ -3,16 +3,20 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { Section, EmptyState } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
-import { Badge, DocumentStatusBadge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { deriveDocumentStatus, formatDateShort, daysUntilExpiry } from "@/lib/utils";
+import { deriveValidity, isDocumentAvailable, VALIDITY_META } from "@/lib/documents";
+import { formatDateShort, daysUntilExpiry } from "@/lib/utils";
 import { ShieldCheck } from "lucide-react";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { searchInputClass } from "@/components/layout/page-toolbar";
 import { StaffDetailButton } from "../staff/staff-detail-modal";
+import { DocumentBadgeButton } from "@/components/ui/document-badge-button";
+import { ServerPagination } from "@/components/ui/server-pagination";
 
 export const metadata: Metadata = { title: "Legalitas — Komite Keperawatan" };
 
@@ -23,16 +27,19 @@ const TABS = [
   { code: "ACLS", label: "ACLS" },
 ];
 
+const PER_PAGE = 50;
+
 export default async function LegalitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; status?: string; search?: string }>;
+  searchParams: Promise<{ type?: string; status?: string; search?: string; page?: string }>;
 }) {
   const currentUser = await requirePermission(PERMISSIONS.KOMITE_LICENSE_READ);
   const params = await searchParams;
   const activeType = (params.type ?? "STR").toUpperCase();
   const statusFilter = params.status?.toUpperCase();
   const search = params.search?.trim();
+  const page = Math.max(1, Number(params.page) || 1);
 
   let docs: Prisma.DocumentGetPayload<{
     include: { staff: { include: { room: true } }; documentType: true };
@@ -58,16 +65,23 @@ export default async function LegalitasPage({
 
   const withStatus = docs.map((d) => ({
     ...d,
-    derived: deriveDocumentStatus(d.expiryDate, d.isLifetime),
+    derived: deriveValidity({
+      expiryDate: d.expiryDate,
+      isLifetime: d.isLifetime,
+      hasExpiry: d.documentType.hasExpiry,
+    }),
   }));
   const filtered = statusFilter ? withStatus.filter((d) => d.derived === statusFilter) : withStatus;
+
+  const total = filtered.length;
+  const pageRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const counts = {
     ACTIVE: withStatus.filter((d) => d.derived === "ACTIVE").length,
     EXPIRING: withStatus.filter((d) => d.derived === "EXPIRING").length,
     EXPIRED: withStatus.filter((d) => d.derived === "EXPIRED").length,
     LIFETIME: withStatus.filter((d) => d.derived === "LIFETIME").length,
-    MISSING: withStatus.filter((d) => d.derived === "MISSING").length,
+    NO_EXPIRY: withStatus.filter((d) => d.derived === "NO_EXPIRY").length,
   };
 
   const breadcrumbs = [
@@ -83,6 +97,7 @@ export default async function LegalitasPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Komite",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-7xl">
         <StickyPageHeader
@@ -175,11 +190,27 @@ export default async function LegalitasPage({
                   </Td>
                 </TableRow>
               ) : (
-                filtered.map((d, i) => {
+                pageRows.map((d, i) => {
                   const days = daysUntilExpiry(d.expiryDate);
+                  const meta = VALIDITY_META[d.derived];
+                  // All files this staff has for THIS document type, so the modal
+                  // can list multiple files (never a random pick).
+                  const filesForType = withStatus
+                    .filter((x) => x.staff.id === d.staff.id)
+                    .map((x) => ({
+                      id: x.id,
+                      filename: x.filename,
+                      storageKey: x.storageKey,
+                      legacyDriveUrl: x.legacyDriveUrl,
+                      expiryDate: x.expiryDate ? x.expiryDate.toISOString() : null,
+                      isLifetime: x.isLifetime,
+                      hasExpiry: x.documentType.hasExpiry,
+                      documentTypeCode: x.documentType.code,
+                      documentTypeName: x.documentType.name,
+                    }));
                   return (
                     <TableRow key={d.id}>
-                      <Td className="text-xs tabular-nums text-slate-500">{i + 1}</Td>
+                      <Td className="text-xs tabular-nums text-slate-500">{(page - 1) * PER_PAGE + i + 1}</Td>
                       <Td className="text-sm font-medium">
                         <StaffDetailButton staffId={d.staff.id}>{d.staff.name}</StaffDetailButton>
                         <span className="block text-[10px] text-slate-400">{d.staff.profession}</span>
@@ -203,12 +234,22 @@ export default async function LegalitasPage({
                           : `${days} hari`}
                       </Td>
                       <Td>
-                        <DocumentStatusBadge
-                          status={d.derived}
+                        <DocumentBadgeButton
+                          staffName={d.staff.name}
+                          title={d.documentType.name}
+                          files={filesForType}
                           label={
                             activeType === "STR" && d.derived === "ACTIVE"
                               ? "Belum Seumur Hidup"
-                              : undefined
+                              : meta.label
+                          }
+                          variant={
+                            !isDocumentAvailable(d) ? "missing" : meta.variant
+                          }
+                          title_attr={
+                            isDocumentAvailable(d)
+                              ? `${d.documentType.name} — ${meta.label} · klik untuk buka dokumen`
+                              : `${d.documentType.name} — berkas belum tersedia`
                           }
                         />
                       </Td>
@@ -218,6 +259,13 @@ export default async function LegalitasPage({
               )}
             </TableBody>
           </Table>
+          <ServerPagination
+            basePath="/komite/legalitas"
+            params={{ type: activeType, status: statusFilter, search }}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+          />
         </Section>
       </div>
     </AppShell>

@@ -14,77 +14,49 @@ import {
   ChevronDown,
   Menu,
 } from "lucide-react";
+import {
+  NAV_ITEMS,
+  filterNav,
+  type NavIconKey,
+  type NavItem,
+} from "@/lib/nav";
 
-interface NavItem {
-  label: string;
-  href?: string;
-  icon?: React.ReactNode;
-  children?: NavItem[];
+/** Maps the pure nav `icon` key to a lucide element. */
+function navIcon(key: NavIconKey | undefined): React.ReactNode {
+  switch (key) {
+    case "dashboard":
+      return <LayoutDashboard size={16} />;
+    case "komite":
+      return <ShieldCheck size={16} />;
+    case "borang":
+      return <FileText size={16} />;
+    case "diklat":
+      return <GraduationCap size={16} />;
+    case "administrasi":
+      return <Users size={16} />;
+    case "pengaturan":
+      return <Settings size={16} />;
+    default:
+      return null;
+  }
 }
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Overview",
-    href: "/dashboard",
-    icon: <LayoutDashboard size={16} />,
-  },
-  {
-    label: "Komite Keperawatan dan Kebidanan",
-    icon: <ShieldCheck size={16} />,
-    children: [
-      { label: "Dashboard", href: "/komite" },
-      { label: "Data SDM", href: "/komite/staff" },
-      { label: "Legalitas", href: "/komite/legalitas" },
-      { label: "Kompetensi", href: "/komite/kompetensi" },
-      { label: "Dokumen", href: "/komite/dokumen" },
-    ],
-  },
-  {
-    label: "Borang",
-    icon: <FileText size={16} />,
-    children: [
-      { label: "Dashboard", href: "/borang" },
-      { label: "Logbook", href: "/borang/logbook" },
-      { label: "Master Ruangan", href: "/borang/master/ruangan" },
-      { label: "Master Tindakan", href: "/borang/master/tindakan" },
-      { label: "Verifikasi", href: "/borang/verification" },
-      { label: "Arsip", href: "/borang/archive" },
-    ],
-  },
-  {
-    label: "Diklat",
-    icon: <GraduationCap size={16} />,
-    children: [
-      { label: "Dashboard", href: "/diklat" },
-      { label: "Pelatihan", href: "/diklat/trainings" },
-      { label: "Peserta", href: "/diklat/participants" },
-      { label: "Presensi", href: "/diklat/attendance" },
-      { label: "Penilaian", href: "/diklat/assessment" },
-      { label: "Sertifikat", href: "/diklat/certificates" },
-    ],
-  },
-  {
-    label: "Administrasi",
-    icon: <Users size={16} />,
-    children: [
-      { label: "Pengguna", href: "/admin/users" },
-      { label: "Audit Log", href: "/admin/audit" },
-    ],
-  },
-  {
-    label: "Pengaturan",
-    href: "/settings",
-    icon: <Settings size={16} />,
-  },
-];
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** Role names for menu visibility. Undefined = show all (back-compat). */
+  roles?: string[];
+  /** Permission codes for menu visibility. */
+  permissions?: string[];
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, roles, permissions }: SidebarProps) {
   const pathname = usePathname();
+  // Undefined `roles` (older callers) keeps the full menu for back-compat.
+  const navItems = React.useMemo<NavItem[]>(
+    () => (roles ? filterNav(NAV_ITEMS, roles, permissions ?? []) : NAV_ITEMS),
+    [roles, permissions],
+  );
   const [openGroups, setOpenGroups] = React.useState<Set<string>>(() => {
     // Auto-open the group that contains current path
     const initial = new Set<string>();
@@ -190,7 +162,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           if (item.href) {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -205,7 +177,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <span className="shrink-0">{item.icon}</span>
+                <span className="shrink-0">{navIcon(item.icon)}</span>
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -229,7 +201,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
                 aria-expanded={!collapsed ? isOpen : undefined}
               >
-                <span className="shrink-0">{item.icon}</span>
+                <span className="shrink-0">{navIcon(item.icon)}</span>
                 {!collapsed && (
                   <>
                     {/* Up to two lines, no ellipsis — full label stays readable. */}

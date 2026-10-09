@@ -8,6 +8,7 @@ import { BorangStatusBadge } from "@/components/ui/badge";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { loadBorangScope, borangListWhere } from "@/lib/borang-scope";
 import { ClipboardList, Send, CheckCircle2, Archive } from "lucide-react";
 import { StaffDetailButton } from "../komite/staff/staff-detail-modal";
 
@@ -16,9 +17,15 @@ export const metadata: Metadata = { title: "Dashboard Borang" };
 export default async function BorangDashboardPage() {
   const currentUser = await requirePermission(PERMISSIONS.BORANG_LOGBOOK_READ);
 
+  // Scope everything the dashboard shows to what the actor may access.
+  const scope = await loadBorangScope(currentUser);
+  const scopeWhere = borangListWhere(scope, currentUser.id);
+  const scoped = scopeWhere ? { AND: [scopeWhere] } : {};
+
   const [byStatus, recent, myDrafts] = await Promise.all([
-    prisma.borangEntry.groupBy({ by: ["status"], _count: true }),
+    prisma.borangEntry.groupBy({ by: ["status"], _count: true, where: scoped }),
     prisma.borangEntry.findMany({
+      where: scoped,
       orderBy: { updatedAt: "desc" },
       take: 8,
       include: {
@@ -33,20 +40,37 @@ export default async function BorangDashboardPage() {
 
   const count = (s: string) => byStatus.find((x) => x.status === s)?._count ?? 0;
   const submitted = count("SUBMITTED") + count("VERIFICATION");
-  const approved = count("APPROVED");
-  const archived = count("ARCHIVED");
-  const rejected = count("REJECTED");
+  const approved = count("APPROVED") + count("APPROVED_KARU");
+  const archived = count("ARCHIVED") + count("COMPLETED");
+  const rejected = count("REJECTED") + count("REVISION_REQUIRED");
+  const readyToPrint = count("READY_TO_PRINT");
   const total = byStatus.reduce((a, b) => a + b._count, 0);
 
-  const canVerify = currentUser.hasPermission(PERMISSIONS.BORANG_LOGBOOK_VERIFY);
+  const canReviewKaru = currentUser.hasPermission(PERMISSIONS.BORANG_KARU_REVIEW);
+  const canSecretariat = currentUser.hasPermission(PERMISSIONS.BORANG_ADMIN_REVIEW);
+  const canPrint = currentUser.hasPermission(PERMISSIONS.BORANG_PRINT);
 
   const insights = [
     {
-      show: submitted > 0 && canVerify,
+      show: submitted > 0 && canReviewKaru,
       type: "info" as const,
-      text: `${submitted} borang menunggu verifikasi`,
-      href: "/borang/verification",
-      cta: "Verifikasi",
+      text: `${submitted} borang menunggu review Kepala Ruang`,
+      href: "/borang/review",
+      cta: "Review",
+    },
+    {
+      show: readyToPrint > 0 && canPrint,
+      type: "success" as const,
+      text: `${readyToPrint} borang siap dicetak`,
+      href: "/borang/print",
+      cta: "Cetak",
+    },
+    {
+      show: approved > 0 && canSecretariat,
+      type: "info" as const,
+      text: `${approved} borang menunggu proses sekretariat`,
+      href: "/borang/secretariat",
+      cta: "Proses",
     },
     {
       show: myDrafts > 0,
@@ -58,22 +82,17 @@ export default async function BorangDashboardPage() {
     {
       show: rejected > 0,
       type: "danger" as const,
-      text: `${rejected} borang ditolak dan perlu diperbaiki`,
-      href: "/borang/logbook?status=REJECTED",
+      text: `${rejected} borang perlu revisi`,
+      href: "/borang/logbook?status=REVISION_REQUIRED",
       cta: "Perbaiki",
-    },
-    {
-      show: approved > 0,
-      type: "success" as const,
-      text: `${approved} borang menunggu diarsipkan`,
-      href: "/borang/archive",
-      cta: "Arsipkan",
     },
   ].filter((i) => i.show);
 
   return (
     <AppShell
       breadcrumbs={[{ label: "Borang" }]}
+      roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,
@@ -83,23 +102,23 @@ export default async function BorangDashboardPage() {
       <div className="mx-auto max-w-7xl">
         <StickyPageHeader
           title="Dashboard Borang"
-          description="Pencatatan logbook/tindakan dengan alur verifikasi dan arsip"
+          description="Pengajuan, review Kepala Ruang, proses sekretariat, dan pencetakan dokumen"
         />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            title="Menunggu Verifikasi"
+            title="Menunggu Review"
             value={submitted}
             icon={<Send size={18} />}
             variant="default"
           />
           <KpiCard
-            title="Disetujui (siap arsip)"
-            value={approved}
+            title="Disetujui / Siap Cetak"
+            value={approved + readyToPrint}
             icon={<CheckCircle2 size={18} />}
             variant="success"
           />
-          <KpiCard title="Diarsipkan" value={archived} icon={<Archive size={18} />} />
+          <KpiCard title="Selesai / Arsip" value={archived} icon={<Archive size={18} />} />
           <KpiCard title="Total Entri" value={total} icon={<ClipboardList size={18} />} />
         </div>
 

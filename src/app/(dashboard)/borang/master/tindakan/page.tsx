@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { ActionsMasterClient } from "./actions-master-client";
 
@@ -21,6 +22,7 @@ export default async function MasterActionsPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Borang",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
         <StickyPageHeader title="Master Tindakan Keperawatan" description={"Sumber data pilihan Tindakan pada Logbook. Pilihan disaring sesuai ruangan yang dipilih — atur relasinya di halaman detail ruangan."} />

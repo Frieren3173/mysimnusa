@@ -5,6 +5,7 @@ import { StickyPageHeader } from "@/components/layout/page-header";
 import { Section, Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireAuth } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { prisma } from "@/lib/prisma";
 import { listSlides } from "@/lib/slides";
 import { SettingsClient } from "./settings-client";
@@ -43,6 +44,7 @@ export default async function SettingsPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Pengguna",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-5xl">
         <StickyPageHeader
@@ -67,6 +69,12 @@ export default async function SettingsPage() {
                 className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Manajemen Pengguna
+              </Link>
+              <Link
+                href="/settings/system/kepala-ruang"
+                className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Pemetaan Kepala Ruang
               </Link>
               <Link
                 href="/admin/audit"

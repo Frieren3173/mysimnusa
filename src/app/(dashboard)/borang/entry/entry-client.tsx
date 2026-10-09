@@ -51,6 +51,12 @@ export function EntryClient({
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function save(andSubmit: boolean) {
+    if (andSubmit) {
+      const okToSubmit = typeof window === "undefined"
+        ? true
+        : window.confirm("Kirim borang ini untuk direview Kepala Ruang? Setelah dikirim, isi tidak dapat diubah sampai dikembalikan untuk revisi.");
+      if (!okToSubmit) return;
+    }
     setBusy(andSubmit ? "submit" : "draft");
     setMsg(null);
     try {
@@ -83,7 +89,7 @@ export function EntryClient({
         });
         const wj = await w.json().catch(() => null);
         if (!w.ok || !wj?.success) throw new Error(wj?.error?.message ?? "Gagal mengirim");
-        setMsg({ type: "ok", text: "Borang tersimpan dan dikirim untuk verifikasi." });
+        setMsg({ type: "ok", text: "Borang tersimpan dan dikirim untuk review Kepala Ruang." });
       } else {
         setMsg({ type: "ok", text: "Borang tersimpan sebagai draf." });
       }

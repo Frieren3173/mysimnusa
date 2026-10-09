@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { TrainingManager } from "../../training-manager";
@@ -43,6 +44,7 @@ export default async function TrainingDetailPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Diklat",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
         <div>
