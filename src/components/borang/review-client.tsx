@@ -8,6 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui
 import { BorangStatusBadge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BorangWorkflowTimeline } from "@/components/borang/workflow-timeline";
+import { printHrefFor } from "@/lib/borang-print";
 import { CheckCircle2, RotateCcw, Printer, Archive, Eye, ChevronDown } from "lucide-react";
 
 export interface ReviewEntry {
@@ -102,12 +103,9 @@ const MODE_ACTIONS: Record<Mode, { statuses: string[]; actions: ActionDef[]; tit
 export function BorangReviewClient({
   mode,
   initialEntries,
-  canPrintHref,
 }: {
   mode: Mode;
   initialEntries: ReviewEntry[];
-  /** Optional builder for the preview/print link (opens the DOCX export). */
-  canPrintHref?: (e: ReviewEntry) => string | null;
 }) {
   const cfg = MODE_ACTIONS[mode];
   const [entries, setEntries] = React.useState(initialEntries);
@@ -232,7 +230,8 @@ export function BorangReviewClient({
                 </TableRow>
               ) : (
                 entries.map((e) => {
-                  const printHref = canPrintHref?.(e) ?? null;
+                  // Preview/print is only offered in the print workflow.
+                  const printHref = mode === "print" ? printHrefFor(e) : null;
                   const isOpen = expanded.has(e.id);
                   return (
                     <React.Fragment key={e.id}>

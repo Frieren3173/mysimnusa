@@ -26,13 +26,7 @@ export default async function BorangPrintPage() {
           title="Cetak & Penyelesaian"
           description="Dokumen berstatus Siap Dicetak dapat dipratinjau, dicetak, lalu diselesaikan setelah tanda tangan basah & stempel."
         />
-        <BorangReviewClient
-          mode="print"
-          initialEntries={[]}
-          canPrintHref={(e) =>
-            `/api/borang/export?staffId=${encodeURIComponent(e.staff.id)}&year=${e.period.slice(0, 4)}`
-          }
-        />
+        <BorangReviewClient mode="print" initialEntries={[]} />
       </div>
     </AppShell>
   );
