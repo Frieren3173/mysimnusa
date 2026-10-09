@@ -9,6 +9,7 @@ import { DocumentStatusBadge, BorangStatusBadge } from "@/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
 import { requireAuth } from "@/lib/authorization";
 import { prisma } from "@/lib/prisma";
+import { appShellUser, appShellVisibility } from "@/lib/app-shell-props";
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import {
@@ -79,14 +80,10 @@ export default async function DashboardPage() {
   }
 
   const breadcrumbs = [{ label: "Overview" }];
-  const userInfo = {
-    name: currentUser.staff?.name ?? currentUser.username,
-    email: currentUser.email,
-    role: currentUser.roles[0] ?? "Staff",
-  };
+  const userInfo = appShellUser(currentUser);
 
   return (
-    <AppShell breadcrumbs={breadcrumbs} user={userInfo}>
+    <AppShell breadcrumbs={breadcrumbs} user={userInfo} {...appShellVisibility(currentUser)}>
       <div className="mx-auto max-w-7xl space-y-8 stagger-children">
         <StickyPageHeader
           title={`Selamat datang, ${userInfo.name}`}

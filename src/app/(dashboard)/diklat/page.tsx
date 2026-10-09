@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { KpiCard, Card, CardHeader, CardTitle, CardContent, EmptyState } from "@/components/ui/card";
@@ -42,6 +43,7 @@ export default async function DiklatPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Diklat",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-6xl">
         <StickyPageHeader

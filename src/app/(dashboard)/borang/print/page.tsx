@@ -14,6 +14,7 @@ export default async function BorangPrintPage() {
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Cetak" }]}
       roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

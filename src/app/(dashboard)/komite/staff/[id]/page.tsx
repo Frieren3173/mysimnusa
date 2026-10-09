@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -70,6 +71,7 @@ export default async function StaffDetailPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Staff",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Header Profile Card */}

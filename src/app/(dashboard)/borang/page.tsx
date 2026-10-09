@@ -92,6 +92,7 @@ export default async function BorangDashboardPage() {
     <AppShell
       breadcrumbs={[{ label: "Borang" }]}
       roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

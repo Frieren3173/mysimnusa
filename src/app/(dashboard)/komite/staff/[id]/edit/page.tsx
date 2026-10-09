@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -85,6 +86,7 @@ export default async function EditStaffPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Staff",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="max-w-4xl mx-auto space-y-6">
         <div>

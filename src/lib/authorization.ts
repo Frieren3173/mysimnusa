@@ -26,7 +26,19 @@ export async function requirePermission(permission: string) {
   return user;
 }
 
-/** Check permission without redirecting (use in API routes) */
+/**
+ * Check permission without redirecting (use in API routes).
+ *
+ * Returns the authenticated `user` **whenever the request is authenticated**,
+ * regardless of whether the permission is held. Callers use the two flags to
+ * distinguish:
+ *   • `user === null`               → 401 UNAUTHORIZED (not logged in)
+ *   • `user !== null && !authorized` → 403 FORBIDDEN     (logged in, no access)
+ *
+ * Returning the user even when unauthorized is what lets routes emit the
+ * correct 403 (instead of a misleading 401 "please log in" for an account that
+ * is already authenticated).
+ */
 export async function checkPermission(
   permission: string
 ): Promise<{
@@ -36,7 +48,7 @@ export async function checkPermission(
   const user = await getCurrentUser();
   if (!user) return { authorized: false, user: null };
   const authorized = user.hasPermission(permission) || user.isSuperAdmin();
-  return { authorized, user: authorized ? user : null };
+  return { authorized, user };
 }
 
 /** RBAC middleware for API routes */

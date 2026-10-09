@@ -14,132 +14,31 @@ import {
   ChevronDown,
   Menu,
 } from "lucide-react";
+import {
+  NAV_ITEMS,
+  filterNav,
+  type NavIconKey,
+  type NavItem,
+} from "@/lib/nav";
 
-interface NavItem {
-  label: string;
-  href?: string;
-  icon?: React.ReactNode;
-  children?: NavItem[];
-  /** Roles allowed to see this item. Empty/undefined = everyone. */
-  roles?: string[];
-}
-
-/**
- * Navigation definition.
- *
- * `roles` controls *menu visibility only* — every route also enforces access
- * server-side. Adding the business roles keeps the sidebar aligned with the
- * Borang workflow while legacy roles keep their previous menus.
- */
-const R = {
-  SUPER_ADMIN: "SUPER_ADMIN",
-  SUPERADMIN: "SUPERADMIN",
-  ADMIN_KOMITE: "ADMIN_KOMITE",
-  ADMIN_BORANG: "ADMIN_BORANG",
-  ADMIN_DIKLAT: "ADMIN_DIKLAT",
-  VERIFIER: "VERIFIER",
-  KOMITE: "KOMITE_KEPERAWATAN_KEBIDANAN",
-  DIKLAT_BORANG: "DIKLAT_BORANG",
-  USER: "USER",
-  KEPALA_RUANG: "KEPALA_RUANG",
-} as const;
-
-const SUPER_ROLES = [R.SUPER_ADMIN, R.SUPERADMIN];
-const KOMITE_ROLES = [...SUPER_ROLES, R.ADMIN_KOMITE, R.KOMITE];
-const BORANG_ROLES = [
-  ...SUPER_ROLES,
-  R.ADMIN_BORANG,
-  R.ADMIN_KOMITE,
-  R.VERIFIER,
-  R.KOMITE,
-  R.DIKLAT_BORANG,
-  R.USER,
-  R.KEPALA_RUANG,
-];
-const DIKLAT_ROLES = [...SUPER_ROLES, R.ADMIN_DIKLAT, R.DIKLAT_BORANG];
-const ADMIN_ROLES = SUPER_ROLES;
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Overview",
-    href: "/dashboard",
-    icon: <LayoutDashboard size={16} />,
-  },
-  {
-    label: "Komite Keperawatan dan Kebidanan",
-    icon: <ShieldCheck size={16} />,
-    roles: KOMITE_ROLES,
-    children: [
-      { label: "Dashboard", href: "/komite" },
-      { label: "Data SDM", href: "/komite/staff" },
-      { label: "Legalitas", href: "/komite/legalitas" },
-      { label: "Kompetensi", href: "/komite/kompetensi" },
-      { label: "Dokumen", href: "/komite/dokumen" },
-    ],
-  },
-  {
-    label: "Borang",
-    icon: <FileText size={16} />,
-    roles: BORANG_ROLES,
-    children: [
-      { label: "Dashboard", href: "/borang" },
-      { label: "Logbook", href: "/borang/logbook" },
-      { label: "Input Borang", href: "/borang/entry" },
-      { label: "Review Kepala Ruang", href: "/borang/review", roles: [...SUPER_ROLES, R.KEPALA_RUANG, R.ADMIN_BORANG] },
-      { label: "Sekretariat", href: "/borang/secretariat", roles: [...SUPER_ROLES, R.DIKLAT_BORANG, R.ADMIN_BORANG] },
-      { label: "Cetak & Selesai", href: "/borang/print", roles: [...SUPER_ROLES, R.DIKLAT_BORANG, R.ADMIN_BORANG] },
-      { label: "Verifikasi", href: "/borang/verification", roles: [...SUPER_ROLES, R.ADMIN_BORANG, R.VERIFIER] },
-      { label: "Arsip", href: "/borang/archive", roles: [...SUPER_ROLES, R.ADMIN_BORANG, R.VERIFIER] },
-      { label: "Master Ruangan", href: "/borang/master/ruangan", roles: SUPER_ROLES },
-      { label: "Master Tindakan", href: "/borang/master/tindakan", roles: SUPER_ROLES },
-    ],
-  },
-  {
-    label: "Diklat",
-    icon: <GraduationCap size={16} />,
-    roles: DIKLAT_ROLES,
-    children: [
-      { label: "Dashboard", href: "/diklat" },
-      { label: "Pelatihan", href: "/diklat/trainings" },
-      { label: "Peserta", href: "/diklat/participants" },
-      { label: "Presensi", href: "/diklat/attendance" },
-      { label: "Penilaian", href: "/diklat/assessment" },
-      { label: "Sertifikat", href: "/diklat/certificates" },
-    ],
-  },
-  {
-    label: "Administrasi",
-    icon: <Users size={16} />,
-    roles: ADMIN_ROLES,
-    children: [
-      { label: "Pengguna", href: "/admin/users" },
-      { label: "Audit Log", href: "/admin/audit" },
-    ],
-  },
-  {
-    label: "Pengaturan",
-    href: "/settings",
-    icon: <Settings size={16} />,
-    roles: [...SUPER_ROLES, R.ADMIN_KOMITE, R.ADMIN_BORANG, R.ADMIN_DIKLAT, R.KOMITE, R.DIKLAT_BORANG, R.USER, R.KEPALA_RUANG],
-  },
-];
-
-/** True when the item is visible for the given roles (empty roles = visible). */
-function visibleFor(item: NavItem, roles: string[]): boolean {
-  if (!item.roles || item.roles.length === 0) return true;
-  return item.roles.some((r) => roles.includes(r));
-}
-
-/** Filters a nav tree for the given roles (recursively for children). */
-function filterNav(items: NavItem[], roles: string[]): NavItem[] {
-  return items
-    .filter((item) => visibleFor(item, roles))
-    .map((item) =>
-      item.children
-        ? { ...item, children: filterNav(item.children, roles) }
-        : item,
-    )
-    .filter((item) => !item.children || item.children.length > 0);
+/** Maps the pure nav `icon` key to a lucide element. */
+function navIcon(key: NavIconKey | undefined): React.ReactNode {
+  switch (key) {
+    case "dashboard":
+      return <LayoutDashboard size={16} />;
+    case "komite":
+      return <ShieldCheck size={16} />;
+    case "borang":
+      return <FileText size={16} />;
+    case "diklat":
+      return <GraduationCap size={16} />;
+    case "administrasi":
+      return <Users size={16} />;
+    case "pengaturan":
+      return <Settings size={16} />;
+    default:
+      return null;
+  }
 }
 
 interface SidebarProps {
@@ -147,14 +46,16 @@ interface SidebarProps {
   onToggle: () => void;
   /** Role names for menu visibility. Undefined = show all (back-compat). */
   roles?: string[];
+  /** Permission codes for menu visibility. */
+  permissions?: string[];
 }
 
-export function Sidebar({ collapsed, onToggle, roles }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, roles, permissions }: SidebarProps) {
   const pathname = usePathname();
   // Undefined `roles` (older callers) keeps the full menu for back-compat.
-  const navItems = React.useMemo(
-    () => (roles ? filterNav(NAV_ITEMS, roles) : NAV_ITEMS),
-    [roles],
+  const navItems = React.useMemo<NavItem[]>(
+    () => (roles ? filterNav(NAV_ITEMS, roles, permissions ?? []) : NAV_ITEMS),
+    [roles, permissions],
   );
   const [openGroups, setOpenGroups] = React.useState<Set<string>>(() => {
     // Auto-open the group that contains current path
@@ -276,7 +177,7 @@ export function Sidebar({ collapsed, onToggle, roles }: SidebarProps) {
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <span className="shrink-0">{item.icon}</span>
+                <span className="shrink-0">{navIcon(item.icon)}</span>
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -300,7 +201,7 @@ export function Sidebar({ collapsed, onToggle, roles }: SidebarProps) {
                 )}
                 aria-expanded={!collapsed ? isOpen : undefined}
               >
-                <span className="shrink-0">{item.icon}</span>
+                <span className="shrink-0">{navIcon(item.icon)}</span>
                 {!collapsed && (
                   <>
                     {/* Up to two lines, no ellipsis — full label stays readable. */}

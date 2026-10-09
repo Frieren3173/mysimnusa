@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { requireAuth } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { prisma } from "@/lib/prisma";
 import { ROLES } from "@/lib/constants";
 import { KepalaRuangClient } from "./kepala-ruang-client";
@@ -65,6 +66,7 @@ export default async function KepalaRuangSettingsPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Superadmin",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-5xl">
         <StickyPageHeader

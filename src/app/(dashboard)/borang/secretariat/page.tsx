@@ -14,6 +14,7 @@ export default async function BorangSecretariatPage() {
     <AppShell
       breadcrumbs={[{ label: "Borang", href: "/borang" }, { label: "Sekretariat" }]}
       roles={currentUser.roles}
+      permissions={Array.from(currentUser.permissions)}
       user={{
         name: currentUser.staff?.name ?? currentUser.username,
         email: currentUser.email,

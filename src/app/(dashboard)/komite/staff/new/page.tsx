@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { StaffForm } from "../staff-form";
@@ -30,6 +31,7 @@ export default async function NewStaffPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Staff",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-4xl">
         <StickyPageHeader

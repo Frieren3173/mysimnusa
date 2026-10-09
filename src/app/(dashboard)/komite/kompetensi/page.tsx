@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Section, EmptyState } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -108,6 +109,7 @@ export default async function KompetensiPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Komite",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-7xl">
         <StickyPageHeader

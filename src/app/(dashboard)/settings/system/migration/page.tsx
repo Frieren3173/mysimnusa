@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { requireRole } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { ROLES } from "@/lib/constants";
 import { MigrationCenterClient } from "./migration-client";
 import { GoogleConnectionCard } from "./google-connection";
@@ -26,6 +27,7 @@ export default async function MigrationCenterPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Super Admin",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
         <StickyPageHeader title="Migration Center" description={"Migrasi data dan dokumen resmi dari ekosistem Google Sheets dan Google Drive lama."} />

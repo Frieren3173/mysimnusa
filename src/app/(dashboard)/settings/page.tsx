@@ -5,6 +5,7 @@ import { StickyPageHeader } from "@/components/layout/page-header";
 import { Section, Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireAuth } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { prisma } from "@/lib/prisma";
 import { listSlides } from "@/lib/slides";
 import { SettingsClient } from "./settings-client";
@@ -43,6 +44,7 @@ export default async function SettingsPage() {
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Pengguna",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="mx-auto max-w-5xl">
         <StickyPageHeader

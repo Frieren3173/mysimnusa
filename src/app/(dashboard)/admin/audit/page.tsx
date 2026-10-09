@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
@@ -65,6 +66,7 @@ export default async function AdminAuditPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Staff",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="max-w-6xl mx-auto space-y-6">
         <StickyPageHeader title="Audit Log" description={`Jejak perubahan data sistem (${total} entri).`} />

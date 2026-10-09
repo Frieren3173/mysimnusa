@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { requirePermission } from "@/lib/authorization";
+import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { RoomActionsClient } from "./room-actions-client";
@@ -43,6 +44,7 @@ export default async function RoomDetailPage({
         email: currentUser.email,
         role: currentUser.roles[0] ?? "Borang",
       }}
+      {...appShellVisibility(currentUser)}
     >
       <div className="space-y-6 max-w-6xl mx-auto">
         <div>
