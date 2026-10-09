@@ -106,3 +106,43 @@ export function expiryText(doc: DocumentLike): string {
     year: "numeric",
   }).format(new Date(doc.expiryDate));
 }
+
+// ─────────────────────────────────────────────────────────────
+// Dashboard query definitions (single source of truth)
+//
+// These build the Prisma `where` clauses for the two dashboard lists. They are
+// the SAME predicates used for the `count()` and the paginated `findMany`, so a
+// summary number can never drift from the list it describes.
+//
+// Rules:
+//  • Non-lifetime only. `isLifetime` documents are excluded from both lists.
+//  • Non-expiring types must have their expiry nulled by the caller, so a null
+//    expiry cannot leak into either window (see `hasExpiry` in the callers).
+//  • "Expiring" = expiry in [now, now + windowDays]  (inclusive).
+//  • "Expired"  = expiry strictly before now.
+// A null expiryDate satisfies neither window.
+// ─────────────────────────────────────────────────────────────
+
+export interface ExpiryWindow {
+  /** Lower bound (inclusive) — "now" for expiring; unused for expired. */
+  from: Date;
+  /** Upper bound (inclusive) — now + warning window. */
+  to: Date;
+}
+
+/** Prisma `where` for documents expiring within the warning window. */
+export function expiringWhere(window: ExpiryWindow) {
+  return {
+    isLifetime: false,
+    expiryDate: { gte: window.from, lte: window.to },
+  };
+}
+
+/** Prisma `where` for documents already expired (expiry < now). */
+export function expiredWhere(now: Date) {
+  return {
+    isLifetime: false,
+    expiryDate: { lt: now },
+  };
+}
+

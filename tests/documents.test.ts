@@ -4,6 +4,8 @@ import {
   documentSource,
   deriveValidity,
   expiryText,
+  expiringWhere,
+  expiredWhere,
   VALIDITY_META,
 } from "@/lib/documents";
 
@@ -103,3 +105,40 @@ describe("VALIDITY_META", () => {
     }
   });
 });
+
+describe("dashboard expiry windows (single source of truth)", () => {
+  const now = new Date("2026-06-01T00:00:00.000Z");
+  const in90 = new Date("2026-08-30T00:00:00.000Z");
+
+  it("expiring window is inclusive on both ends and excludes lifetime", () => {
+    const w = expiringWhere({ from: now, to: in90 });
+    expect(w.isLifetime).toBe(false);
+    expect(w.expiryDate).toEqual({ gte: now, lte: in90 });
+  });
+
+  it("expired window is strictly before now and excludes lifetime", () => {
+    const w = expiredWhere(now);
+    expect(w.isLifetime).toBe(false);
+    expect(w.expiryDate).toEqual({ lt: now });
+  });
+
+  it("the two windows never overlap at the boundary (now)", () => {
+    const exp = expiringWhere({ from: now, to: in90 });
+    const expired = expiredWhere(now);
+    // A document expiring exactly at `now` is "expiring", never "expired".
+    expect(exp.expiryDate.gte.getTime()).toBe(now.getTime());
+    expect(expired.expiryDate.lt.getTime()).toBe(now.getTime());
+    expect(exp.expiryDate.gte.getTime()).toBeGreaterThanOrEqual(expired.expiryDate.lt.getTime());
+  });
+
+  it("a null expiry satisfies neither window (non-expiring types)", () => {
+    // Prisma range filters (gte/lte/lt) never match NULL, so a document with no
+    // expiry date is excluded from both the expiring and expired lists. The
+    // clauses must therefore never target NULL explicitly.
+    const exp = expiringWhere({ from: now, to: in90 });
+    const expired = expiredWhere(now);
+    expect(JSON.stringify(exp)).not.toContain("null");
+    expect(JSON.stringify(expired)).not.toContain("null");
+  });
+});
+
