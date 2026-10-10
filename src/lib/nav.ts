@@ -91,6 +91,10 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Presensi", href: "/diklat/attendance", permission: "diklat.training.read" },
       { label: "Penilaian", href: "/diklat/assessment", permission: "diklat.training.read" },
       { label: "Sertifikat", href: "/diklat/certificates", permission: "diklat.certificate.read" },
+      { label: "Dashboard JPL", href: "/diklat/jpl", permission: "diklat.training.read" },
+      { label: "Riwayat Pelatihan", href: "/diklat/riwayat", permission: "diklat.training.read" },
+      { label: "Kurikulum", href: "/diklat/kurikulum", permission: "diklat.training.read" },
+      { label: "Laporan", href: "/diklat/laporan", permission: "diklat.training.read" },
     ],
   },
   {

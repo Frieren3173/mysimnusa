@@ -101,6 +101,7 @@ describe("sidebar visibility per business role", () => {
     expect(hrefs).toContain("/borang/secretariat");
     expect(hrefs).toContain("/borang/print");
     expect(hrefs).toContain("/diklat/trainings");
+    expect(hrefs).toContain("/diklat/laporan");
     expect(hrefs).not.toContain("/borang/review");
     expect(hrefs).not.toContain("/borang/entry");
     expect(groupLabels(nav)).not.toContain("Administrasi");

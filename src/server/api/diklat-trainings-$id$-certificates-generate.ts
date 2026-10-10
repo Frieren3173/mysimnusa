@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { evaluateTrainingEligibility } from "@/lib/diklat/certificate-issuance";
 import { logAudit, clientIp } from "@/lib/audit";
 import { contentDisposition } from "@/lib/file-type";
 import { logServerError, safeErrorMessage } from "@/lib/logger";
@@ -47,8 +48,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!authorized) return err("FORBIDDEN", "Tidak memiliki akses menerbitkan sertifikat", 403);
 
   const { id } = await params;
-  const training = await prisma.training.findUnique({ where: { id }, select: { id: true, title: true } });
+  const training = await prisma.training.findUnique({ where: { id }, select: { id: true, title: true, showScore: true, status: true } });
   if (!training) return err("NOT_FOUND", "Pelatihan tidak ditemukan", 404);
+  // A CANCELLED activity must never issue certificates (all issue paths).
+  if (training.status === "CANCELLED") {
+    return err("TRAINING_CANCELLED", "Kegiatan dibatalkan — sertifikat tidak dapat dibuat.", 409);
+  }
   if (!templateExists()) return err("TEMPLATE_MISSING", "Template sertifikat belum tersedia", 404);
 
   const body = await req.json().catch(() => null);
@@ -64,59 +69,126 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return err("NOT_PARTICIPANT", "Ada peserta yang bukan bagian dari pelatihan ini", 422);
   }
 
+  // Enforce the SAME eligibility policy as issuance (≥1 HADIR attendance in all
+  // modes; test/min-score per the activity config). The legacy percentage gate
+  // (`minAttendanceRate`) no longer applies. The .pptx generator must not be a
+  // policy bypass.
+  const { cancelled, eligibleByStaff } = await evaluateTrainingEligibility(id);
+  if (cancelled) {
+    return err("TRAINING_CANCELLED", "Kegiatan dibatalkan — sertifikat tidak dapat dibuat.", 409);
+  }
+  const ineligible = data.staffIds.filter((sid) => !eligibleByStaff.get(sid)?.eligible);
+  if (ineligible.length > 0) {
+    return err(
+      "NOT_ELIGIBLE",
+      `${ineligible.length} peserta belum memenuhi syarat sertifikat (kehadiran/tes/nilai).`,
+      422,
+      { staffIds: ineligible },
+    );
+  }
+
+  // Scores are included on the certificate ONLY when the activity allows it.
+  const assessments = training.showScore
+    ? await prisma.trainingAssessment.findMany({
+        where: { trainingId: id, staffId: { in: data.staffIds } },
+        select: { staffId: true, score: true },
+      })
+    : [];
+  const scoreByStaff = new Map(
+    assessments.map((a) => [a.staffId, a.score != null ? Number(a.score) : null]),
+  );
+
   const pattern = data.numberPattern || DEFAULT_NUMBER_PATTERN;
   const prefix = data.numberPrefix || DEFAULT_NUMBER_PREFIX;
 
-  // Existing certificates for this training (keeps numbering stable + unique).
+  // Existing certificates for this training (reuse the number per participant).
   const existing = await prisma.certificate.findMany({
     where: { trainingId: id, staffId: { in: data.staffIds } },
   });
   const existingByStaff = new Map(existing.map((c) => [c.staffId, c]));
 
-  // Next sequence = highest existing numeric suffix in this training + 1.
-  const allNumbers = await prisma.certificate.findMany({
-    where: { trainingId: id },
-    select: { certificateNumber: true },
-  });
-  const maxSeq = allNumbers.reduce((max, c) => {
-    const m = c.certificateNumber.match(/(\d+)\s*\/\s*[IVX]+\s*\/\s*\d{4}\s*$/);
-    const n = m ? Number(m[1]) : 0;
-    return Number.isFinite(n) && n > max ? n : max;
-  }, 0);
+  // ── Global-safe number allocation ─────────────────────────────────────────
+  // `certificateNumber` is UNIQUE GLOBALLY, so the next sequence must consider
+  // EVERY certificate (not just this activity's), otherwise two activities with
+  // the same prefix/month/year collide.
+  const seqRe = /(\d+)\s*\/\s*[IVX]+\s*\/\s*\d{4}\s*$/;
+  async function globalMaxSeq(): Promise<number> {
+    const all = await prisma.certificate.findMany({ select: { certificateNumber: true } });
+    return all.reduce((max, c) => {
+      const m = c.certificateNumber.match(seqRe);
+      const n = m ? Number(m[1]) : 0;
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+  }
 
   const ordered = data.staffIds.map((sid) => participants.find((p) => p.staff.id === sid)!).filter(Boolean);
 
-  // Assign numbers (reuse existing per staff; else allocate next sequence).
-  const assigned: { staff: (typeof ordered)[number]["staff"]; noSert: string }[] = [];
-  let seq = maxSeq;
-  const usedNumbers = new Set(allNumbers.map((c) => c.certificateNumber));
+  const issuedAt = new Date();
+  const assigned: { staff: (typeof ordered)[number]["staff"]; noSert: string; certId?: string }[] = [];
+
   for (const p of ordered) {
     const prior = existingByStaff.get(p.staff.id);
     if (prior) {
-      assigned.push({ staff: p.staff, noSert: prior.certificateNumber });
+      assigned.push({ staff: p.staff, noSert: prior.certificateNumber, certId: prior.id });
       continue;
     }
-    let candidate = "";
-    do {
-      seq += 1;
-      candidate = buildCertificateNumber(pattern, { prefix, seq, date: data.tanggal });
-    } while (usedNumbers.has(candidate));
-    usedNumbers.add(candidate);
-    assigned.push({ staff: p.staff, noSert: candidate });
-  }
 
-  // Persist Certificate rows for the newly-issued ones (audit + traceability).
-  const newlyCreated = assigned.filter((a) => !existingByStaff.has(a.staff.id));
-  if (newlyCreated.length > 0) {
-    await prisma.certificate.createMany({
-      data: newlyCreated.map((a) => ({
-        trainingId: id,
-        staffId: a.staff.id,
-        certificateNumber: a.noSert,
-        issuedDate: data.tanggal,
-      })),
-      skipDuplicates: true,
-    });
+    // Allocate a globally-unique number and persist the row with a bounded
+    // retry on P2002 (unique collision). No `skipDuplicates` — a failure is a
+    // real failure, never a silent success.
+    let persisted = false;
+    let lastError: unknown = null;
+    const MAX_ATTEMPTS = 12;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS && !persisted; attempt++) {
+      const base = await globalMaxSeq();
+      let candidate = "";
+      for (let s = base + 1; s <= base + 1000; s++) {
+        candidate = buildCertificateNumber(pattern, { prefix, seq: s, date: data.tanggal });
+        const taken = await prisma.certificate.findUnique({
+          where: { certificateNumber: candidate },
+          select: { id: true },
+        });
+        if (!taken) break;
+      }
+      try {
+        const cert = await prisma.certificate.create({
+          data: {
+            trainingId: id,
+            staffId: p.staff.id,
+            certificateNumber: candidate,
+            issuedDate: issuedAt,
+            issuedById: user.id,
+            trigger: "MANUAL",
+          },
+        });
+        assigned.push({ staff: p.staff, noSert: candidate, certId: cert.id });
+        persisted = true;
+      } catch (e) {
+        lastError = e;
+        // P2002 can be a number collision (retry) OR an existing
+        // (training,staff) row created by a concurrent run (idempotent stop).
+        if ((e as { code?: string })?.code === "P2002") {
+          const winner = await prisma.certificate.findFirst({
+            where: { trainingId: id, staffId: p.staff.id },
+            select: { id: true, certificateNumber: true },
+          });
+          if (winner) {
+            assigned.push({ staff: p.staff, noSert: winner.certificateNumber, certId: winner.id });
+            persisted = true;
+          }
+          continue;
+        }
+        break;
+      }
+    }
+    if (!persisted) {
+      logServerError("diklat.certificates.generate.allocate", lastError);
+      return err(
+        "ISSUE_FAILED",
+        "Gagal menerbitkan nomor sertifikat unik untuk sebagian peserta. Coba lagi.",
+        409,
+      );
+    }
   }
 
   const buildData = (a: (typeof assigned)[number]): CertificateData => ({
@@ -130,6 +202,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     kepalaSeksiNip: KEPALA_SEKSI.nip,
     kepalaDiklatNama: data.kepalaDiklatNama ?? undefined,
     kepalaDiklatNip: data.kepalaDiklatNip ?? undefined,
+    // Score included only when the activity policy allows it.
+    nilai: training.showScore
+      ? (scoreByStaff.get(a.staff.id) != null ? String(scoreByStaff.get(a.staff.id)) : "")
+      : undefined,
   });
 
   try {

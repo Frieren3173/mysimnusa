@@ -82,6 +82,11 @@ npx prisma migrate deploy   # menerapkan migrasi (gunakan koneksi unpooled untuk
 npm run db:seed             # opsional, seed data awal
 ```
 
+> **Seed memerlukan variabel lingkungan berikut** (tidak ada nilai default):
+> `ALLOW_SEED=1`, `CONFIRM_DB_HOST=<host DB tujuan>`, dan `SEED_ADMIN_PASSWORD=<password kuat>`.
+> Seed akan berhenti dengan aman bila salah satunya tidak diisi. Password tidak pernah ditampilkan.
+> Akun super-admin yang **sudah ada tidak diubah** oleh seed.
+
 ### Menerapkan migrasi baru (produksi)
 
 Migrasi ditulis secara **aditif** (hanya menambah tabel/kolom/index, tanpa mengubah data). Untuk

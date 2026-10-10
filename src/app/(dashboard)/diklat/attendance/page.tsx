@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { requirePermission } from "@/lib/authorization";
-import { appShellVisibility } from "@/lib/app-shell-props";
+import { appShellVisibility, diklatManagerPerms } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { TrainingManager } from "../training-manager";
 
 export const metadata: Metadata = { title: "Presensi Diklat" };
 
-export default async function ParticipantsPage() {
+export default async function DiklatAttendancePage() {
   const currentUser = await requirePermission(PERMISSIONS.DIKLAT_TRAINING_READ);
 
   const trainings = await prisma.training.findMany({
@@ -46,12 +46,7 @@ export default async function ParticipantsPage() {
             location: t.location,
           }))}
           defaultTab="attendance"
-          perms={{
-            manageParticipants: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_PARTICIPANTS),
-            manageAttendance: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE),
-            manageAssessment: currentUser.hasPermission(PERMISSIONS.DIKLAT_TRAINING_MANAGE_ATTENDANCE),
-            issueCertificate: currentUser.hasPermission(PERMISSIONS.DIKLAT_CERTIFICATE_ISSUE),
-          }}
+          perms={diklatManagerPerms(currentUser)}
         />
       </div>
     </AppShell>

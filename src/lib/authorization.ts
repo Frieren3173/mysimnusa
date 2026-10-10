@@ -51,6 +51,24 @@ export async function checkPermission(
   return { authorized, user };
 }
 
+/**
+ * Like `checkPermission`, but authorizes when the user holds ANY of the given
+ * permissions. Used where a capability may be granted by more than one
+ * permission (e.g. Diklat assessment: the dedicated `manage_assessment` OR the
+ * legacy `manage_attendance`).
+ */
+export async function checkAnyPermission(
+  permissions: string[]
+): Promise<{
+  authorized: boolean;
+  user: Awaited<ReturnType<typeof requireAuth>> | null;
+}> {
+  const user = await getCurrentUser();
+  if (!user) return { authorized: false, user: null };
+  const authorized = permissions.some((p) => user.hasPermission(p)) || user.isSuperAdmin();
+  return { authorized, user };
+}
+
 /** RBAC middleware for API routes */
 export function withPermission(permission: string) {
   return async function <T>(

@@ -45,6 +45,14 @@ export interface CertificateData {
   /** Right signature — Kepala Bagian Diklat (blank by default). */
   kepalaDiklatNama?: string;
   kepalaDiklatNip?: string;
+  /**
+   * Participant score, included ONLY when the activity's policy allows it
+   * (`showScore`). Empty string means "not shown". The official .pptx template
+   * currently has no `{{NILAI}}` token, so this fills automatically once a
+   * template carrying that token is provided — until then it has no effect on
+   * the rendered file (we never fabricate a placeholder).
+   */
+  nilai?: string;
 }
 
 export const NAMA_RS = "RUMAH SAKIT ADHYAKSA JAWA TIMUR";
@@ -129,6 +137,9 @@ export function buildPlaceholderMap(data: CertificateData): Record<string, strin
     "{{NIP_RUANG}}": data.kepalaSeksiNip ? `NIP. ${data.kepalaSeksiNip}` : "",
     "{{KEPALA_TIM}}": data.kepalaDiklatNama ?? KEPALA_DIKLAT.name,
     "{{NIP_TIM}}": data.kepalaDiklatNip ? `NIP. ${data.kepalaDiklatNip}` : "",
+    // Filled only when the activity policy shows the score. No-op for templates
+    // that lack the token (the current official template does).
+    "{{NILAI}}": data.nilai ?? "",
   };
 }
 

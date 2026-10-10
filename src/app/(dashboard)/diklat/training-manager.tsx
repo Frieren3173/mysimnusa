@@ -5,8 +5,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, TrainingStatusBadge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
-import { CheckCircle2, Trash2, Award, UserPlus } from "lucide-react";
+import { CheckCircle2, Trash2, Award, UserPlus, ShieldCheck } from "lucide-react";
 import { CertificateGenerator } from "./certificate-generator";
+import {
+  CertificatePolicyPanel,
+  policyFromTraining,
+  type PolicyState,
+} from "./certificate-policy-panel";
 
 export interface TrainingOption {
   id: string;
@@ -22,6 +27,9 @@ interface Participant {
   staffId: string;
   status: string;
   registeredAt: string;
+  eligible?: boolean;
+  eligibilityReason?: string | null;
+  certificateIssuedAt?: string | null;
   staff: { id: string; name: string; profession: string; nip: string | null };
 }
 interface Attendance {
@@ -35,6 +43,7 @@ interface Assessment {
   staffId: string;
   score: number | null;
   grade: string | null;
+  completed?: boolean;
 }
 interface Certificate {
   id: string;
@@ -51,6 +60,12 @@ interface Detail {
   location: string | null;
   capacity: number | null;
   description: string | null;
+  certificateMode?: string | null;
+  requireTest?: boolean | null;
+  requireMinScore?: boolean | null;
+  minScore?: number | null;
+  showScore?: boolean | null;
+  minAttendanceRate?: number | null;
   participants: Participant[];
   attendance: Attendance[];
   assessments: Assessment[];
@@ -62,13 +77,14 @@ interface StaffOpt {
   profession: string;
 }
 
-type Tab = "participants" | "attendance" | "assessment" | "certificates";
+type Tab = "participants" | "attendance" | "assessment" | "certificates" | "policy";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "participants", label: "Peserta" },
   { key: "attendance", label: "Presensi" },
   { key: "assessment", label: "Penilaian" },
   { key: "certificates", label: "Sertifikat" },
+  { key: "policy", label: "Kebijakan" },
 ];
 
 const ATT_STATUSES = ["HADIR", "TIDAK_HADIR", "SAKIT", "IZIN"] as const;
@@ -145,6 +161,57 @@ export function TrainingManager({
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) throw new Error(json?.error?.message ?? "Gagal memproses");
       setMsg({ type: "ok", text: okMsg });
+      await load(trainingId);
+      return json;
+    } catch (e) {
+      setErr(e);
+      return null;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Saves the activity's certificate policy. */
+  async function savePolicy(p: PolicyState) {
+    if (!trainingId) return;
+    await call(
+      `/api/diklat/trainings/${trainingId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          certificateMode: p.certificateMode,
+          requireTest: p.requireTest,
+          requireMinScore: p.requireMinScore,
+          minScore: p.requireMinScore ? Number(p.minScore || 0) : null,
+          showScore: p.showScore,
+          // `minAttendanceRate` is intentionally NOT sent: it is a legacy
+          // percentage field with no operational effect (attendance is binary).
+          // Omitting it preserves any existing value untouched.
+        }),
+      },
+      "policy",
+      "Kebijakan sertifikat disimpan.",
+    );
+  }
+
+  /** Runs eligibility for all participants and issues certificates. */
+  async function processEligible(staffIds?: string[]) {
+    if (!trainingId) return;
+    setBusy("process");
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/diklat/trainings/${trainingId}/certificates/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffIds }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) throw new Error(json?.error?.message ?? "Gagal memproses sertifikat");
+      const d = json.data;
+      setMsg({
+        type: "ok",
+        text: `Diproses ${d.processed}: ${d.issued} terbit baru, ${d.alreadyIssued} sudah ada, ${d.notEligible} belum layak.`,
+      });
       await load(trainingId);
     } catch (e) {
       setErr(e);
@@ -282,13 +349,14 @@ export function TrainingManager({
                       <Th>NIP</Th>
                       <Th>Terdaftar</Th>
                       <Th>Status</Th>
+                      <Th>Kelayakan Sertifikat</Th>
                       <Th></Th>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {participants.length === 0 ? (
                       <TableRow>
-                        <Td colSpan={6} className="text-center text-xs text-slate-400 py-6">
+                        <Td colSpan={7} className="text-center text-xs text-slate-400 py-6">
                           Belum ada peserta.
                         </Td>
                       </TableRow>
@@ -334,7 +402,25 @@ export function TrainingManager({
                               </Badge>
                             )}
                           </Td>
+                          <Td>
+                            <EligibilityBadge
+                              eligible={p.eligible}
+                              issuedAt={p.certificateIssuedAt ?? null}
+                              reason={p.eligibilityReason ?? null}
+                            />
+                          </Td>
                           <Td className="text-right">
+                            {perms.issueCertificate && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Proses kelayakan peserta ini"
+                                disabled={busy !== null}
+                                onClick={() => processEligible([p.staffId])}
+                              >
+                                <ShieldCheck size={12} />
+                              </Button>
+                            )}
                             {perms.manageParticipants && (
                               <Button
                                 variant="ghost"
@@ -454,8 +540,37 @@ export function TrainingManager({
             />
           )}
 
+          {tab === "policy" && (
+            <CertificatePolicyPanel
+              key={`${detail.id}:${detail.certificateMode}:${detail.requireMinScore}:${detail.minScore}:${detail.showScore}:${detail.minAttendanceRate}:${detail.requireTest}`}
+              policy={policyFromTraining(detail)}
+              canEdit={perms.manageAssessment || perms.issueCertificate}
+              busy={busy === "policy"}
+              onSave={savePolicy}
+            />
+          )}
+
           {tab === "certificates" && (
             <div className="space-y-4">
+              {/* Auto-issue: evaluate all participants and issue for those who
+                  qualify (idempotent). */}
+              {perms.issueCertificate && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs text-slate-600">
+                    Proses otomatis: peserta yang memenuhi syarat kebijakan akan diterbitkan sertifikatnya.
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={busy !== null}
+                    loading={busy === "process"}
+                    onClick={() => processEligible()}
+                  >
+                    <ShieldCheck size={12} /> Proses Sertifikat Layak
+                  </Button>
+                </div>
+              )}
+
               {/* IHT certificate generator */}
               <CertificateGenerator
                 key={detail.id}
@@ -568,6 +683,7 @@ function AssessmentPanel({
               <Th>Peserta</Th>
               <Th>Nilai (0–100)</Th>
               <Th>Grade</Th>
+              <Th>Tes Selesai</Th>
               <Th>Tersimpan</Th>
               <Th></Th>
             </TableRow>
@@ -575,7 +691,7 @@ function AssessmentPanel({
           <TableBody>
             {participants.length === 0 ? (
               <TableRow>
-                <Td colSpan={5} className="text-center text-xs text-slate-400 py-6">
+                <Td colSpan={6} className="text-center text-xs text-slate-400 py-6">
                   Tidak ada peserta.
                 </Td>
               </TableRow>
@@ -600,6 +716,30 @@ function AssessmentPanel({
                     </Td>
                     <Td className="text-xs font-semibold">
                       {val !== "" && !Number.isNaN(num) ? gradeOf(num) : (a?.grade ?? "—")}
+                    </Td>
+                    <Td>
+                      <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(a?.completed)}
+                          disabled={!canEdit || busy !== null}
+                          onChange={(e) =>
+                            onCall(
+                              `/api/diklat/trainings/${trainingId}/assessments`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  staffId: p.staffId,
+                                  completed: e.target.checked,
+                                }),
+                              },
+                              "done" + p.staffId,
+                              "Status tes diperbarui."
+                            )
+                          }
+                        />
+                        {a?.completed ? "Selesai" : "Belum"}
+                      </label>
                     </Td>
                     <Td className="text-[11px] text-slate-400">
                       {a?.score != null ? `${a.score}${a.grade ? ` (${a.grade})` : ""}` : "—"}
@@ -632,5 +772,41 @@ function AssessmentPanel({
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Eligibility badge for the participants table.
+ *  • Issued  → green, shows the issue date.
+ *  • Eligible (not yet issued) → blue.
+ *  • Not eligible → muted, with the reason as a tooltip.
+ */
+function EligibilityBadge({
+  eligible,
+  issuedAt,
+  reason,
+}: {
+  eligible?: boolean;
+  issuedAt: string | null;
+  reason: string | null;
+}) {
+  if (issuedAt) {
+    return (
+      <Badge variant="active" showDot={false} title={`Terbit ${new Date(issuedAt).toLocaleDateString("id-ID")}`}>
+        Sertifikat terbit
+      </Badge>
+    );
+  }
+  if (eligible) {
+    return (
+      <Badge variant="info" showDot={false} title={reason ?? undefined}>
+        Layak
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="default" showDot={false} title={reason ?? "Belum memenuhi syarat"}>
+      Belum layak
+    </Badge>
   );
 }

@@ -528,12 +528,36 @@ model Training {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
+  // ── Certificate policy (additive; per-activity) ──────────────────────────
+  /// ATTENDANCE_ONLY (Mode A) | TEST_SCORED (Mode B) | TEST_COMPLETION (Mode C)
+  certificateMode    String  @default("ATTENDANCE_ONLY")
+  /// Mode B/C: a test must be completed before eligibility.
+  requireTest        Boolean @default(false)
+  /// Modes B/C: when true, the participant must reach `minScore`.
+  requireMinScore    Boolean @default(false)
+  /// Minimum passing score (0–100) when `requireMinScore` is true.
+  minScore           Float?
+  /// Whether the participant's score appears on the generated certificate.
+  showScore          Boolean @default(false)
+  /// Optional minimum attendance rate (percentage 0–100) across recorded days.
+  minAttendanceRate  Int?
+
+  // ── JPL / per-activity credit (additive) ─────────────────────────────────
+  /// Jam Pelajaran credited to each eligible participant. Null = not set
+  /// (legacy activities keep NULL — never back-filled with a fabricated value).
+  jpl                Int?
+  /// Optional link to the annual curriculum plan item this activity realises.
+  curriculumItemId   String?
+
   instructors  TrainingInstructor[]
   participants TrainingParticipant[]
   attendance   TrainingAttendance[]
   assessments  TrainingAssessment[]
   certificates Certificate[]
+  curriculumItem CurriculumItem? @relation(fields: [curriculumItemId], references: [id], onDelete: SetNull)
 
+  @@index([startDate])
+  @@index([curriculumItemId])
   @@map("trainings")
 }
 
@@ -565,6 +589,16 @@ model TrainingParticipant {
   registeredAt DateTime @default(now())
   status       String   @default("REGISTERED") // REGISTERED, CONFIRMED, CANCELLED
 
+  // ── Certificate eligibility & issuance (additive) ────────────────────────
+  /// Last computed eligibility (does NOT change once a certificate is issued).
+  eligible          Boolean   @default(false)
+  /// Human-readable reason for the current eligibility decision.
+  eligibilityReason String?
+  /// When the certificate was issued for this participant (idempotency marker).
+  certificateIssuedAt DateTime?
+  /// When the participant was notified (in-app) that the certificate is ready.
+  notifiedAt        DateTime?
+
   training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
   staff    Staff    @relation(fields: [staffId], references: [id])
 
@@ -586,6 +620,10 @@ model TrainingAttendance {
 
   training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
 
+  /// One attendance row per (activity, staff, day). `date` is normalized to UTC
+  /// midnight by the API, so this also guards concurrent writes.
+  @@unique([trainingId, staffId, date])
+  @@index([trainingId])
   @@map("training_attendance")
 }
 
@@ -596,6 +634,9 @@ model TrainingAssessment {
   score      Float?
   grade      String?
   notes      String?
+  /// Whether the test has been completed/submitted (Mode B/C gate).
+  completed  Boolean  @default(false)
+  completedAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -613,13 +654,74 @@ model Certificate {
   issuedDate        DateTime @default(now())
   storageKey        String?
   filename          String?
+  /// Audit: which user triggered issuance (null = automatic/system trigger).
+  issuedById        String?
+  /// Audit: what triggered it — MANUAL | AUTO_ATTENDANCE | AUTO_ASSESSMENT.
+  trigger           String?
   createdAt         DateTime @default(now())
 
   training Training @relation(fields: [trainingId], references: [id])
 
+  @@unique([trainingId, staffId])
   @@index([trainingId])
   @@index([staffId])
   @@map("certificates")
+}
+
+// ─────────────────────────────────────────────
+// CURRICULUM / ANNUAL TRAINING PLAN
+// ─────────────────────────────────────────────
+
+/// An annual curriculum / learning program (e.g. "Kurikulum Diklat 2026").
+/// Holds an uploaded curriculum document plus a list of planned items. Each
+/// planned item can be realised by one or more Training activities.
+model CurriculumProgram {
+  id          String   @id @default(cuid())
+  year        Int
+  name        String
+  description String?
+  status      String   @default("DIRANCANG") // DIRANCANG | TERJADWAL | BERLANGSUNG | SELESAI | DIBATALKAN
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Uploaded curriculum document (uses the existing storage provider).
+  documentStorageKey String?
+  documentProvider   String?
+  documentName       String?
+  documentMimeType   String?
+  documentSize       Int?
+
+  items CurriculumItem[]
+
+  @@index([year])
+  @@index([status])
+  @@map("curriculum_programs")
+}
+
+/// A planned material/activity inside a curriculum program. `trainingId` links
+/// it to the realising Training activity once scheduled/executed.
+model CurriculumItem {
+  id          String   @id @default(cuid())
+  programId   String
+  title       String
+  description String?
+  /// Planned target date (informational; not an execution proof).
+  targetDate  DateTime?
+  /// Planned JPL for the item (informational).
+  targetJpl   Int?
+  /// Placed schedule (optional).
+  scheduledAt DateTime?
+  status      String   @default("DIRANCANG") // DIRANCANG | TERJADWAL | BERLANGSUNG | SELESAI | DIBATALKAN
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  program   CurriculumProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  trainings Training[]
+
+  @@index([programId])
+  @@index([status])
+  @@map("curriculum_items")
 }
 
 // ─────────────────────────────────────────────

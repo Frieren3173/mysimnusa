@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { issueCertificatesForTraining } from "@/lib/diklat/certificate-issuance";
+import { logServerError } from "@/lib/logger";
 
 const UpsertSchema = z.object({
   staffId: z.string().min(1),
@@ -52,29 +54,58 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!participant) return err("NOT_PARTICIPANT", "Petugas bukan peserta pelatihan ini", 404);
 
+  // Normalize to UTC midnight so the (trainingId, staffId, date) unique key is
+  // stable. `date` is a date-only field in this app (no session time).
   const dayStart = new Date(data.date);
   dayStart.setUTCHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
-  const existing = await prisma.trainingAttendance.findFirst({
-    where: { trainingId: id, staffId: data.staffId, date: { gte: dayStart, lt: dayEnd } },
+  // Concurrency-safe upsert on the unique key. `notes` is only changed when the
+  // request explicitly includes it (omitted → preserved on update; null on the
+  // first insert).
+  const attendance = await prisma.trainingAttendance.upsert({
+    where: {
+      trainingId_staffId_date: { trainingId: id, staffId: data.staffId, date: dayStart },
+    },
+    create: {
+      trainingId: id,
+      staffId: data.staffId,
+      date: dayStart,
+      status: data.status,
+      notes: data.notes ?? null,
+    },
+    update: {
+      status: data.status,
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+    },
   });
 
-  const attendance = existing
-    ? await prisma.trainingAttendance.update({
-        where: { id: existing.id },
-        data: { status: data.status, notes: data.notes ?? null },
-      })
-    : await prisma.trainingAttendance.create({
-        data: {
-          trainingId: id,
-          staffId: data.staffId,
-          date: dayStart,
-          status: data.status,
-          notes: data.notes ?? null,
-        },
-      });
+  // Auto-issuance: a saved attendance may make this participant eligible.
+  // Idempotent + scoped to the one participant (best-effort — never blocks the
+  // attendance write).
+  const eligibility = await evaluateAndMaybeIssue(id, data.staffId, "AUTO_ATTENDANCE");
 
-  return ok({ attendance });
+  return ok({ attendance, certificate: eligibility });
+}
+
+/**
+ * Recomputes eligibility for one participant and issues their certificate when
+ * they qualify (idempotent). Exposed as a small wrapper so attendance and
+ * assessment routes share the exact same behaviour. Never throws.
+ */
+async function evaluateAndMaybeIssue(
+  trainingId: string,
+  staffId: string,
+  trigger: "AUTO_ATTENDANCE" | "AUTO_ASSESSMENT",
+): Promise<{ issued: boolean; eligible: boolean; reason: string } | null> {
+  try {
+    const summary = await issueCertificatesForTraining(trainingId, {
+      trigger,
+      staffIds: [staffId],
+    });
+    const r = summary.results[0];
+    return r ? { issued: r.issued, eligible: r.eligible, reason: r.reason } : null;
+  } catch (e) {
+    logServerError("diklat.attendance.auto-issue", e);
+    return null;
+  }
 }

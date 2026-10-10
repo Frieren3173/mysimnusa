@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { isUniqueViolationOn, isWriteConflict } from "@/lib/diklat/prisma-errors";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const CreateSchema = z.object({
   staffId: z.string().min(1, "Petugas wajib dipilih"),
@@ -44,13 +46,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const training = await prisma.training.findUnique({
     where: { id },
-    include: { _count: { select: { participants: true } } },
+    select: { id: true, status: true, capacity: true },
   });
   if (!training) return err("NOT_FOUND", "Pelatihan tidak ditemukan", 404);
   if (training.status === "CANCELLED") return err("TRAINING_CANCELLED", "Pelatihan dibatalkan", 409);
-  if (training.capacity && training._count.participants >= training.capacity) {
-    return err("CAPACITY_FULL", "Kuota peserta penuh", 409);
-  }
 
   const body = await req.json().catch(() => null);
   const { data, error } = parseBody(CreateSchema, body);
@@ -60,12 +59,46 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!staff) return err("STAFF_NOT_FOUND", "Petugas tidak ditemukan", 404);
 
   try {
-    const participant = await prisma.trainingParticipant.create({
-      data: { trainingId: id, staffId: data.staffId, status: data.status },
-      include: { staff: { select: { id: true, name: true, profession: true, nip: true } } },
-    });
+    // Capacity check + insert run in ONE serializable transaction so two
+    // concurrent adds cannot both pass the check and exceed the quota. The
+    // active count EXCLUDES CANCELLED participants (a cancelled seat frees the
+    // slot).
+    const participant = await prisma.$transaction(
+      async (tx) => {
+        if (training.capacity) {
+          const activeCount = await tx.trainingParticipant.count({
+            where: { trainingId: id, status: { not: "CANCELLED" } },
+          });
+          if (activeCount >= training.capacity) {
+            throw new CapacityError();
+          }
+        }
+        return tx.trainingParticipant.create({
+          data: { trainingId: id, staffId: data.staffId, status: data.status },
+          include: { staff: { select: { id: true, name: true, profession: true, nip: true } } },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
     return ok({ participant });
-  } catch {
-    return err("ALREADY_REGISTERED", "Petugas sudah terdaftar di pelatihan ini", 409);
+  } catch (e) {
+    if (e instanceof CapacityError) {
+      return err("CAPACITY_FULL", "Kuota peserta penuh", 409);
+    }
+    // Prisma serialization failure → the check could not be atomic; ask to retry.
+    if (isWriteConflict(e)) {
+      return err("CONFLICT", "Kuota sedang diperbarui, coba lagi", 409);
+    }
+    // Unique violation ONLY on [trainingId, staffId] → already registered.
+    // Any OTHER error (a different unique constraint, connection loss, …) must
+    // NOT be disguised as a duplicate — surface it as a safe generic failure.
+    if (isUniqueViolationOn(e, ["trainingId", "staffId"])) {
+      return err("ALREADY_REGISTERED", "Petugas sudah terdaftar di pelatihan ini", 409);
+    }
+    logServerError("diklat.participants.add", e);
+    return err("ADD_PARTICIPANT_FAILED", safeErrorMessage("ADD_PARTICIPANT_FAILED"), 500);
   }
 }
+
+/** Thrown inside the capacity transaction when the quota is full. */
+class CapacityError extends Error {}

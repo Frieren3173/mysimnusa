@@ -19,6 +19,7 @@ interface TrainingRow {
   location: string | null;
   capacity: number | null;
   status: string;
+  jpl: number | null;
   participantCount: number;
   certificateCount: number;
 }
@@ -33,6 +34,7 @@ interface FormState {
   location: string;
   capacity: string;
   status: string;
+  jpl: string;
 }
 
 const EMPTY: FormState = {
@@ -44,6 +46,7 @@ const EMPTY: FormState = {
   location: "",
   capacity: "",
   status: "DRAFT",
+  jpl: "",
 };
 
 const iso = (d: string) => d.slice(0, 10);
@@ -79,6 +82,7 @@ export function TrainingsClient({
       location: t.location ?? "",
       capacity: t.capacity != null ? String(t.capacity) : "",
       status: t.status,
+      jpl: t.jpl != null ? String(t.jpl) : "",
     });
     setMsg(null);
   }
@@ -97,6 +101,7 @@ export function TrainingsClient({
         location: form.location || null,
         capacity: form.capacity ? Number(form.capacity) : null,
         status: form.status,
+        jpl: form.jpl ? Number(form.jpl) : null,
       };
       const res = await fetch(form.id ? `/api/diklat/trainings/${form.id}` : "/api/diklat/trainings", {
         method: form.id ? "PATCH" : "POST",
@@ -186,6 +191,7 @@ export function TrainingsClient({
               {field("endDate", "Selesai *", "date")}
               {field("location", "Lokasi")}
               {field("capacity", "Kuota", "number", { min: "1" })}
+              {field("jpl", "JPL (Jam Pelajaran)", "number", { min: "0", max: "999" })}
               <label className="space-y-1">
                 <span className="text-xs text-slate-500">Status</span>
                 <select
@@ -235,6 +241,7 @@ export function TrainingsClient({
                 <Th>Tanggal</Th>
                 <Th>Lokasi</Th>
                 <Th>Status</Th>
+                <Th>JPL</Th>
                 <Th>Peserta</Th>
                 <Th>Sertifikat</Th>
                 <Th></Th>
@@ -243,7 +250,7 @@ export function TrainingsClient({
             <TableBody>
               {trainings.length === 0 ? (
                 <TableRow>
-                  <Td colSpan={8} className="text-center text-xs text-slate-400 py-8">
+                  <Td colSpan={9} className="text-center text-xs text-slate-400 py-8">
                     Belum ada pelatihan.
                   </Td>
                 </TableRow>
@@ -263,6 +270,7 @@ export function TrainingsClient({
                     <Td>
                       <TrainingStatusBadge status={t.status} />
                     </Td>
+                    <Td className="text-xs tabular-nums">{t.jpl != null ? `${t.jpl} JPL` : "—"}</Td>
                     <Td className="text-xs">{t.participantCount}</Td>
                     <Td className="text-xs">{t.certificateCount}</Td>
                     <Td className="text-right whitespace-nowrap">

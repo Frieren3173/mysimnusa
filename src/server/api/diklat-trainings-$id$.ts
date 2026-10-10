@@ -16,6 +16,19 @@ const UpdateSchema = z.object({
   location: z.string().trim().max(200).optional().nullable(),
   capacity: z.coerce.number().int().min(1).max(1000).optional().nullable(),
   status: z.enum(["DRAFT", "PUBLISHED", "ONGOING", "COMPLETED", "CANCELLED"]).optional(),
+  // Certificate policy (additive) — all optional; only provided fields change.
+  certificateMode: z.enum(["ATTENDANCE_ONLY", "TEST_SCORED", "TEST_COMPLETION"]).optional(),
+  requireTest: z.boolean().optional(),
+  requireMinScore: z.boolean().optional(),
+  minScore: z.coerce.number().min(0).max(100).optional().nullable(),
+  showScore: z.boolean().optional(),
+  // LEGACY (kept for backward compatibility): no longer affects eligibility or
+  // JPL — attendance is binary (≥1 HADIR). Stored value is left untouched when
+  // omitted; no longer sent by the UI.
+  minAttendanceRate: z.coerce.number().int().min(0).max(100).optional().nullable(),
+  // JPL per activity + optional curriculum link (additive).
+  jpl: z.coerce.number().int().min(0).max(999).optional().nullable(),
+  curriculumItemId: z.string().min(1).optional().nullable(),
 });
 
 const detailInclude = {
@@ -61,16 +74,77 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { data, error } = parseBody(UpdateSchema, body);
   if (error) return error;
 
+  // Certificate-policy consistency: a required minimum score needs a value.
+  const nextRequireMinScore = data.requireMinScore ?? existing.requireMinScore;
+  const nextMinScore = data.minScore !== undefined ? data.minScore : existing.minScore;
+  if (nextRequireMinScore && (nextMinScore == null)) {
+    return err(
+      "MIN_SCORE_REQUIRED",
+      "Nilai minimum wajib diisi bila syarat nilai minimum diaktifkan.",
+      422,
+      { minScore: ["Nilai minimum wajib diisi"] },
+    );
+  }
+
+  // A curriculum link must reference an existing item (guards the FK → clean 422).
+  if (data.curriculumItemId) {
+    const item = await prisma.curriculumItem.findUnique({
+      where: { id: data.curriculumItemId },
+      select: { id: true },
+    });
+    if (!item) {
+      return err("CURRICULUM_ITEM_NOT_FOUND", "Materi kurikulum tidak ditemukan", 422, {
+        curriculumItemId: ["Materi kurikulum tidak ditemukan"],
+      });
+    }
+  }
+
+  // Date-range consistency — mirror the POST validation using the EFFECTIVE
+  // (merged) dates, so editing one side can never produce endDate < startDate.
+  const effStart = data.startDate ?? existing.startDate;
+  const effEnd = data.endDate ?? existing.endDate;
+  if (effEnd < effStart) {
+    return err("INVALID_RANGE", "Tanggal selesai tidak boleh sebelum tanggal mulai", 422, {
+      endDate: ["Tanggal selesai sebelum tanggal mulai"],
+    });
+  }
+
   try {
-    const training = await prisma.training.update({ where: { id }, data });
+    const training = await prisma.training.update({
+      where: { id },
+      data: {
+        ...data,
+        // Changing the policy must NOT retroactively alter issued certificates —
+        // issuance reads the policy at issue time and stores the result, so we
+        // simply persist the new policy here.
+      },
+    });
     await logAudit({
       userId: user.id,
       module: "diklat",
       resource: "training",
       resourceId: id,
       action: "UPDATED",
-      before: { status: existing.status, title: existing.title },
-      after: { status: training.status, title: training.title },
+      before: {
+        status: existing.status,
+        title: existing.title,
+        certificateMode: existing.certificateMode,
+        requireMinScore: existing.requireMinScore,
+        minScore: existing.minScore,
+        showScore: existing.showScore,
+        minAttendanceRate: existing.minAttendanceRate,
+        jpl: existing.jpl,
+      },
+      after: {
+        status: training.status,
+        title: training.title,
+        certificateMode: training.certificateMode,
+        requireMinScore: training.requireMinScore,
+        minScore: training.minScore,
+        showScore: training.showScore,
+        minAttendanceRate: training.minAttendanceRate,
+        jpl: training.jpl,
+      },
       ipAddress: clientIp(req),
     });
     return ok({ training });
