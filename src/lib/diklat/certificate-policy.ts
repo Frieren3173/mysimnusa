@@ -15,6 +15,11 @@
  *
  * Mode B and C differ only in intent; the rules below cover both and the mode
  * is preserved verbatim so the UI can present the right wording.
+ *
+ * ATTENDANCE IS BINARY: in every mode, ≥1 valid HADIR is required and means the
+ * participant attended the whole activity. There is NO percentage gate (the
+ * legacy `minAttendanceRate` field is retained for data compatibility only and
+ * is ignored).
  */
 
 export const CERTIFICATE_MODES = ["ATTENDANCE_ONLY", "TEST_SCORED", "TEST_COMPLETION"] as const;
@@ -34,6 +39,12 @@ export interface CertificatePolicy {
   requireMinScore: boolean;
   minScore: number | null;
   showScore: boolean;
+  /**
+   * @deprecated LEGACY percentage gate — NO LONGER USED. Attendance is binary
+   * (≥1 HADIR = attended the whole activity), so there is no percentage
+   * threshold for eligibility or JPL. The column/value is retained only for
+   * backward data & config compatibility and is ignored by `evaluateEligibility`.
+   */
   minAttendanceRate: number | null;
 }
 
@@ -42,11 +53,16 @@ export interface CertificatePolicy {
  * pre-resolved by the caller from the DB so this function stays pure.
  */
 export interface ParticipantProgress {
-  /** Total participants in this activity (denominator for a rate threshold). */
+  /**
+   * @deprecated NOT USED by `evaluateEligibility` and always populated with `0`
+   * by the issuance service. Attendance is binary, so no "participant count"
+   * denominator exists. Kept only to avoid churn in existing callers/tests.
+   */
   participantCount: number;
-  /** How many attendance records exist for THIS participant. */
+  /** How many attendance records exist for THIS participant (used only to word
+   *  the "not yet recorded" reason — NOT for any rate/JPL computation). */
   attendanceRecorded: number;
-  /** Of those, how many are a "present" status (HADIR). */
+  /** Of those, how many are a "present" status (HADIR). Binary gate: > 0. */
   attendancePresent: number;
   /** Whether the test was completed/submitted. `undefined` = no test row. */
   testCompleted: boolean;
@@ -75,8 +91,13 @@ export interface EligibilityResult {
  *      must be completed.
  *   4. Minimum score (when `requireMinScore`): the score must exist and meet
  *      the threshold. A missing score never "passes".
- *   5. `minAttendanceRate` (when set) raises the attendance bar further: at
- *      least that percentage of the participant's recorded days must be HADIR.
+ *
+ * ATTENDANCE IS BINARY (business decision, C1 — FINAL):
+ *   One valid HADIR means the participant is considered to have attended the
+ *   whole activity. There is NO percentage/pro-rated attendance gate. The
+ *   legacy `minAttendanceRate` column is retained ONLY for backward data
+ *   compatibility and is deliberately NOT consulted here — it no longer has any
+ *   effect on certificate eligibility or JPL. See `CertificatePolicy` below.
  */
 export function evaluateEligibility(
   policy: CertificatePolicy,
@@ -89,7 +110,7 @@ export function evaluateEligibility(
   // Attendance gate — applies in EVERY mode. A certificate requires the
   // participant to have attended at least one session (HADIR). SAKIT/IZIN do
   // not count as present, and a participant with no attendance records at all
-  // is "incomplete", never a pass.
+  // is "incomplete", never a pass. Attendance is BINARY: ≥1 HADIR = attended.
   if (progress.attendancePresent <= 0) {
     if (progress.attendanceRecorded <= 0) {
       return { eligible: false, reason: "Presensi belum dicatat (belum lengkap)." };
@@ -114,23 +135,10 @@ export function evaluateEligibility(
     }
   }
 
-  if (policy.minAttendanceRate != null && policy.minAttendanceRate > 0) {
-    // LIMITATION (documented): the app has NO formal session model — attendance
-    // is a per-day record with no fixed "total sessions" for an activity. The
-    // rate is therefore measured against the participant's OWN recorded days
-    // (HADIR / recorded), NOT against the activity's full schedule. A
-    // participant with a single HADIR and nothing else is 100%. This is
-    // deliberately separate from the JPL rule ("≥1 HADIR = full JPL"); it does
-    // not imply a proportional/JPL-derived denominator. Changing this requires a
-    // formal session model (a business decision), which is out of scope here.
-    const rate = Math.round((progress.attendancePresent / progress.attendanceRecorded) * 100);
-    if (rate < policy.minAttendanceRate) {
-      return {
-        eligible: false,
-        reason: `Kehadiran ${rate}% < minimum ${policy.minAttendanceRate}%.`,
-      };
-    }
-  }
+  // NOTE (C1 — FINAL): `policy.minAttendanceRate` is intentionally NOT used.
+  // Business rule: attendance is binary (≥1 HADIR), so there is no percentage
+  // gate. Any stored value is ignored to avoid a misleading, session-model-
+  // dependent rule. The field is kept only for DB/config backward compatibility.
 
   const scoreNote =
     policy.requireMinScore && progress.score != null

@@ -9,22 +9,60 @@ import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 
+/** Shape of a JSON API response used by this verification (loosely typed). */
+interface ApiResponse {
+  status: number;
+  body: ApiBody | null;
+}
+interface ApiBody {
+  success?: boolean;
+  data?: Record<string, unknown> & { certificate?: unknown };
+  error?: { code?: string; message?: string };
+}
+
+/** Minimal training-policy fields this script writes when seeding fixtures. */
+interface TrainingSeed {
+  certificateMode?: "ATTENDANCE_ONLY" | "TEST_SCORED" | "TEST_COMPLETION";
+  requireMinScore?: boolean;
+  minScore?: number;
+  showScore?: boolean;
+  minAttendanceRate?: number;
+  status?: "DRAFT" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "CANCELLED";
+  capacity?: number;
+  jpl?: number;
+}
+
 const BASE = process.env.FIX_BASE ?? "http://localhost:3230";
 const url = (process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL)!;
 const host = new URL(url).hostname;
 if (!host.includes("ep-flat-shadow")) { console.error("refused: not staging"); process.exit(1); }
+
+/**
+ * Credentials come ONLY from the environment — never hardcoded, never printed.
+ * When absent, tests that need an authenticated session are skipped (not failed)
+ * with a safe message, so the script is usable without leaking secrets.
+ */
+const UAT_USER = process.env.UAT_USER ?? "superadmin";
+const UAT_PASSWORD = process.env.UAT_PASSWORD;
+
 const p = new PrismaClient({ adapter: new PrismaNeon({ connectionString: url }) });
 const dir = mkdtempSync(join(tmpdir(), "fixv-"));
 let pass = 0, fail = 0; const fails: string[] = [];
 function chk(n: string, c: boolean, x = "") { if (c) { pass++; console.log("PASS", n); } else { fail++; fails.push(n + " " + x); console.log("FAIL", n, x); } }
 function curl(a: string[]) { return execFileSync("curl.exe", ["-s", ...a], { encoding: "utf8", maxBuffer: 2e7 }); }
-function login(u: string) { const jar = join(dir, u + ".txt"); curl(["-c", jar, "-X", "POST", `${BASE}/api/auth/login`, "-H", "Content-Type: application/json", "-d", JSON.stringify({ username: u, password: "UatTest1234!" })]); return jar; }
-function api(jar: string, method: string, path: string, body?: unknown) {
+function login(u: string): string | null {
+  if (!UAT_PASSWORD) return null; // no credential → caller skips auth-dependent checks
+  const jar = join(dir, u + ".txt");
+  curl(["-c", jar, "-X", "POST", `${BASE}/api/auth/login`, "-H", "Content-Type: application/json", "-d", JSON.stringify({ username: u, password: UAT_PASSWORD })]);
+  return jar;
+}
+function api(jar: string | null, method: string, path: string, body?: unknown): ApiResponse {
+  if (!jar) return { status: 0, body: null };
   const f = join(dir, `r${Math.random().toString(36).slice(2)}.json`);
   const a = ["-b", jar, "-c", jar, "-o", f, "-w", "%{http_code}", "-X", method, `${BASE}${path}`];
   if (body !== undefined) a.push("-H", "Content-Type: application/json", "--data-binary", JSON.stringify(body));
   const code = Number(curl(a).trim());
-  let b: any = null; try { b = JSON.parse(readFileSync(f, "utf8")); } catch {}
+  let b: ApiBody | null = null; try { b = JSON.parse(readFileSync(f, "utf8")) as ApiBody; } catch {}
   return { status: code, body: b };
 }
 
@@ -42,10 +80,17 @@ async function cleanup() {
 
 async function main() {
   await cleanup();
-  const admin = login("superadmin");
+  const admin = login(UAT_USER);
+  if (!admin) {
+    // No credential in the environment → the API-dependent checks cannot run.
+    // Exit safely WITHOUT printing anything secret, and WITHOUT failing CI.
+    console.error("SKIP: UAT_PASSWORD not set — authenticated API checks were not run.");
+    console.error("Set UAT_PASSWORD (and optionally UAT_USER) to run the full suite against staging.");
+    process.exit(0);
+  }
   const staff = await p.staff.findMany({ where: { isActive: true }, take: 6, select: { id: true } });
 
-  const mk = (t: string, pol: any = {}) => p.training.create({ data: { title: t, startDate: new Date("2026-08-01"), endDate: new Date("2026-08-01"), status: "COMPLETED", ...pol } });
+  const mk = (t: string, pol: TrainingSeed = {}) => p.training.create({ data: { title: t, startDate: new Date("2026-08-01"), endDate: new Date("2026-08-01"), status: "COMPLETED", ...pol } });
   const part = (tid: string, sid: string, st = "CONFIRMED") => p.trainingParticipant.create({ data: { trainingId: tid, staffId: sid, status: st } });
   const hadir = (tid: string, sid: string, d = "2026-08-01", s = "HADIR") => p.trainingAttendance.create({ data: { trainingId: tid, staffId: sid, date: new Date(d), status: s } });
 

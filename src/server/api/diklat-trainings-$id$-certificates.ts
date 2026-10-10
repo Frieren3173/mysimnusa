@@ -10,9 +10,10 @@ import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 /**
  * Manual certificate issue — routes through the SHARED issuance service so the
- * activity's certificate policy (mode, attendance, test, min score,
- * minAttendanceRate) is always enforced. There is exactly one source of truth
- * for "may this participant receive a certificate?".
+ * activity's certificate policy (mode, ≥1 HADIR attendance, test, min score) is
+ * always enforced. There is exactly one source of truth for "may this
+ * participant receive a certificate?". Attendance is binary; the legacy
+ * `minAttendanceRate` percentage gate is no longer applied.
  */
 const IssueSchema = z.object({
   staffId: z.string().min(1),

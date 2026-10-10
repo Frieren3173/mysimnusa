@@ -184,7 +184,9 @@ export function TrainingManager({
           requireMinScore: p.requireMinScore,
           minScore: p.requireMinScore ? Number(p.minScore || 0) : null,
           showScore: p.showScore,
-          minAttendanceRate: p.minAttendanceRate === "" ? null : Number(p.minAttendanceRate),
+          // `minAttendanceRate` is intentionally NOT sent: it is a legacy
+          // percentage field with no operational effect (attendance is binary).
+          // Omitting it preserves any existing value untouched.
         }),
       },
       "policy",

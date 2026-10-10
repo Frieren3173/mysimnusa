@@ -6,7 +6,9 @@
  * target host matches the known staging compute, so it can never touch
  * production.
  *
- * Test accounts (all share one password, set via env or default):
+ * Test accounts (all share one password, provided ONLY via the UAT_PASSWORD
+ * environment variable — there is no baked-in default; the script aborts if it
+ * is unset):
  *   uat.superadmin  → SUPERADMIN            (already exists as `superadmin`)
  *   uat.komite      → KOMITE_KEPERAWATAN_KEBIDANAN
  *   uat.diklat      → DIKLAT_BORANG
@@ -24,7 +26,13 @@ if (!STAGING_HOST || host !== STAGING_HOST) {
   console.error(`[uat-fixtures] Refused: host "${host}" != STAGING_DB_HOST "${STAGING_HOST}"`);
   process.exit(1);
 }
-const PASS = process.env.UAT_PASSWORD || "UatTest1234!";
+// Credentials come ONLY from the environment — never hardcoded, never printed.
+const RAW_PASS = process.env.UAT_PASSWORD;
+if (!RAW_PASS) {
+  console.error("[uat-fixtures] Refused: UAT_PASSWORD not set (no default password is baked into this script).");
+  process.exit(1);
+}
+const PASS: string = RAW_PASS;
 const p = new PrismaClient({ adapter: new PrismaNeon({ connectionString: url, max: 3 }) });
 
 async function ensureUser(username: string, email: string, roleName: string, staffId?: string) {
@@ -85,7 +93,7 @@ async function main() {
   console.log(`  uat.karu    | KEPALA_RUANG                   | ${karu.username}`);
   console.log(`[uat-fixtures] mapped room (KARU): ${roomA.name} (${roomA.id})`);
   console.log(`[uat-fixtures] unmapped room (negative test): ${roomB.name} (${roomB.id})`);
-  console.log(`[uat-fixtures] password: ${PASS === "UatTest1234!" ? "(default, see script)" : "(from env)"}`);
+  console.log(`[uat-fixtures] password: (from UAT_PASSWORD env)`);
 }
 
 main()

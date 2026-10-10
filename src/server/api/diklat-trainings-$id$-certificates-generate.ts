@@ -69,9 +69,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return err("NOT_PARTICIPANT", "Ada peserta yang bukan bagian dari pelatihan ini", 422);
   }
 
-  // Enforce the SAME eligibility policy as issuance (attendance required in all
-  // modes; test/min-score/min-attendance per the activity config). The .pptx
-  // generator must not be a policy bypass.
+  // Enforce the SAME eligibility policy as issuance (≥1 HADIR attendance in all
+  // modes; test/min-score per the activity config). The legacy percentage gate
+  // (`minAttendanceRate`) no longer applies. The .pptx generator must not be a
+  // policy bypass.
   const { cancelled, eligibleByStaff } = await evaluateTrainingEligibility(id);
   if (cancelled) {
     return err("TRAINING_CANCELLED", "Kegiatan dibatalkan — sertifikat tidak dapat dibuat.", 409);

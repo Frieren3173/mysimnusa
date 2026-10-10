@@ -22,6 +22,9 @@ const UpdateSchema = z.object({
   requireMinScore: z.boolean().optional(),
   minScore: z.coerce.number().min(0).max(100).optional().nullable(),
   showScore: z.boolean().optional(),
+  // LEGACY (kept for backward compatibility): no longer affects eligibility or
+  // JPL — attendance is binary (≥1 HADIR). Stored value is left untouched when
+  // omitted; no longer sent by the UI.
   minAttendanceRate: z.coerce.number().int().min(0).max(100).optional().nullable(),
   // JPL per activity + optional curriculum link (additive).
   jpl: z.coerce.number().int().min(0).max(999).optional().nullable(),

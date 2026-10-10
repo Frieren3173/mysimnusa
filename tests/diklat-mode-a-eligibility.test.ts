@@ -14,7 +14,7 @@ import {
  *   • HADIR             → present.
  *   • TIDAK_HADIR/SAKIT/IZIN (no HADIR) → NOT present → not eligible.
  *   • no attendance recorded (incomplete) → NOT eligible.
- *   • minAttendanceRate, when set, raises the bar further.
+ *   • minAttendanceRate is IGNORED (attendance is binary, per final business rule).
  */
 
 function policyA(over: Partial<CertificatePolicy> = {}): CertificatePolicy {
@@ -70,14 +70,17 @@ describe("Mode A attendance requirement (default policy, no min rate)", () => {
   });
 });
 
-describe("Mode A — minAttendanceRate on top of presence", () => {
-  it("requires both presence and the rate", () => {
+describe("Mode A — minAttendanceRate is IGNORED (binary attendance)", () => {
+  it("a single HADIR passes even at a high legacy rate (no percentage gate)", () => {
     const p = policyA({ minAttendanceRate: 60 });
-    expect(evaluateEligibility(p, prog({ attendanceRecorded: 5, attendancePresent: 3 })).eligible).toBe(true); // 60%
-    expect(evaluateEligibility(p, prog({ attendanceRecorded: 5, attendancePresent: 2 })).eligible).toBe(false); // 40%
+    expect(evaluateEligibility(p, prog({ attendanceRecorded: 5, attendancePresent: 1 })).eligible).toBe(true); // 20% but binary → pass
+    expect(evaluateEligibility(p, prog({ attendanceRecorded: 5, attendancePresent: 3 })).eligible).toBe(true);
   });
-  it("incomplete attendance fails a rate rule", () => {
+  it("no attendance is still not eligible (min 1 HADIR required)", () => {
     expect(evaluateEligibility(policyA({ minAttendanceRate: 50 }), prog({ attendanceRecorded: 0 })).eligible).toBe(false);
+  });
+  it("SAKIT/IZIN only remains not eligible regardless of the legacy rate", () => {
+    expect(evaluateEligibility(policyA({ minAttendanceRate: 10 }), prog({ attendanceRecorded: 3, attendancePresent: 0 })).eligible).toBe(false);
   });
 });
 

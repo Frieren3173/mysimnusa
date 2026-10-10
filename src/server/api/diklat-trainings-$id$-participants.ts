@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ok, err, parseBody } from "@/lib/api";
 import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
+import { isUniqueViolationOn, isWriteConflict } from "@/lib/diklat/prisma-errors";
+import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const CreateSchema = z.object({
   staffId: z.string().min(1, "Petugas wajib dipilih"),
@@ -84,18 +86,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return err("CAPACITY_FULL", "Kuota peserta penuh", 409);
     }
     // Prisma serialization failure → the check could not be atomic; ask to retry.
-    if (isSerializationError(e)) {
+    if (isWriteConflict(e)) {
       return err("CONFLICT", "Kuota sedang diperbarui, coba lagi", 409);
     }
-    // Unique violation on [trainingId, staffId] → already registered.
-    return err("ALREADY_REGISTERED", "Petugas sudah terdaftar di pelatihan ini", 409);
+    // Unique violation ONLY on [trainingId, staffId] → already registered.
+    // Any OTHER error (a different unique constraint, connection loss, …) must
+    // NOT be disguised as a duplicate — surface it as a safe generic failure.
+    if (isUniqueViolationOn(e, ["trainingId", "staffId"])) {
+      return err("ALREADY_REGISTERED", "Petugas sudah terdaftar di pelatihan ini", 409);
+    }
+    logServerError("diklat.participants.add", e);
+    return err("ADD_PARTICIPANT_FAILED", safeErrorMessage("ADD_PARTICIPANT_FAILED"), 500);
   }
 }
 
 /** Thrown inside the capacity transaction when the quota is full. */
 class CapacityError extends Error {}
-
-/** Prisma P2034 = write conflict / deadlock (retryable). */
-function isSerializationError(e: unknown): boolean {
-  return typeof e === "object" && e !== null && (e as { code?: string }).code === "P2034";
-}

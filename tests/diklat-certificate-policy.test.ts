@@ -129,24 +129,30 @@ describe("Mode C — TEST_COMPLETION", () => {
   });
 });
 
-describe("attendance integrity", () => {
-  it("SAKIT/IZIN do not count as present (rate from recorded rows)", () => {
-    // 1 present of 3 recorded = 33% → below a 50% requirement.
+describe("attendance integrity — BINARY (minAttendanceRate is ignored)", () => {
+  it("≥1 HADIR is enough even when other days are SAKIT/IZIN (no percentage gate)", () => {
+    // 1 HADIR of 3 recorded = would be 33%; the legacy 50% gate must NOT apply.
     const p = policy({ minAttendanceRate: 50 });
     const r = evaluateEligibility(p, progress({ attendanceRecorded: 3, attendancePresent: 1 }));
-    expect(r.eligible).toBe(false);
-    expect(r.reason).toMatch(/Kehadiran 33%/);
+    expect(r.eligible).toBe(true);
   });
 
-  it("incomplete attendance (no records) fails a min-rate requirement", () => {
+  it("no attendance records at all is not eligible (never a pass)", () => {
     const p = policy({ minAttendanceRate: 50 });
     const r = evaluateEligibility(p, progress({ attendanceRecorded: 0, attendancePresent: 0 }));
     expect(r.eligible).toBe(false);
     expect(r.reason).toMatch(/belum dicatat/);
   });
 
-  it("meets the rate exactly at the threshold", () => {
-    const p = policy({ minAttendanceRate: 50 });
+  it("SAKIT/IZIN only (no HADIR) is not eligible, regardless of minAttendanceRate", () => {
+    const p = policy({ minAttendanceRate: 10 });
+    const r = evaluateEligibility(p, progress({ attendanceRecorded: 2, attendancePresent: 0 }));
+    expect(r.eligible).toBe(false);
+    expect(r.reason).toMatch(/tidak ada status HADIR/);
+  });
+
+  it("a legacy minAttendanceRate value never blocks an eligible participant", () => {
+    const p = policy({ minAttendanceRate: 100 });
     expect(evaluateEligibility(p, progress({ attendanceRecorded: 2, attendancePresent: 1 })).eligible).toBe(true);
   });
 });

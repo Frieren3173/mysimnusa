@@ -13,6 +13,11 @@ export interface PolicyState {
   requireMinScore: boolean;
   minScore: string;
   showScore: boolean;
+  /**
+   * @deprecated LEGACY field, kept only so the parent state shape is unchanged.
+   * The UI no longer edits it (attendance is binary). The parent stops sending
+   * it on save, so any stored value is preserved untouched.
+   */
   minAttendanceRate: string;
 }
 
@@ -69,8 +74,9 @@ export function CertificatePolicyPanel({
     draft.requireTest !== policy.requireTest ||
     draft.requireMinScore !== policy.requireMinScore ||
     draft.minScore !== policy.minScore ||
-    draft.showScore !== policy.showScore ||
-    draft.minAttendanceRate !== policy.minAttendanceRate;
+    draft.showScore !== policy.showScore;
+  // NOTE: minAttendanceRate is intentionally NOT part of `dirty` — it is a
+  // legacy percentage field with no operational effect (attendance is binary).
 
   return (
     <Card>
@@ -95,19 +101,14 @@ export function CertificatePolicyPanel({
             </Select>
           </label>
 
-          <label className="space-y-1">
-            <span className="text-xs text-slate-500">Min. Kehadiran (%)</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={draft.minAttendanceRate}
-              disabled={!canEdit || busy}
-              onChange={(e) => set("minAttendanceRate", e.target.value)}
-              placeholder="(kosong = tanpa syarat)"
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs disabled:bg-slate-100"
-            />
-          </label>
+          <div className="space-y-1">
+            <span className="text-xs text-slate-500">Syarat Kehadiran</span>
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Minimal <strong>1 kehadiran (HADIR)</strong>. Kehadiran bersifat biner — 1× HADIR berarti
+              peserta dianggap mengikuti seluruh kegiatan dan memperoleh bobot JPL penuh. Tidak ada
+              perhitungan persentase kehadiran.
+            </p>
+          </div>
         </div>
 
         {(isTestMode || draft.requireTest) && (

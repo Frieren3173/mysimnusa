@@ -43,6 +43,19 @@ if (!confirmHost || confirmHost !== seedHost) {
   );
 }
 
+// ─── Admin password guard ────────────────────────────────────
+// The super-admin password MUST come from SEED_ADMIN_PASSWORD. There is NO
+// baked-in default: a missing/blank value aborts the seed BEFORE any database
+// operation, so a stray seed can never create an admin with a known password.
+// The value itself is never logged.
+const seedAdminPassword = (process.env.SEED_ADMIN_PASSWORD ?? "").trim();
+if (!seedAdminPassword) {
+  throw new Error(
+    "[seed] Refused: SEED_ADMIN_PASSWORD is required (no default is provided). " +
+      "Set a strong password in the environment before seeding.",
+  );
+}
+
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString: databaseUrl, max: 3 }),
 });
@@ -282,7 +295,10 @@ async function main() {
 
   // 6. Super Admin User
   console.log("Creating super admin user...");
-  const passwordHash = await bcrypt.hash("Admin123!", 12);
+  // Password comes from SEED_ADMIN_PASSWORD (validated at startup; NEVER logged).
+  // `update: {}` is intentional: an EXISTING super-admin keeps its current
+  // password — seeding must not reset or rotate a live credential.
+  const passwordHash = await bcrypt.hash(seedAdminPassword, 12);
   const superAdmin = await prisma.user.upsert({
     where: { username: "superadmin" },
     update: {},
@@ -372,7 +388,8 @@ async function main() {
   }
 
   console.log("Seeding complete!");
-  console.log("Super Admin: username = superadmin, password = Admin123!");
+  // Never print the password. An existing super-admin was not modified.
+  console.log("Super Admin: username = superadmin (password from SEED_ADMIN_PASSWORD; existing accounts unchanged).");
 }
 
 main()
