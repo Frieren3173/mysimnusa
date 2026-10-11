@@ -15,6 +15,27 @@
  * fully respected.
  * ===================================================================== */
 
+/* ── UPPERCASE presentation for landing sections 1–4 (owner revision) ─────
+ * The visible copy in the header, hero, the two scene sections and the footer
+ * is presented in uppercase via CSS only — the underlying text/markup, links
+ * and interactions are unchanged (content & a11y stay intact). A subtle
+ * letter-spacing keeps long sentences readable at every breakpoint.
+ */
+.story-page,
+.story-page header,
+.story-page main,
+.story-page footer,
+.story-page [data-story] {
+  text-transform: uppercase;
+}
+.story-page :is(p, h1, h2, h3, span, dt, dd, a, button, li, label) {
+  letter-spacing: 0.02em;
+}
+/* The scene labels already carry wide tracking; keep them from doubling up. */
+.story-page .story__scene-label {
+  letter-spacing: 0.24em;
+}
+
 /* ── Page + document background: navy so overscroll never flashes white ── */
 html,
 body {

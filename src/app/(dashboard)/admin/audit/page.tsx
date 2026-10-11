@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { AutoFilter } from "@/components/layout/auto-filter";
 
 export const metadata: Metadata = { title: "Audit Log" };
 
@@ -72,7 +73,7 @@ export default async function AdminAuditPage({
         <StickyPageHeader title="Audit Log" description={`Jejak perubahan data sistem (${total} entri).`} />
 
         {/* Filters */}
-        <form method="GET" className="flex flex-wrap items-end gap-3">
+        <AutoFilter action="/admin/audit" className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">Modul</label>
             <select
@@ -103,13 +104,7 @@ export default async function AdminAuditPage({
               ))}
             </select>
           </div>
-          <button
-            type="submit"
-            className="h-9 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Terapkan
-          </button>
-        </form>
+        </AutoFilter>
 
         <Card>
           <CardHeader>

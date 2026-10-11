@@ -3,12 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { StaffDetailButton } from "./staff-detail-modal";
 import { StaffPhoto } from "./staff-photo";
 import { Loader2 } from "lucide-react";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 
 /**
  * Staff table with server-side pagination and infinite scroll.
@@ -159,7 +159,7 @@ export function StaffTable({
           </span>
         }
         toolbar={
-          <form action="/komite/staff" className="flex flex-wrap items-center gap-2">
+          <AutoFilter action="/komite/staff" className="flex flex-wrap items-center gap-2">
             <input
               type="search"
               name="search"
@@ -187,15 +187,12 @@ export function StaffTable({
                 </option>
               ))}
             </select>
-            <Button type="submit" variant="secondary" size="sm">
-              Terapkan
-            </Button>
             {(filters.search || filters.profession || filters.status || filters.room) && (
               <Link href="/komite/staff" className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
                 Reset
               </Link>
             )}
-          </form>
+          </AutoFilter>
         }
       />
       {action ? <div className="mb-3 flex justify-end">{action}</div> : null}

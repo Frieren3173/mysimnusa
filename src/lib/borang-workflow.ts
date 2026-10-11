@@ -195,6 +195,23 @@ export function canTransition(action: string, fromStatus: string): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Final print eligibility (single source of truth — frontend + backend)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Statuses in which a Borang may be printed as the FINAL result. Reaching any of
+ * these requires BOTH the Kepala Ruang approval (APPROVED_KARU) and the
+ * Sekretariat approval (READY_TO_PRINT). Printing is permitted from READY_TO_PRINT
+ * onward.
+ */
+export const FINAL_PRINTABLE_STATUSES = ["READY_TO_PRINT", "PRINTED", "COMPLETED"] as const;
+
+/** True when the entry has completed both verification stages and may be printed. */
+export function canPrintFinal(status: string): boolean {
+  return (FINAL_PRINTABLE_STATUSES as readonly string[]).includes(status);
+}
+
+// ─────────────────────────────────────────────────────────────
 // Reviewer scoping (pure)
 // ─────────────────────────────────────────────────────────────
 

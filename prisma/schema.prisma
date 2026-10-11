@@ -163,9 +163,37 @@ model Room {
   borangEntries  BorangEntry[]
   nursingActions RoomNursingAction[]
   kepalaRuang    RoomKepalaRuang?
+  patientRegisterEntries PatientRegisterEntry[]
 
   @@index([category])
   @@map("rooms")
+}
+
+/// Per-room patient register (owner requirement).
+///
+/// The Kepala Ruang of a room uploads/manages the patient list for THEIR room;
+/// Staff select a patient from their room's register when creating a Borang
+/// entry. This is SEPARATE from the anonymous `BorangEntry.patientIdentifier`
+/// (which stays unchanged). Only a Kepala Ruang assigned to the room may write
+/// here; enforced server-side (never UI-only).
+model PatientRegisterEntry {
+  id          String   @id @default(cuid())
+  roomId      String
+  /// Urut/sequence number within the uploaded file (informational).
+  no          Int?
+  patientName String
+  rmNumber    String
+  diagnosis   String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// One RM per room (dedup + stable matching identifier).
+  @@unique([roomId, rmNumber])
+  @@index([roomId])
+  @@map("patient_register_entries")
 }
 
 /// Explicit Superadmin-managed mapping: one Kepala Ruang user per Room.

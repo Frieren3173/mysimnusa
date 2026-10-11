@@ -6,6 +6,7 @@ import { Section, Card, CardContent, EmptyState } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { ServerPagination } from "@/components/ui/server-pagination";
 import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
@@ -59,7 +60,7 @@ export default async function RiwayatListPage({
           description={`Rekap keikutsertaan & JPL tahun ${year}. Klik nama staf untuk detail riwayat.`}
           actions={<span className="text-xs text-slate-500">{total} staf</span>}
           toolbar={
-            <form action="/diklat/riwayat" className="flex flex-wrap items-center gap-2">
+            <AutoFilter action="/diklat/riwayat" className="flex flex-wrap items-center gap-2">
               <select name="year" aria-label="Filter tahun" defaultValue={String(year)} className={filterSelectClass}>
                 {years.map((y) => (
                   <option key={y} value={y}>
@@ -76,10 +77,7 @@ export default async function RiwayatListPage({
                 ))}
               </select>
               <input type="search" name="search" aria-label="Cari staf" defaultValue={search} placeholder="Cari nama / NIP…" className={searchInputClass("w-52")} />
-              <button type="submit" className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50">
-                Terapkan
-              </button>
-            </form>
+            </AutoFilter>
           }
         />
 

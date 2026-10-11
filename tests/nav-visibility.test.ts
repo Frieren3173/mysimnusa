@@ -72,11 +72,12 @@ describe("sidebar visibility per business role", () => {
     expect(hrefs.some((h) => h.startsWith("/borang"))).toBe(false);
   });
 
-  it("USER sees Borang (record + submit) but NOT Input review/secretariat/print", () => {
+  it("USER sees Borang logbook (input via Logbook) but NOT review/secretariat/print", () => {
     const nav = filterNav(NAV_ITEMS, ["USER"], USER_PERMS);
     const hrefs = visibleHrefs(nav);
     expect(hrefs).toContain("/borang/logbook");
-    expect(hrefs).toContain("/borang/entry");
+    // The separate "Input Borang" menu item was removed (input via Logbook).
+    expect(hrefs).not.toContain("/borang/entry");
     expect(hrefs).not.toContain("/borang/review");
     expect(hrefs).not.toContain("/borang/secretariat");
     expect(hrefs).not.toContain("/borang/print");
@@ -88,11 +89,16 @@ describe("sidebar visibility per business role", () => {
     const nav = filterNav(NAV_ITEMS, ["KEPALA_RUANG"], KEPALA_RUANG_PERMS);
     const hrefs = visibleHrefs(nav);
     expect(hrefs).toContain("/borang/review");
+    expect(hrefs).toContain("/borang/register");
     expect(hrefs).not.toContain("/borang/entry");
     expect(hrefs).not.toContain("/borang/secretariat");
     expect(hrefs).not.toContain("/borang/print");
     expect(hrefs).not.toContain("/borang/verification");
     expect(groupLabels(nav)).not.toContain("Komite Keperawatan dan Kebidanan");
+  });
+
+  it("KEPALA_RUANG_PERMS includes borang.karu.review (register access)", () => {
+    expect(KEPALA_RUANG_PERMS).toContain("borang.karu.review");
   });
 
   it("DIKLAT_BORANG sees Diklat + Sekretariat + Cetak, not Review", () => {

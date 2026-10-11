@@ -12,6 +12,7 @@ import { StaffDetailButton } from "../staff/staff-detail-modal";
 import { CompetencyBadgeButton } from "./competency-cell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { ServerPagination } from "@/components/ui/server-pagination";
 
 export const metadata: Metadata = { title: "Kompetensi — Komite Keperawatan" };
@@ -131,7 +132,7 @@ export default async function KompetensiPage({
             </span>
           }
           toolbar={
-            <form action="/komite/kompetensi" className="flex flex-wrap items-center gap-2">
+            <AutoFilter action="/komite/kompetensi" className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
                 name="search"
@@ -148,18 +149,12 @@ export default async function KompetensiPage({
                   </option>
                 ))}
               </select>
-              <button
-                type="submit"
-                className="h-8 rounded border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Terapkan
-              </button>
               {(search || competency) && (
                 <a href="/komite/kompetensi" className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
                   Reset
                 </a>
               )}
-            </form>
+            </AutoFilter>
           }
         />
 

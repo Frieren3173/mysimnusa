@@ -10,6 +10,8 @@ import {
   isDiklatBorangRole,
   BORANG_STATUS_LABEL,
   BORANG_STATUS_VARIANT,
+  canPrintFinal,
+  FINAL_PRINTABLE_STATUSES,
 } from "@/lib/borang-workflow";
 import { canAccessBorangEntry, borangListWhere, type BorangScope } from "@/lib/borang-scope";
 import { ROLES } from "@/lib/constants";
@@ -178,6 +180,18 @@ describe("status labels", () => {
     for (const s of ["REVISION_REQUIRED", "APPROVED_KARU", "READY_TO_PRINT", "PRINTED", "COMPLETED"]) {
       expect(BORANG_STATUS_LABEL[s]).toBeTruthy();
       expect(BORANG_STATUS_VARIANT[s]).toBeTruthy();
+    }
+  });
+});
+
+describe("final print eligibility (both verification stages required)", () => {
+  it("allows printing only from READY_TO_PRINT onward", () => {
+    for (const s of FINAL_PRINTABLE_STATUSES) expect(canPrintFinal(s)).toBe(true);
+  });
+
+  it("denies printing before Sekretariat approval", () => {
+    for (const s of ["DRAFT", "SUBMITTED", "REVISION_REQUIRED", "REJECTED", "APPROVED_KARU", "VERIFICATION", "ARCHIVED"]) {
+      expect(canPrintFinal(s)).toBe(false);
     }
   });
 });

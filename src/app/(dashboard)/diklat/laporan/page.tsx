@@ -6,6 +6,7 @@ import { Section, Card, CardHeader, CardTitle, CardContent } from "@/components/
 import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
 import { KpiCard } from "@/components/ui/card";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { requirePermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -153,7 +154,7 @@ export default async function DiklatReportPage({
           title="Laporan Diklat / IHT"
           description="Rekapitulasi kegiatan, peserta, sertifikat, dan kehadiran berdasarkan data aktual."
           toolbar={
-            <form action="/diklat/laporan" className="flex flex-wrap items-center gap-2">
+            <AutoFilter action="/diklat/laporan" className="flex flex-wrap items-center gap-2">
               <input
                 type="month"
                 name="period"
@@ -177,18 +178,12 @@ export default async function DiklatReportPage({
                 placeholder="Cari judul / kategori…"
                 className={searchInputClass("w-56")}
               />
-              <button
-                type="submit"
-                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Terapkan
-              </button>
               {(period || status || search) && (
                 <a href="/diklat/laporan" className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
                   Reset
                 </a>
               )}
-            </form>
+            </AutoFilter>
           }
         />
 
