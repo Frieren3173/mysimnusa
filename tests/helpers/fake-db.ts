@@ -53,10 +53,13 @@ function matchScalar(value: unknown, filter: unknown): boolean {
   if (typeof filter !== "object") return value === filter;
 
   const f = filter as Record<string, unknown>;
-  if ("equals" in f && !matchScalar(value, f.equals)) return false;
+  const insensitive = f.mode === "insensitive";
+  const eq = (a: unknown, b: unknown) =>
+    insensitive && typeof a === "string" && typeof b === "string" ? a.toLowerCase() === b.toLowerCase() : matchScalar(a, b);
+  if ("equals" in f && !eq(value, f.equals)) return false;
   if ("not" in f && matchScalar(value, f.not)) return false;
-  if ("in" in f && Array.isArray(f.in) && !f.in.some((x) => matchScalar(value, x))) return false;
-  if ("notIn" in f && Array.isArray(f.notIn) && f.notIn.some((x) => matchScalar(value, x))) return false;
+  if ("in" in f && Array.isArray(f.in) && !f.in.some((x) => eq(value, x))) return false;
+  if ("notIn" in f && Array.isArray(f.notIn) && f.notIn.some((x) => eq(value, x))) return false;
   if (
     "contains" in f &&
     typeof value === "string" &&
@@ -311,10 +314,31 @@ export function makeFakePrisma() {
   const staff = new FakeModel("staff");
   const notification = new FakeModel("notifications");
   const room = new FakeModel("rooms");
+  // Borang workflow models.
+  const borangEntry = new FakeModel("borang_entries");
+  const borangVerification = new FakeModel("borang_verifications");
+  const auditLog = new FakeModel("audit_logs");
+  const roomKepalaRuang = new FakeModel("room_kepala_ruang", [
+    { fields: ["roomId"], name: "room_kepala_ruang_roomId_key" },
+  ]);
+  const user = new FakeModel("users");
+  const nursingAction = new FakeModel("nursing_actions", [
+    { fields: ["code"], name: "nursing_actions_code_key" },
+    { fields: ["name"], name: "nursing_actions_name_key" },
+  ]);
+  const documentType = new FakeModel("document_types", [{ fields: ["code"], name: "document_types_code_key" }]);
+  // Document needs documentType relation for the export/doc routes.
+  const document = new FakeModel("documents");
+  const patientRegisterEntry = new FakeModel("patient_register_entries", [
+    { fields: ["roomId", "rmNumber"], name: "patient_register_entries_roomId_rmNumber_key" },
+  ]);
 
   // Relation resolvers used by routes that `include` a related model.
   participants.relations.staff = (row) => staff.rows.find((s) => s.id === row.staffId) ?? null;
   participants.relations.training = (row) => training.rows.find((t) => t.id === row.trainingId) ?? null;
+  borangEntry.relations.room = (row) => room.rows.find((r) => r.id === row.roomId) ?? null;
+  borangEntry.relations.staff = (row) => staff.rows.find((s) => s.id === row.staffId) ?? null;
+  document.relations.documentType = (row) => documentType.rows.find((d) => d.id === row.documentTypeId) ?? null;
 
   const client = {
     training,
@@ -325,23 +349,39 @@ export function makeFakePrisma() {
     staff,
     notification,
     room,
+    borangEntry,
+    borangVerification,
+    auditLog,
+    roomKepalaRuang,
+    user,
+    nursingAction,
+    documentType,
+    document,
+    patientRegisterEntry,
     /** Snapshot/rollback transaction to emulate atomicity for the capacity test. */
     async $transaction<T>(fn: (tx: unknown) => Promise<T>, opts?: unknown): Promise<T> {
       void opts; // isolation level is irrelevant for the in-memory double
       const snapshot = {
         participants: participants.rows.map((r) => ({ ...r })),
         certificate: certificate.rows.map((r) => ({ ...r })),
+        borangEntry: borangEntry.rows.map((r) => ({ ...r })),
+        borangVerification: borangVerification.rows.map((r) => ({ ...r })),
       };
       try {
         return await fn(client);
       } catch (e) {
         participants.rows = snapshot.participants;
         certificate.rows = snapshot.certificate;
+        borangEntry.rows = snapshot.borangEntry;
+        borangVerification.rows = snapshot.borangVerification;
         throw e;
       }
     },
   };
-  return { client, models: { attendance, participants, certificate, training, assessment, staff, notification, room } };
+  return {
+    client,
+    models: { attendance, participants, certificate, training, assessment, staff, notification, room, borangEntry, borangVerification, auditLog, roomKepalaRuang, user, nursingAction, documentType, document, patientRegisterEntry },
+  };
 }
 
 export type FakePrisma = ReturnType<typeof makeFakePrisma>["client"];

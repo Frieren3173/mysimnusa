@@ -69,8 +69,10 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Dashboard", href: "/borang", permission: "borang.logbook.read" },
       { label: "Logbook", href: "/borang/logbook", permission: "borang.logbook.read" },
-      { label: "Input Borang", href: "/borang/entry", permission: "borang.logbook.create" },
+      // The separate "Input Borang" menu item was removed — input is done via
+      // the Logbook. The /borang/entry route still exists (deep links/tests).
       { label: "Review Kepala Ruang", href: "/borang/review", permission: "borang.karu.review" },
+      { label: "Register Pasien", href: "/borang/register", permission: "borang.karu.review" },
       { label: "Sekretariat", href: "/borang/secretariat", permission: "borang.admin.review" },
       { label: "Cetak & Selesai", href: "/borang/print", permission: "borang.press.print" },
       { label: "Verifikasi", href: "/borang/verification", roles: [...SUPER_ROLES, R.ADMIN_BORANG, R.VERIFIER] },
@@ -91,7 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Presensi", href: "/diklat/attendance", permission: "diklat.training.read" },
       { label: "Penilaian", href: "/diklat/assessment", permission: "diklat.training.read" },
       { label: "Sertifikat", href: "/diklat/certificates", permission: "diklat.certificate.read" },
-      { label: "Dashboard JPL", href: "/diklat/jpl", permission: "diklat.training.read" },
+      // "Dashboard JPL" was merged into the Diklat Dashboard (/diklat).
       { label: "Riwayat Pelatihan", href: "/diklat/riwayat", permission: "diklat.training.read" },
       { label: "Kurikulum", href: "/diklat/kurikulum", permission: "diklat.training.read" },
       { label: "Laporan", href: "/diklat/laporan", permission: "diklat.training.read" },

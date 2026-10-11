@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StickyPageHeader } from "@/components/layout/page-header";
 import { ServerPagination } from "@/components/ui/server-pagination";
 import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
@@ -66,7 +67,7 @@ export default async function TrainingsPage({
           description="Buat dan kelola pelatihan. Klik baris untuk mengelola peserta, presensi, nilai, dan sertifikat."
           actions={<span className="text-xs text-slate-500">{total} kegiatan</span>}
           toolbar={
-            <form action="/diklat/trainings" className="flex flex-wrap items-center gap-2">
+            <AutoFilter action="/diklat/trainings" className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
                 name="search"
@@ -88,12 +89,6 @@ export default async function TrainingsPage({
                   </option>
                 ))}
               </select>
-              <button
-                type="submit"
-                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Terapkan
-              </button>
               {(search || status) && (
                 <Link
                   href="/diklat/trainings"
@@ -102,7 +97,7 @@ export default async function TrainingsPage({
                   Reset
                 </Link>
               )}
-            </form>
+            </AutoFilter>
           }
         />
         <TrainingsClient

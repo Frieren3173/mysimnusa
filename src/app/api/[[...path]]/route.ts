@@ -66,6 +66,9 @@ import * as h63 from "@/server/api/diklat-curriculum-$id$-items";
 import * as h64 from "@/server/api/diklat-curriculum-items-$itemId$";
 import * as h65 from "@/server/api/diklat-agenda";
 import * as h66 from "@/server/api/diklat-curriculum-$id$-document";
+import * as h67 from "@/server/api/komite-rkk-match";
+import * as h68 from "@/server/api/borang-patient-register";
+import * as h69 from "@/server/api/borang-patient-register-template";
 
 // Consolidated API route table.
 // Every URL/method that previously lived in its own route.ts file is
@@ -136,6 +139,9 @@ const routes: RouteEntry[] = [
   { pattern: ["komite", "staff"], module: h49 },
   { pattern: ["komite", "staff", ":id"], module: h50 },
   { pattern: ["komite", "staff", ":id", "documents"], module: h51 },
+  { pattern: ["komite", "rkk", "match"], module: h67 },
+  { pattern: ["borang", "patient-register"], module: h68 },
+  { pattern: ["borang", "patient-register", "template"], module: h69 },
   { pattern: ["csp-report"], module: h55 },
 ];
 

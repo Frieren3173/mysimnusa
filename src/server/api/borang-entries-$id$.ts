@@ -120,13 +120,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 /**
- * Permanently delete a Borang entry.
+ * Delete a Borang entry (any status).
  *
  * Rules:
- *  - Only ARCHIVED entries may be deleted (guard rail: anything still in a live
- *    workflow must be archived first). This also protects against accidental
- *    loss of entries that are still being verified/approved.
  *  - Requires the archive-level borang permission (ADMIN_BORANG / SUPER_ADMIN).
+ *  - Ownership: the creator/owner (or a privileged user) may delete.
+ *  - Any workflow status is deletable (owner revision: remove the ARCHIVED-only
+ *    guard) — including entries still in progress. The UI asks for explicit
+ *    confirmation ("Apakah Anda yakin menghapus borang ini").
  *
  * Relations (audited against the Prisma schema):
  *  - `BorangVerification` children have `onDelete: Cascade` → removed with the
@@ -155,13 +156,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     },
   });
   if (!entry) return err("NOT_FOUND", "Borang tidak ditemukan", 404);
-  if (entry.status !== "ARCHIVED") {
-    return err(
-      "NOT_ARCHIVED",
-      "Hanya borang berstatus Diarsipkan yang dapat dihapus.",
-      409,
-    );
-  }
 
   // Ownership: deletion (in addition to the archive permission above) requires
   // being the owner — legacy entries with no owner stay deletable by admins.

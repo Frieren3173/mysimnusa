@@ -5,19 +5,42 @@ import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { KpiCard, Card, CardHeader, CardTitle, CardContent, EmptyState } from "@/components/ui/card";
+import { Section, KpiCard, Card, CardHeader, CardTitle, CardContent, EmptyState } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, Th, Td } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StickyPageHeader } from "@/components/layout/page-header";
+import { ServerPagination } from "@/components/ui/server-pagination";
+import { searchInputClass, filterSelectClass } from "@/components/layout/page-toolbar";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { TrainingStatusBadge } from "@/components/ui/badge";
-import { GraduationCap, CalendarDays, Award, Users } from "lucide-react";
+import { getJplRows, summarizeJpl, ANNUAL_JPL_TARGET } from "@/lib/diklat/jpl";
+import { GraduationCap, CalendarDays, Award, Users, CalendarRange, Download, Target, CheckCircle2, XCircle } from "lucide-react";
 
 export const metadata: Metadata = { title: "Diklat" };
 
-export default async function DiklatPage() {
+/** Rows per page for the JPL staff table (KPIs always use the FULL population). */
+const JPL_PER_PAGE = 25;
+
+function clampBar(pct: number): number {
+  return Math.max(0, Math.min(100, pct));
+}
+
+export default async function DiklatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; roomId?: string; search?: string; page?: string }>;
+}) {
   const currentUser = await requirePermission(PERMISSIONS.DIKLAT_TRAINING_READ);
   const now = new Date();
+  const params = await searchParams;
+  const currentYear = now.getFullYear();
+  const year = Number(params.year) || currentYear;
+  const roomId = params.roomId?.trim() || "";
+  const search = params.search?.trim() || "";
+  const page = Math.max(1, Number(params.page) || 1);
 
-  const [totalTrainings, upcoming, participants, certificates, recentTrainings, recentCerts, agenda] =
+  const [totalTrainings, upcoming, participants, certificates, recentTrainings, recentCerts, agenda, rooms, jplRows] =
     await Promise.all([
       prisma.training.count(),
       prisma.training.count({ where: { startDate: { gte: now }, status: { not: "CANCELLED" } } }),
@@ -47,7 +70,17 @@ export default async function DiklatPage() {
           _count: { select: { participants: true } },
         },
       }),
+      prisma.room.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      getJplRows({ year, roomId: roomId || null, search: search || null }).catch(() => []),
     ]);
+
+  // ── JPL section (merged from the former /diklat/jpl page) ──
+  const summary = summarizeJpl(jplRows);
+  summary.year = year;
+  const jplTotal = jplRows.length;
+  const jplPageRows = jplRows.slice((page - 1) * JPL_PER_PAGE, page * JPL_PER_PAGE);
+  const years = Array.from(new Set([currentYear - 2, currentYear - 1, currentYear, currentYear + 1, year])).sort((a, b) => b - a);
+  const exportHref = `/api/diklat/jpl/export?year=${year}${roomId ? `&roomId=${roomId}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
 
   return (
     <AppShell
@@ -59,10 +92,10 @@ export default async function DiklatPage() {
       }}
       {...appShellVisibility(currentUser)}
     >
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <StickyPageHeader
           title="Pendidikan & Pelatihan"
-          description="Kelola pelatihan, peserta, presensi, penilaian, dan sertifikat."
+          description="Kelola pelatihan, peserta, presensi, penilaian, sertifikat, dan pemenuhan JPL."
           actions={
             <Link href="/diklat/trainings">
               <Button variant="primary" size="sm">
@@ -189,6 +222,119 @@ export default async function DiklatPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ── JPL section (merged from Dashboard JPL) ─────────────────────── */}
+        <Section
+          title="Pemenuhan JPL"
+          description={`Target ${ANNUAL_JPL_TARGET} JPL per staf per tahun kalender (1 Januari – 31 Desember).`}
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <AutoFilter action="/diklat" className="flex flex-wrap items-center gap-2">
+              <select name="year" aria-label="Filter tahun" defaultValue={String(year)} className={filterSelectClass}>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <select name="roomId" aria-label="Filter ruangan" defaultValue={roomId} className={`${filterSelectClass} max-w-[220px]`}>
+                <option value="">Semua Ruangan</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="search"
+                name="search"
+                aria-label="Cari staf"
+                defaultValue={search}
+                placeholder="Cari nama / NIP…"
+                className={searchInputClass("w-52")}
+              />
+            </AutoFilter>
+            <a href={exportHref} className="ml-auto">
+              <Button variant="secondary" size="sm">
+                <Download size={14} /> Ekspor Excel
+              </Button>
+            </a>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <KpiCard title="Total Staf" value={summary.staffCount} icon={<Users size={18} />} />
+            <KpiCard title="Memenuhi Target" value={summary.metCount} variant={summary.metCount > 0 ? "success" : "default"} icon={<CheckCircle2 size={18} />} />
+            <KpiCard title="Belum Memenuhi" value={summary.notMetCount} variant={summary.notMetCount > 0 ? "warning" : "default"} icon={<XCircle size={18} />} />
+            <KpiCard title="Total JPL Terkumpul" value={`${summary.totalJpl} JPL`} subtitle={`Target/staf: ${ANNUAL_JPL_TARGET} JPL`} icon={<Target size={18} />} />
+          </div>
+
+          <Card className="mt-4">
+            <CardContent className="p-0">
+              <Table scroll>
+                <TableHeader>
+                  <TableRow>
+                    <Th className="w-12">No</Th>
+                    <Th>Nama Staf</Th>
+                    <Th>Ruangan</Th>
+                    <Th className="text-right">Total JPL</Th>
+                    <Th className="text-right">Sisa JPL</Th>
+                    <Th className="min-w-[160px]">Progres</Th>
+                    <Th>Status</Th>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {jplPageRows.length === 0 ? (
+                    <TableRow>
+                      <Td colSpan={7}>
+                        <EmptyState
+                          title="Tidak ada staf"
+                          description="Tidak ada staf yang cocok dengan filter, atau data belum tersedia."
+                          icon={<CalendarRange size={28} />}
+                        />
+                      </Td>
+                    </TableRow>
+                  ) : (
+                    jplPageRows.map((r, i) => (
+                      <TableRow key={r.staffId}>
+                        <Td className="text-xs tabular-nums text-slate-500">{(page - 1) * JPL_PER_PAGE + i + 1}</Td>
+                        <Td className="text-xs font-medium">
+                          <Link href={`/diklat/riwayat/${r.staffId}?year=${year}`} className="text-blue-700 hover:underline">
+                            {r.staffName}
+                          </Link>
+                          {r.nip && <span className="block font-mono text-[10px] text-slate-400">{r.nip}</span>}
+                        </Td>
+                        <Td className="text-xs">{r.roomName ?? "—"}</Td>
+                        <Td className="text-right text-xs tabular-nums">{r.totalJpl}</Td>
+                        <Td className="text-right text-xs tabular-nums">{r.remainingJpl}</Td>
+                        <Td>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-[var(--color-primary)]"
+                                style={{ width: `${clampBar(r.progressPct)}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] tabular-nums text-slate-500">{r.progressPct}%</span>
+                          </div>
+                        </Td>
+                        <Td>
+                          <Badge variant={r.met ? "active" : "default"}>{r.met ? "Memenuhi" : "Belum"}</Badge>
+                        </Td>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <ServerPagination
+                basePath="/diklat"
+                params={{ year: String(year), roomId: roomId || undefined, search: search || undefined }}
+                page={page}
+                perPage={JPL_PER_PAGE}
+                total={jplTotal}
+              />
+            </CardContent>
+          </Card>
+        </Section>
       </div>
     </AppShell>
   );

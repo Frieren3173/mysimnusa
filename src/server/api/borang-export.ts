@@ -23,6 +23,7 @@ import { checkPermission } from "@/lib/authorization";
 import { PERMISSIONS } from "@/lib/constants";
 import { formatDateShort } from "@/lib/utils";
 import { contentDisposition } from "@/lib/file-type";
+import { canPrintFinal } from "@/lib/borang-workflow";
 import {
   expandPatientRows,
   KASI_KEPERAWATAN,
@@ -129,12 +130,23 @@ export async function GET(req: NextRequest) {
   const staff = await prisma.staff.findUnique({ where: { id: staffId } });
   if (!staff) return err("STAFF_NOT_FOUND", "Petugas tidak ditemukan", 404);
 
+  // ── Final-print gate (must be enforced on the server, not just the UI) ──
+  // The exported DOCX is the FINAL result: it may only contain entries that
+  // completed BOTH verification stages (Kepala Ruang → Sekretariat), i.e. status
+  // READY_TO_PRINT or later. Anyone able to read but not print may only export
+  // their OWN staff record.
+  const isPrinter = user.hasPermission(PERMISSIONS.BORANG_PRINT) || user.isSuperAdmin();
+  if (!isPrinter && user.staff?.id !== staffId) {
+    return err("FORBIDDEN", "Anda hanya dapat mencetak borang milik Anda sendiri.", 403);
+  }
+
   const [entries, documents] = await Promise.all([
     prisma.borangEntry.findMany({
       where: { staffId, period: { startsWith: `${year}-` } },
       orderBy: [{ period: "asc" }, { createdAt: "asc" }],
       select: {
         period: true,
+        status: true,
         patientIdentifier: true,
         rmNumber: true,
         actionType: true,
@@ -146,6 +158,17 @@ export async function GET(req: NextRequest) {
       include: { documentType: true },
     }),
   ]);
+
+  // Only entries that completed BOTH verification stages may appear on the FINAL
+  // print. If none qualify, the final print is not available yet.
+  const printableEntries = entries.filter((e) => canPrintFinal(e.status));
+  if (printableEntries.length === 0) {
+    return err(
+      "NOT_VERIFIED",
+      "Borang belum selesai diverifikasi (Kepala Ruang & Sekretariat). Hasil cetak final belum tersedia.",
+      409,
+    );
+  }
 
   const pickDoc = (code: string) =>
     documents
@@ -162,7 +185,7 @@ export async function GET(req: NextRequest) {
   // Rekap bulanan per tindakan
   const actionOrder: string[] = [];
   const counts = new Map<string, number[]>();
-  for (const e of entries) {
+  for (const e of printableEntries) {
     const m = Number(e.period.slice(5, 7)) - 1;
     if (m < 0 || m > 11) continue;
     let row = counts.get(e.actionType);
@@ -335,7 +358,7 @@ export async function GET(req: NextRequest) {
   // ── Tabel daftar pasien (halaman 2) ─────────────────────
   // Setiap entri dengan `quantity = N` dipecah menjadi N baris pasien
   // (inisial unik + No. RM unik) — dihitung, tidak disimpan.
-  const patientRows = expandPatientRows(entries);
+  const patientRows = expandPatientRows(printableEntries);
 
   const pasienHeader = new TableRow({
     tableHeader: true,

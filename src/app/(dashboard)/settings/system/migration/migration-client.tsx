@@ -203,10 +203,12 @@ function targetGroups(): { label: string; items: { value: string; label: string 
     {
       label: "Kompetensi",
       items: [
-        ...COMPETENCIES.map((c) => ({ value: `competency.${c.code}`, label: `competency.${c.code}` })),
-        { value: "competency.KD", label: "competency.KD" },
-        { value: "competency.RN", label: "competency.RN" },
-        { value: "competency.LAINNYA", label: "competency.LAINNYA" },
+        ...COMPETENCIES.map((c) => ({ value: `competency.${c.code}`, label: c.name })),
+        // KD/RN keep their internal codes as `value` but are presented with the
+        // full name so the UI never shows an unexplained abbreviation.
+        { value: "competency.KD", label: "Kardiologi Dasar" },
+        { value: "competency.RN", label: "Resusitasi Neonatus" },
+        { value: "competency.LAINNYA", label: "Kompetensi Lainnya" },
       ],
     },
   ];

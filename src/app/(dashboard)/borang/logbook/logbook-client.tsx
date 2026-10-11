@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Download, Pencil, Send, Users, Trash2 } from "lucide-react";
 import { USER_EDITABLE_STATUSES } from "@/lib/borang-workflow";
 import { StaffLogbookModal } from "./staff-logbook-modal";
+import { RegisterPicker } from "./register-picker";
 
 /** Statuses in which the owner may edit/resubmit (DRAFT or REVISION_REQUIRED). */
 function isEditableStatus(status: string): boolean {
@@ -353,6 +354,16 @@ export function LogbookClient({
                   disabled={busy}
                 />
               </FormField>
+              <RegisterPicker
+                roomId={form.roomId}
+                disabled={busy}
+                onPick={(ref) =>
+                  setForm((p) => ({
+                    ...p,
+                    notes: p.notes ? `${p.notes}${p.notes.includes(ref) ? "" : ` · ${ref}`}` : ref,
+                  }))
+                }
+              />
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
               {editId && (
@@ -547,7 +558,7 @@ export function LogbookClient({
                           <Send size={12} /> Kirim
                         </Button>
                       )}
-                      {canDelete && e.status === "ARCHIVED" && (
+                      {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon-sm"
@@ -578,7 +589,7 @@ export function LogbookClient({
       {/* Delete confirmation for archived entries. */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Apakah Anda yakin ingin menghapus borang ini?"
+        title="Apakah Anda yakin menghapus borang ini"
         description="Tindakan ini permanen. Data borang terpilih beserta riwayat verifikasinya akan dihapus; data master (Staff, Ruangan, Dokumen) tidak terpengaruh."
         confirmLabel="Hapus"
         cancelLabel="Batal"

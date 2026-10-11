@@ -9,7 +9,7 @@ import { logAudit, clientIp } from "@/lib/audit";
 import { logServerError, safeErrorMessage } from "@/lib/logger";
 
 const PatchSchema = z.object({
-  code: z.string().trim().min(1, "Kode tindakan wajib diisi").max(30).optional(),
+  // `code` is OWNED BY THE SYSTEM and immutable — never accepted on update.
   name: z.string().trim().min(1, "Nama tindakan wajib diisi").max(150).optional(),
   category: z.enum(NURSING_ACTION_CATEGORIES, { message: "Kategori tidak dikenal" }).optional(),
   description: z.string().trim().max(500).optional().nullable(),
@@ -32,27 +32,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const duplicate = await prisma.nursingAction.findFirst({
     where: {
       id: { not: id },
-      OR: [
-        ...(data.code ? [{ code: { equals: data.code } }] : []),
-        ...(data.name ? [{ name: { equals: data.name } }] : []),
-      ],
+      ...(data.name ? { name: { equals: data.name, mode: "insensitive" } } : {}),
     },
   });
   if (duplicate) {
-    return err(
-      "DUPLICATE",
-      duplicate.code === data.code
-        ? `Kode "${data.code}" sudah dipakai tindakan lain`
-        : `Tindakan "${data.name}" sudah ada`,
-      409
-    );
+    return err("DUPLICATE", `Tindakan "${data.name}" sudah ada`, 409);
   }
 
   try {
     const updated = await prisma.nursingAction.update({
       where: { id },
       data: {
-        ...(data.code !== undefined ? { code: data.code } : {}),
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.category !== undefined ? { category: data.category } : {}),
         ...(data.description !== undefined ? { description: data.description || null } : {}),

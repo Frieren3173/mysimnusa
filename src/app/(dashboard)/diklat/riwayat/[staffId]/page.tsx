@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/authorization";
 import { appShellVisibility } from "@/lib/app-shell-props";
 import { PERMISSIONS } from "@/lib/constants";
 import { getStaffHistory } from "@/lib/diklat/history";
+import { AutoFilter } from "@/components/layout/auto-filter";
 import { trainingStatusLabel } from "@/lib/diklat/shared";
 import { ArrowLeft, Award, CalendarRange } from "lucide-react";
 
@@ -57,7 +58,7 @@ export default async function RiwayatDetailPage({
             </Link>
           }
           toolbar={
-            <form action={`/diklat/riwayat/${staffId}`} className="flex flex-wrap items-center gap-2">
+            <AutoFilter action={`/diklat/riwayat/${staffId}`} className="flex flex-wrap items-center gap-2">
               <select name="year" aria-label="Filter tahun" defaultValue={String(year)} className="h-8 rounded-md border border-[var(--color-border)] bg-white px-2 text-xs">
                 {years.map((y) => (
                   <option key={y} value={y}>
@@ -65,10 +66,7 @@ export default async function RiwayatDetailPage({
                   </option>
                 ))}
               </select>
-              <button type="submit" className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                Terapkan
-              </button>
-            </form>
+            </AutoFilter>
           }
         />
 
